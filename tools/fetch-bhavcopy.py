@@ -51,7 +51,11 @@ import urllib.request
 import zipfile
 
 BASE = os.path.dirname(os.path.abspath(__file__))
-PROJECT = os.path.dirname(BASE)
+# This script lives in two places: <project>/tools in the public FundClear repo,
+# and at the root of the private bhavcopy-data repo (where the nightly workflow
+# runs `python3 fetch-bhavcopy.py` and commits `data/`). Either way the CSVs
+# belong in <project>/data/bhavcopy, so only step up out of a tools/ folder.
+PROJECT = os.path.dirname(BASE) if os.path.basename(BASE) == "tools" else BASE
 OUT_DIR = os.path.join(PROJECT, "data", "bhavcopy")
 
 HEADERS = {

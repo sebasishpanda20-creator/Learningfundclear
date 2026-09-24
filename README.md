@@ -39,6 +39,30 @@ one that matters before you publish: it re-downloads the publisher's file and co
 every scheme's name, NAV, NAV date, plan and option, failing if the site is showing a figure
 AMFI does not support. The GitHub Actions workflow runs it on every deploy.
 
+## Personal analysis tools (not part of the site)
+
+Two further scripts in `tools/` exist for personal NSE end-of-day analysis.
+Nothing on the site reads them or their output:
+
+```bash
+python tools/fetch-bhavcopy.py --delivery --backfill 10   # -> data/bhavcopy/*.csv
+python tools/analyze-bhavcopy.py                          # gainers, losers, delivery
+```
+
+`fetch-bhavcopy.py` downloads NSE's public bhavcopy and delivery files;
+`analyze-bhavcopy.py` prints the day's top gainers, top losers and
+high-delivery names. The analyser needs pandas (`pip install pandas`); the
+fetcher is standard library only. Neither one recommends anything — they are
+sorted lists of yesterday's tape.
+
+**They exist to keep exchange data out of the site.** NSE/BSE data is licensed
+for personal use, not redistribution, which is the same rule that keeps
+exchange prices off every page. So the CSVs are written to `data/bhavcopy/`,
+which is gitignored and therefore never committed or deployed, and
+`bhavcopy-data/` holds a **separate private repository** that archives the same
+files nightly (see `bhavcopy-data/README.md`). Don't add either folder to this
+repo, and don't publish the CSVs.
+
 ## Structure
 
 ```
@@ -63,7 +87,10 @@ fundclear/
 │     └─ pages/*.js      one controller per page, loaded by that page only
 ├─ tools/
 │  ├─ refresh-data.py    the script that builds data.js from AMFI
-│  └─ verify-data.py     proves data.js matches AMFI's file, field by field
+│  ├─ verify-data.py     proves data.js matches AMFI's file, field by field
+│  └─ fetch-bhavcopy.py, analyze-bhavcopy.py   personal NSE tools — see below
+├─ data/bhavcopy/        those tools' output: gitignored, never committed or deployed
+├─ bhavcopy-data/        SEPARATE private repo: the nightly archive of that data
 ├─ .github/workflows/    nightly refresh + checks + GitHub Pages deploy
 ├─ netlify.toml, _headers, .nojekyll, robots.txt, sitemap.xml
 └─ FREE-HOSTING.md, DEPLOY.md
