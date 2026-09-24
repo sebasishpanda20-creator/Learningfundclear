@@ -70,6 +70,29 @@ jobs:
           done
           exit $missing
 
+      - name: Refuse to publish licensed exchange data
+        # upload-pages-artifact ships this whole folder (path: .), so anything
+        # sitting in the workspace at that point goes live, whether or not git
+        # tracks it. NSE/BSE bhavcopy CSVs are licensed for personal use only —
+        # displaying them here would be redistribution, and that is the one line
+        # that would turn this site into something that needs exchange approval.
+        # They belong in the private bhavcopy-data repo. This step exists so a
+        # stray commit, or someone running the fetcher in CI, fails the deploy
+        # loudly instead of quietly publishing a price archive.
+        run: |
+          leaks=$( { find . -name .git -prune -o -type f \
+                      \( -iname '*.csv' -o -iname '*.zip' -o -iname '*.xls' -o -iname '*.xlsx' \) -print
+                    find data bhavcopy-data -name .git -prune -o -type f -print 2>/dev/null || true
+                  } | sed 's|^\./||' | sort -u )
+          if [ -n "$leaks" ]; then
+            echo "$leaks" | while IFS= read -r f; do
+              echo "::error file=$f::$f is licensed exchange data and must not be published"
+            done
+            echo "::error::Move it out of this repo (see README, Personal analysis tools) and re-run the deploy."
+            exit 1
+          fi
+          echo "No exchange-data files in the folder about to be published."
+
       - uses: actions/configure-pages@v5
         id: pages
 
