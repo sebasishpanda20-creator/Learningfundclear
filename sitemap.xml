@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  FundClear India - sitemap.
+
+  <loc> entries must be ABSOLUTE urls, so there is exactly one thing to change when you
+  go live: replace the base below with your real address, or let the included GitHub
+  Actions workflow do it for you (it rewrites BASE_URL at deploy time with the site's
+  actual Pages URL). Netlify and Cloudflare users: one sed command, documented in
+  FREE-HOSTING.md.
+
+  Find and replace:  https://YOUR-SITE.example/   ->   https://your-real-address/
+-->
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+  <url>
+    <loc>https://YOUR-SITE.example/index.html</loc>
+    <changefreq>weekly</changefreq>
+    <priority>1.0</priority>
+  </url>
+  <url>
+    <loc>https://YOUR-SITE.example/funds.html</loc>
+    <changefreq>daily</changefreq>
+    <priority>0.9</priority>
+  </url>
+  <url>
+    <loc>https://YOUR-SITE.example/compare.html</loc>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://YOUR-SITE.example/calculators.html</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://YOUR-SITE.example/methodology.html</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://YOUR-SITE.example/legal.html</loc>
+    <changefreq>yearly</changefreq>
+    <priority>0.5</priority>
+  </url>
+</urlset>

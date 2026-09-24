@@ -1,0 +1,98 @@
+# GitHub Pages deployment — FundClear India
+#
+# Runs the data refresh nightly, checks the site, then publishes it.
+# No secrets, no server, no build step: the published artifact is this repository folder.
+#
+# One-time setup in the repository: Settings -> Pages -> Build and deployment -> Source:
+# "GitHub Actions". Nothing else. See FREE-HOSTING.md.
+
+name: Deploy to GitHub Pages
+
+on:
+  push:
+    branches: [main]
+  schedule:
+    # 00:45 UTC = 06:15 IST, after AMFI has published the previous day's NAV file.
+    - cron: '45 0 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Refresh NAV data from AMFI
+        continue-on-error: true
+        run: python3 tools/refresh-data.py
+
+      - name: Commit refreshed data
+        run: |
+          if git diff --quiet -- assets/js/data.js; then
+            echo "Data unchanged."
+          else
+            git config user.name  "fundclear-bot"
+            git config user.email "fundclear-bot@users.noreply.github.com"
+            git add assets/js/data.js
+            git commit -m "data: refresh NAV snapshot"
+            git push
+          fi
+
+      - name: Verify the published data against AMFI's file
+        run: python3 tools/verify-data.py
+
+      - name: Syntax-check every script
+        run: |
+          for f in $(find assets/js -name '*.js'); do
+            echo "checking $f"
+            node --check "$f"
+          done
+
+      - name: Verify each page loads its stylesheet and the data file
+        run: |
+          missing=0
+          for page in index funds scheme compare calculators methodology legal; do
+            for asset in 'assets/css/style.css' 'assets/js/data.js' 'assets/js/site.js'; do
+              if ! grep -qF "$asset" "$page.html"; then
+                echo "::error file=$page.html::$page.html does not reference $asset"
+                missing=1
+              fi
+            done
+          done
+          exit $missing
+
+      - uses: actions/configure-pages@v5
+        id: pages
+
+      - name: Point the sitemap and robots.txt at the real Pages URL
+        run: |
+          base="${{ steps.pages.outputs.base_url }}"
+          if [ -z "$base" ]; then
+            base="https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}"
+          fi
+          echo "Sitemap base: $base/"
+          sed -i "s#https://YOUR-SITE.example/#$base/#g" sitemap.xml
+          sed -i "s#Sitemap: /sitemap.xml#Sitemap: $base/sitemap.xml#" robots.txt
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: .
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

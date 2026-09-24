@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="en-IN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Scheme details — FundClear India</title>
+<meta name="description" content="Latest AMFI NAV and scheme facts for an Indian mutual fund scheme, with the other plan of the same fund for comparison.">
+<link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="assets/css/style.css">
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+
+<header class="site-header">
+  <div class="wrap">
+    <a class="brand" href="index.html">
+      <svg width="24" height="24" viewBox="0 0 24 24" aria-hidden="true">
+        <rect x="2" y="13" width="4" height="9" rx="1.2" fill="#0f6a4f"></rect>
+        <rect x="8" y="9" width="4" height="13" rx="1.2" fill="#2a9d78"></rect>
+        <rect x="14" y="5" width="4" height="17" rx="1.2" fill="#5bbf99"></rect>
+        <rect x="20" y="10" width="2.5" height="12" rx="1.2" fill="#8ad6b8"></rect>
+      </svg>
+      <span>FundClear India<small>data, not advice</small></span>
+    </a>
+    <nav class="site-nav" aria-label="Primary">
+      <a href="index.html">Home</a>
+      <a href="funds.html">Schemes</a>
+      <a href="compare.html">Compare</a>
+      <a href="calculators.html">Calculators</a>
+      <a href="methodology.html">Methodology</a>
+      <a href="legal.html">Legal</a>
+    </nav>
+  </div>
+</header>
+
+<div class="data-strip">
+  <div class="wrap">
+    <span>NAV date <strong data-nav-date>—</strong></span>
+    <span>Source: <strong data-source>AMFI</strong></span>
+    <span>Snapshot <strong data-fetched-at>—</strong></span>
+  </div>
+</div>
+
+<main id="main">
+  <div class="wrap">
+
+    <div class="empty card" id="missing" hidden>
+      <h1 style="font-size:20px">No scheme with that code</h1>
+      <p>This page reads a scheme from the <code>code</code> parameter, which is AMFI's scheme code. It may be
+        missing, or that scheme may not be in the current snapshot.</p>
+      <p><a class="btn btn-primary" href="funds.html">Browse all schemes</a></p>
+    </div>
+
+    <div id="scheme-body" hidden>
+      <section class="section" id="scheme">
+        <div id="scheme-head"></div>
+      </section>
+
+      <div class="grid grid-2">
+        <section class="section" id="scheme-facts"></section>
+        <section class="section">
+          <div class="card">
+            <h3>Scheme facts</h3>
+            <p class="card-note">As published in AMFI's NAV file, unchanged.</p>
+            <ul class="kv" id="scheme-table"></ul>
+          </div>
+        </section>
+      </div>
+
+      <section class="section" id="sibling"></section>
+      <section class="section" id="ter"></section>
+
+      <section class="section">
+        <header>
+          <h2>Other schemes in this category</h2>
+          <p class="section-note">Same category, same plan. Listing is alphabetical, not a ranking.</p>
+        </header>
+        <ul class="scheme-list" id="peers"></ul>
+      </section>
+
+      <section class="section">
+        <div class="card">
+          <h3>Where this data comes from</h3>
+          <p class="card-note">Check any figure here against the publisher's own file.</p>
+          <ul class="kv" id="verify"></ul>
+        </div>
+      </section>
+
+      <section class="section">
+        <div class="note warn">
+          <strong>A NAV is not a verdict.</strong> Two funds can hold the same portfolio and carry different expense
+          ratios; equally, a higher NAV says nothing about quality, because funds launch at different times.
+          FundClear publishes data and shows arithmetic, and never tells you what to buy.
+        </div>
+      </section>
+    </div>
+
+  </div>
+</main>
+
+<footer class="site-footer">
+  <div class="wrap">
+    <div class="cols">
+      <div>
+        <h4>FundClear India</h4>
+        <p>A static, independent view of Indian mutual fund data. One data file, no backend, no bill.</p>
+        <p class="small">Data: <span data-source>AMFI</span>, snapshot taken <span data-fetched-at>—</span>.</p>
+      </div>
+      <div>
+        <h4>Use the site</h4>
+        <ul>
+          <li><a href="funds.html">All schemes</a></li>
+          <li><a href="compare.html">Compare schemes</a></li>
+          <li><a href="calculators.html">Calculators</a></li>
+          <li><a href="methodology.html">Methodology</a></li>
+        </ul>
+      </div>
+      <div>
+        <h4>The legal set</h4>
+        <ul>
+          <li><a href="legal.html#disclaimer">Risk disclaimer</a></li>
+          <li><a href="legal.html#privacy">Privacy notice</a></li>
+          <li><a href="legal.html#terms">Terms of use</a></li>
+          <li><a href="legal.html#grievance">Grievance contact</a></li>
+        </ul>
+      </div>
+    </div>
+    <p class="risk-line" data-risk-line></p>
+    <p class="small">© <span data-year>2026</span> FundClear India. Not affiliated with AMFI, NSE, BSE or any fund house.</p>
+  </div>
+</footer>
+
+<script src="assets/js/data.js"></script>
+<script src="assets/js/ui.js"></script>
+<script src="assets/js/calc.js"></script>
+<script src="assets/js/funds.js"></script>
+<script src="assets/js/site.js"></script>
+<script src="assets/js/pages/scheme.js"></script>
+</body>
+</html>

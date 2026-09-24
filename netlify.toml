@@ -1,0 +1,35 @@
+# Netlify configuration — FundClear India
+#
+# The site is pure static files: no build command, no functions, no server.
+# Netlify (and Netlify Drop) read this file automatically.
+
+[build]
+  publish = "."
+
+# No build step. If you ever add one, put the command here and set publish to its output.
+# command = ""
+
+# Long-lived caching for the generated data file: it changes only when refreshed.
+[[headers]]
+  for = "/assets/js/data.js"
+  [headers.values]
+    Cache-Control = "public, max-age=600, must-revalidate"
+
+[[headers]]
+  for = "/assets/*"
+  [headers.values]
+    Cache-Control = "public, max-age=86400"
+
+# HTML should always be revalidated so a data refresh is visible immediately.
+[[headers]]
+  for = "/*.html"
+  [headers.values]
+    Cache-Control = "public, max-age=0, must-revalidate"
+
+# The strict security headers live in _headers (shared with Cloudflare Pages).
+# Keeping them in one file avoids drift between the two hosts.
+
+[[redirects]]
+  from = "/*"
+  to = "/404.html"
+  status = 404

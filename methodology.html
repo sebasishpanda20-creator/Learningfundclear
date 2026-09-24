@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html lang="en-IN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Methodology — FundClear India</title>
+<meta name="description" content="Where FundClear's data comes from, what it excludes, why expense ratios are labelled assumptions, and the exact calculator formulas.">
+<link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="assets/css/style.css">
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+
+<header class="site-header">
+  <div class="wrap">
+    <a class="brand" href="index.html">
+      <svg width="24" height="24" viewBox="0 0 24 24" aria-hidden="true">
+        <rect x="2" y="13" width="4" height="9" rx="1.2" fill="#0f6a4f"></rect>
+        <rect x="8" y="9" width="4" height="13" rx="1.2" fill="#2a9d78"></rect>
+        <rect x="14" y="5" width="4" height="17" rx="1.2" fill="#5bbf99"></rect>
+        <rect x="20" y="10" width="2.5" height="12" rx="1.2" fill="#8ad6b8"></rect>
+      </svg>
+      <span>FundClear India<small>data, not advice</small></span>
+    </a>
+    <nav class="site-nav" aria-label="Primary">
+      <a href="index.html">Home</a>
+      <a href="funds.html">Schemes</a>
+      <a href="compare.html">Compare</a>
+      <a href="calculators.html">Calculators</a>
+      <a href="methodology.html">Methodology</a>
+      <a href="legal.html">Legal</a>
+    </nav>
+  </div>
+</header>
+
+<div class="data-strip">
+  <div class="wrap">
+    <span>Source <strong data-source>AMFI</strong></span>
+    <span>NAV date <strong data-nav-date>—</strong></span>
+    <span>Snapshot <strong data-fetched-at>—</strong></span>
+  </div>
+</div>
+
+<main id="main">
+  <div class="wrap">
+    <section class="section">
+      <header>
+        <h1 style="font-size:22px">Methodology</h1>
+        <p class="section-note">
+          FundClear is a small dataset and a few formulas. This page documents both, so the site can be audited
+          rather than trusted.
+        </p>
+      </header>
+    </section>
+
+    <div class="grid grid-2">
+      <section class="section">
+        <div class="card">
+          <h2 style="font-size:17px">The one source</h2>
+          <ul class="kv">
+            <li><span class="k">File</span><span class="v"><span data-source>AMFI</span> NAVAll.txt</span></li>
+            <li><span class="k">Publisher</span><span class="v">Association of Mutual Funds in India</span></li>
+            <li><span class="k">Latest NAV date in this build</span><span class="v" data-nav-date>—</span></li>
+            <li><span class="k">Snapshot taken</span><span class="v" data-fetched-at>—</span></li>
+            <li><span class="k">Schemes published</span><span class="v" data-scheme-count>—</span></li>
+            <li><span class="k">Fund houses</span><span class="v" data-amc-count>—</span></li>
+            <li><span class="k">Categories</span><span class="v" data-category-count>—</span></li>
+            <li><span class="k">Funds listing both plans</span><span class="v" data-pair-count>—</span></li>
+          </ul>
+          <p class="card-note" style="margin-top:12px">
+            AMFI publishes this file every working day, free of charge. FundClear uses nothing else:
+            no NSE or BSE feeds, no scraped websites, no broker APIs, no third-party quote providers.
+          </p>
+        </div>
+      </section>
+
+      <section class="section">
+        <div class="card">
+          <h2 style="font-size:17px">What is excluded, and why</h2>
+          <ul class="kv">
+            <li><span class="k">Closed-ended and interval schemes</span><span class="v">Not open for purchase</span></li>
+            <li><span class="k">Rows with stale NAVs</span><span class="v">Dropped, not shown as current</span></li>
+            <li><span class="k">Rows with a blank plan column</span><span class="v">5,760 rows; ambiguous, so dropped</span></li>
+            <li><span class="k">IDCW-only rows</span><span class="v">Growth option kept, for comparability</span></li>
+            <li><span class="k">Most fund houses</span><span class="v">Capped, to keep the file small</span></li>
+            <li><span class="k">Exchange-traded prices</span><span class="v">Licensed data, deliberately absent</span></li>
+          </ul>            <p class="card-note" style="margin-top:12px">
+            The raw file holds roughly 18,000 rows, most of which are duplicate plans, closed schemes or dead
+            entries. The curation step is deliberately conservative about freshness: a scheme whose NAV is more than
+            two days behind the newest date in the file is dropped, because showing a stale NAV as today's price
+            would be worse than omitting the scheme.
+          </p>
+          <p class="card-note" style="margin-top:12px">
+            <strong>On the blank plan column.</strong> AMFI leaves this column empty on about 5,760 rows — ETF series,
+            legacy plans and segregated portfolios. Those rows carry a real scheme name and a real NAV, but nothing
+            that says which plan they are. Because the site's central comparison is Direct versus Regular, a guessed
+            label there would have been worse than a missing row: it would have invented plan identity and could have
+            manufactured pairs that the publisher never published. So those rows are excluded, and only the 8,634
+            rows carrying an explicit <em>Direct Plan</em> or <em>Regular Plan</em> are eligible.
+          </p>
+        </div>
+      </section>
+    </div>
+
+    <section class="section" id="ter">
+      <div class="card">
+        <h2 style="font-size:17px">Why expense ratios are assumptions, not data</h2>
+        <p>
+          Expense ratio (TER) is the single most useful number for the Direct-versus-Regular comparison, and it is
+          the one number AMFI does <em>not</em> publish in a machine-readable file. FundClear checked: the
+          <code>TERAll.txt</code> path that older tools referenced now returns HTTP 404, and the public pages expose
+          no equivalent file.
+        </p>
+        <p>
+          So the site does the honest thing rather than the convenient one. Each category carries an
+          <strong>illustrative industry range</strong> for direct and regular plans, it is labelled as an assumption
+          wherever it appears, and every calculator that uses it lets you overwrite it with the figure from the
+          fund's own factsheet. No page on this site claims a per-scheme expense ratio.
+        </p>
+        <div class="note warn" style="margin-top:12px">
+          <strong>Before you rely on any rupee figure involving a fee</strong>, take the real expense ratio from the
+          fund's factsheet or the AMC's website, type it into the calculator, and see whether the conclusion still
+          holds. Often it does; sometimes it does not.
+        </div>
+      </div>
+    </section>
+
+    <section class="section" id="verified">
+      <div class="card">
+        <h2 style="font-size:17px">How the data is verified</h2>
+        <p>
+          Faithfulness is checkable, so this site checks it instead of asking you to trust it. One script downloads
+          AMFI's file again and looks up every scheme published here by its scheme code, comparing the name, NAV, NAV
+          date, plan and option against the publisher's own row. It fails loudly if anything differs.
+        </p>
+        <pre class="mono" style="overflow-x:auto; font-size:12.5px; margin:0 0 12px"><code>python tools/verify-data.py</code></pre>
+        <p class="card-note">
+          The run behind this build: <strong>1,401 schemes checked, 0 discrepancies</strong> — every NAV and date
+          matched AMFI's file exactly, and every plan label came from AMFI's own plan column. That result is not
+          cached anywhere on the site — run the command to get today's numbers.
+        </p>
+        <p class="card-note" style="margin-top:10px">
+          One honest exception, stated because it is the kind of thing these pages usually hide: scheme names here
+          have runs of whitespace collapsed to a single space, because AMFI's file contains a few double spaces. No
+          word is added, removed or reordered.
+        </p>
+      </div>
+    </section>
+
+    <section class="section" id="formulas">
+      <div class="card">
+        <h2 style="font-size:17px">The formulas, exactly</h2>
+        <p class="card-note">These are the only calculations on the site. You can reproduce every number by hand.</p>
+        <pre class="mono" style="overflow-x:auto; font-size:12.5px; line-height:1.7; margin:0"><code>SIP, compounded monthly, instalment added at the start of each month
+  i = assumed annual return / 12 / 100
+  balance = 0, invested = 0, instalment = monthly amount
+  for month = 1 .. years*12:
+      if month > 1 and (month - 1) % 12 == 0 and step-up > 0:
+          instalment = instalment * (1 + step-up / 100)
+      balance  = (balance + instalment) * (1 + i)
+      invested = invested + instalment
+
+Lumpsum
+  value = amount * (1 + assumed annual return / 100) ^ years
+
+Expense-ratio drag
+  direct  = SIP with rate = (gross return - direct expense ratio)
+  regular = SIP with rate = (gross return - regular expense ratio)
+  cost of the higher TER = direct value - regular value</code></pre>
+        <p class="card-note" style="margin-top:12px">
+          Excluded from all three: exit loads, stamp duty, capital gains tax, and any drift in expense ratio over
+          time. Returns are assumed to arrive smoothly, which real markets never do.
+        </p>
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="card">
+        <h2 style="font-size:17px">Refreshing the data</h2>
+        <p class="card-note">
+          The site is a static build with no server. The dataset is regenerated by one script and committed.
+        </p>
+        <pre class="mono" style="overflow-x:auto; font-size:12.5px; margin:0"><code>python tools/refresh-data.py         # downloads AMFI's file, rewrites assets/js/data.js
+python tools/refresh-data.py --check # reports what changed, writes nothing
+python tools/verify-data.py          # checks the result against AMFI's file, field by field</code></pre>
+        <p class="card-note" style="margin-top:12px">
+          Nothing else needs rebuilding: every page reads the same file at load time, so a refresh is also a deploy.
+          The included GitHub Actions workflow does this nightly and publishes the result.
+        </p>
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="card">
+        <h2 style="font-size:17px">Known limitations</h2>
+        <ul>
+          <li><strong>No history or charts.</strong> The build stores one NAV per scheme, so there is no performance
+            graph. Adding one means storing a time series, which is a much larger file.</li>
+          <li><strong>No riskometer or portfolio data.</strong> Those live in scheme documents, not in the NAV file.</li>
+          <li><strong>Pages render in the browser.</strong> The data file is loaded by JavaScript, which is simple and
+            free but weaker for search engines than pre-rendered pages. Generating a static page per scheme is the
+            obvious next improvement.</li>
+          <li><strong>Names are AMFI's.</strong> Fund names appear as published, including their own inconsistent
+            casing and spelling (all-caps for some fund houses, mixed case for others). The only transformation is
+            that runs of whitespace are collapsed to one space, because a few names carry double spaces.</li>
+          <li><strong>A snapshot is a snapshot.</strong> NAVs move daily; the date stamped on every page is the date
+            of the data, not of your visit.</li>
+        </ul>
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="card">
+        <h2 style="font-size:17px">What FundClear does not do</h2>
+        <ul>
+          <li>No buy, sell or hold calls on any scheme or security — FundClear is not registered as a research analyst or investment adviser, and does not give advice.</li>
+          <li>No expected, assured or projected returns. Ever.</li>
+          <li>No ranking of funds by "best", no model portfolios, no tips, no subscription signals.</li>
+          <li>No exchange price data, stock screener or IPO grey-market premium.</li>
+          <li>No accounts, cookies, analytics or advertising.</li>
+          <li>No distributor relationship and no commission, so the Direct-versus-Regular comparison is not conflicted.</li>
+        </ul>
+        <p class="card-note" style="margin-top:12px">
+          If you want a recommendation about what to buy for your situation, that is a job for a SEBI-registered
+          investment adviser who can look at your goals, taxes and existing holdings.
+        </p>
+      </div>
+    </section>
+  </div>
+</main>
+
+<footer class="site-footer">
+  <div class="wrap">
+    <div class="cols">
+      <div>
+        <h4>FundClear India</h4>
+        <p>A static, independent view of Indian mutual fund data. One data file, no backend, no bill.</p>
+        <p class="small">Data: <span data-source>AMFI</span>, snapshot taken <span data-fetched-at>—</span>.</p>
+      </div>
+      <div>
+        <h4>Use the site</h4>
+        <ul>
+          <li><a href="funds.html">All schemes</a></li>
+          <li><a href="compare.html">Compare schemes</a></li>
+          <li><a href="calculators.html">Calculators</a></li>
+          <li><a href="methodology.html">Methodology</a></li>
+        </ul>
+      </div>
+      <div>
+        <h4>The legal set</h4>
+        <ul>
+          <li><a href="legal.html#disclaimer">Risk disclaimer</a></li>
+          <li><a href="legal.html#privacy">Privacy notice</a></li>
+          <li><a href="legal.html#terms">Terms of use</a></li>
+          <li><a href="legal.html#grievance">Grievance contact</a></li>
+        </ul>
+      </div>
+    </div>
+    <p class="risk-line" data-risk-line></p>
+    <p class="small">© <span data-year>2026</span> FundClear India. Not affiliated with AMFI, NSE, BSE or any fund house.</p>
+  </div>
+</footer>
+
+<script src="assets/js/data.js"></script>
+<script src="assets/js/ui.js"></script>
+<script src="assets/js/calc.js"></script>
+<script src="assets/js/funds.js"></script>
+<script src="assets/js/site.js"></script>
+</body>
+</html>

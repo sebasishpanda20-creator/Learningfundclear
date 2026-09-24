@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="en-IN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Calculators — FundClear India</title>
+<meta name="description" content="SIP, step-up SIP, lumpsum and expense-ratio calculators. Arithmetic on the numbers you enter, with no forecast and no advice.">
+<link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="assets/css/style.css">
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+
+<header class="site-header">
+  <div class="wrap">
+    <a class="brand" href="index.html">
+      <svg width="24" height="24" viewBox="0 0 24 24" aria-hidden="true">
+        <rect x="2" y="13" width="4" height="9" rx="1.2" fill="#0f6a4f"></rect>
+        <rect x="8" y="9" width="4" height="13" rx="1.2" fill="#2a9d78"></rect>
+        <rect x="14" y="5" width="4" height="17" rx="1.2" fill="#5bbf99"></rect>
+        <rect x="20" y="10" width="2.5" height="12" rx="1.2" fill="#8ad6b8"></rect>
+      </svg>
+      <span>FundClear India<small>data, not advice</small></span>
+    </a>
+    <nav class="site-nav" aria-label="Primary">
+      <a href="index.html">Home</a>
+      <a href="funds.html">Schemes</a>
+      <a href="compare.html">Compare</a>
+      <a href="calculators.html">Calculators</a>
+      <a href="methodology.html">Methodology</a>
+      <a href="legal.html">Legal</a>
+    </nav>
+  </div>
+</header>
+
+<div class="data-strip">
+  <div class="wrap">
+    <span>All figures below are <strong>arithmetic on the numbers you enter</strong> — not projections</span>
+  </div>
+</div>
+
+<main id="main">
+  <div class="wrap">
+    <section class="section">
+      <header>
+        <h1 style="font-size:22px">Calculators</h1>
+        <p class="section-note">
+          FundClear does not forecast returns. You supply the annual return you want to test, and these tools show
+          what the arithmetic works out to — including the part people usually miss, which is what a higher expense
+          ratio does to the same portfolio over decades.
+        </p>
+      </header>
+      <div class="note warn">
+        <strong>None of this is a promise.</strong> Assumed returns are only a way to see how the maths behaves.
+        Actual fund returns vary, can be negative, and past performance does not indicate future results.
+        The formulas are printed on the <a href="methodology.html#formulas">methodology page</a> so you can check them.
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="card">
+        <div class="card-head">
+          <h2 style="font-size:17px; margin:0">SIP with optional yearly step-up</h2>
+          <span style="display:flex; gap:8px">
+            <button class="btn btn-sm" type="button" id="share">Copy link</button>
+            <button class="btn btn-sm" type="button" id="reset">Reset</button>
+          </span>
+        </div>
+        <p class="card-note">Monthly instalment growing at a fixed rate each year, compounded monthly.</p>
+        <div class="input-row input-row-3">
+          <label class="field" for="sip-monthly">
+            <span class="lbl">Monthly instalment (₹)</span>
+            <input type="number" id="sip-monthly" min="100" step="500" inputmode="numeric">
+          </label>
+          <label class="field" for="sip-years">
+            <span class="lbl">Years</span>
+            <input type="number" id="sip-years" min="1" max="50" step="1" inputmode="numeric">
+          </label>
+          <label class="field" for="sip-rate">
+            <span class="lbl">Assumed return (% a year)</span>
+            <input type="number" id="sip-rate" min="-20" max="40" step="0.5" inputmode="decimal">
+          </label>
+        </div>
+        <label class="field" for="sip-stepup">
+          <span class="lbl">Yearly step-up in instalment (%)</span>
+          <input type="number" id="sip-stepup" min="0" max="25" step="1" inputmode="decimal">
+          <span class="hint">Set 0 for a flat SIP.</span>
+        </label>
+        <div id="sip-out"></div>
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="card">
+        <h2 style="font-size:17px; margin:0">Lumpsum</h2>
+        <p class="card-note">One-time investment compounded yearly at the rate you enter.</p>
+        <div class="input-row input-row-3">
+          <label class="field" for="lum-amount">
+            <span class="lbl">Amount (₹)</span>
+            <input type="number" id="lum-amount" min="1000" step="10000" inputmode="numeric">
+          </label>
+          <label class="field" for="lum-years">
+            <span class="lbl">Years</span>
+            <input type="number" id="lum-years" min="1" max="50" step="1" inputmode="numeric">
+          </label>
+          <label class="field" for="lum-rate">
+            <span class="lbl">Assumed return (% a year)</span>
+            <input type="number" id="lum-rate" min="-20" max="40" step="0.5" inputmode="decimal">
+          </label>
+        </div>
+        <div id="lum-out"></div>
+      </div>
+    </section>
+
+    <section class="section" id="drag">
+      <div class="card">
+        <h2 style="font-size:17px; margin:0">What a higher expense ratio costs</h2>
+        <p class="card-note">
+          The same portfolio, held two ways. Both plans invest alike; one simply pays more out of the same returns.
+          Set the expense ratios yourself — FundClear does not publish per-scheme TER.
+        </p>
+        <label class="field" for="drag-category">
+          <span class="lbl">Fill TER from a category range (optional)</span>
+          <select id="drag-category"></select>
+          <span class="hint">Inserts the mid-point of FundClear's assumed industry range. Then edit it with the figure from the fund's factsheet.</span>
+        </label>
+        <div class="input-row input-row-3">
+          <label class="field" for="drag-monthly">
+            <span class="lbl">Monthly instalment (₹)</span>
+            <input type="number" id="drag-monthly" min="100" step="500" inputmode="numeric">
+          </label>
+          <label class="field" for="drag-years">
+            <span class="lbl">Years</span>
+            <input type="number" id="drag-years" min="1" max="50" step="1" inputmode="numeric">
+          </label>
+          <label class="field" for="drag-gross">
+            <span class="lbl">Assumed gross return (% a year)</span>
+            <input type="number" id="drag-gross" min="0" max="40" step="0.5" inputmode="decimal">
+          </label>
+        </div>
+        <div class="input-row">
+          <label class="field" for="drag-ter-direct">
+            <span class="lbl">Direct plan expense ratio (%)</span>
+            <input type="number" id="drag-ter-direct" min="0" max="3" step="0.05" inputmode="decimal">
+          </label>
+          <label class="field" for="drag-ter-regular">
+            <span class="lbl">Regular plan expense ratio (%)</span>
+            <input type="number" id="drag-ter-regular" min="0" max="3" step="0.05" inputmode="decimal">
+          </label>
+        </div>
+        <div id="drag-out"></div>
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="note">
+        <strong>What is excluded.</strong> Exit loads, stamp duty, capital gains tax, and any change in expense ratio
+        over time. A real outcome will differ. Treat these tools as a way to understand the mechanics, then get
+        advice from someone registered to give it.
+      </div>
+    </section>
+  </div>
+</main>
+
+<footer class="site-footer">
+  <div class="wrap">
+    <div class="cols">
+      <div>
+        <h4>FundClear India</h4>
+        <p>A static, independent view of Indian mutual fund data. One data file, no backend, no bill.</p>
+        <p class="small">Data: <span data-source>AMFI</span>, snapshot taken <span data-fetched-at>—</span>.</p>
+      </div>
+      <div>
+        <h4>Use the site</h4>
+        <ul>
+          <li><a href="funds.html">All schemes</a></li>
+          <li><a href="compare.html">Compare schemes</a></li>
+          <li><a href="calculators.html">Calculators</a></li>
+          <li><a href="methodology.html">Methodology</a></li>
+        </ul>
+      </div>
+      <div>
+        <h4>The legal set</h4>
+        <ul>
+          <li><a href="legal.html#disclaimer">Risk disclaimer</a></li>
+          <li><a href="legal.html#privacy">Privacy notice</a></li>
+          <li><a href="legal.html#terms">Terms of use</a></li>
+          <li><a href="legal.html#grievance">Grievance contact</a></li>
+        </ul>
+      </div>
+    </div>
+    <p class="risk-line" data-risk-line></p>
+    <p class="small">© <span data-year>2026</span> FundClear India. Not affiliated with AMFI, NSE, BSE or any fund house.</p>
+  </div>
+</footer>
+
+<script src="assets/js/data.js"></script>
+<script src="assets/js/ui.js"></script>
+<script src="assets/js/calc.js"></script>
+<script src="assets/js/funds.js"></script>
+<script src="assets/js/site.js"></script>
+<script src="assets/js/pages/calculators.js"></script>
+</body>
+</html>

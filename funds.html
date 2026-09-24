@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="en-IN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>All schemes — FundClear India</title>
+<meta name="description" content="Search open-ended Indian mutual fund schemes by name, fund house, category or AMFI code, with the latest published NAV for every one of them.">
+<link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="assets/css/style.css">
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+
+<header class="site-header">
+  <div class="wrap">
+    <a class="brand" href="index.html">
+      <svg width="24" height="24" viewBox="0 0 24 24" aria-hidden="true">
+        <rect x="2" y="13" width="4" height="9" rx="1.2" fill="#0f6a4f"></rect>
+        <rect x="8" y="9" width="4" height="13" rx="1.2" fill="#2a9d78"></rect>
+        <rect x="14" y="5" width="4" height="17" rx="1.2" fill="#5bbf99"></rect>
+        <rect x="20" y="10" width="2.5" height="12" rx="1.2" fill="#8ad6b8"></rect>
+      </svg>
+      <span>FundClear India<small>data, not advice</small></span>
+    </a>
+    <nav class="site-nav" aria-label="Primary">
+      <a href="index.html">Home</a>
+      <a href="funds.html">Schemes</a>
+      <a href="compare.html">Compare</a>
+      <a href="calculators.html">Calculators</a>
+      <a href="methodology.html">Methodology</a>
+      <a href="legal.html">Legal</a>
+    </nav>
+  </div>
+</header>
+
+<div class="data-strip">
+  <div class="wrap">
+    <span>NAV date <strong data-nav-date>—</strong></span>
+    <span><strong data-scheme-count>—</strong> schemes</span>
+    <span><strong data-category-count>—</strong> categories</span>
+    <span>Source: <strong data-source>AMFI</strong></span>
+  </div>
+</div>
+
+<main id="main">
+  <div class="wrap">
+    <section class="section">
+      <header>
+        <h1 style="font-size:22px">All schemes</h1>
+        <p class="section-note">
+          Open-ended schemes only, both plans where AMFI lists both. Filters are stored in the address bar, so any
+          view can be bookmarked or sent to someone.
+        </p>
+      </header>
+
+      <div class="card">
+        <label class="field" for="q">
+          <span class="lbl">Search</span>
+          <input type="search" id="q" placeholder="Fund name, fund house, category, ISIN or AMFI code" autocomplete="off">
+        </label>
+
+        <div class="field">
+          <span class="lbl">Group</span>
+          <div class="chips" id="group-chips"></div>
+        </div>
+
+        <div class="input-row">
+          <label class="field" for="category">
+            <span class="lbl">Category</span>
+            <select id="category"></select>
+          </label>
+          <label class="field" for="amc">
+            <span class="lbl">Fund house</span>
+            <select id="amc"></select>
+          </label>
+        </div>
+
+        <div class="field">
+          <span class="lbl">Plan</span>
+          <div class="chips" id="plan-chips"></div>
+        </div>
+
+        <label class="field" for="sort" style="margin-bottom:0">
+          <span class="lbl">Sort by</span>
+          <select id="sort"></select>
+        </label>
+
+        <div style="display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap; margin-top:14px; padding-top:12px; border-top:1px solid var(--line-soft)">
+          <span class="small muted" id="result-summary"></span>
+          <span style="display:flex; gap:10px; align-items:center">
+            <strong class="tabular" id="count"></strong>
+            <button class="btn btn-sm" type="button" id="clear" hidden>Clear filters</button>
+          </span>
+        </div>
+      </div>
+    </section>
+
+    <section class="section">
+      <ul class="scheme-list" id="results"></ul>
+      <div class="empty card" id="empty" hidden>
+        <h3>No scheme matches those filters</h3>
+        <p class="small">Try a shorter search term, or clear the category and fund-house filters.</p>
+      </div>
+      <div style="text-align:center; margin-top:14px">
+        <button class="btn" type="button" id="more" hidden>Show more</button>
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="note">
+        <strong>NAVs only.</strong> A NAV is a historical published price, not a measure of quality, and this page
+        ranks nothing. For anything resembling a decision, speak to a SEBI-registered adviser.
+      </div>
+    </section>
+  </div>
+</main>
+
+<footer class="site-footer">
+  <div class="wrap">
+    <div class="cols">
+      <div>
+        <h4>FundClear India</h4>
+        <p>A static, independent view of Indian mutual fund data. One data file, no backend, no bill.</p>
+        <p class="small">Data: <span data-source>AMFI</span>, snapshot taken <span data-fetched-at>—</span>.</p>
+      </div>
+      <div>
+        <h4>Use the site</h4>
+        <ul>
+          <li><a href="funds.html">All schemes</a></li>
+          <li><a href="compare.html">Compare schemes</a></li>
+          <li><a href="calculators.html">Calculators</a></li>
+          <li><a href="methodology.html">Methodology</a></li>
+        </ul>
+      </div>
+      <div>
+        <h4>The legal set</h4>
+        <ul>
+          <li><a href="legal.html#disclaimer">Risk disclaimer</a></li>
+          <li><a href="legal.html#privacy">Privacy notice</a></li>
+          <li><a href="legal.html#terms">Terms of use</a></li>
+          <li><a href="legal.html#grievance">Grievance contact</a></li>
+        </ul>
+      </div>
+    </div>
+    <p class="risk-line" data-risk-line></p>
+    <p class="small">© <span data-year>2026</span> FundClear India. Not affiliated with AMFI, NSE, BSE or any fund house.</p>
+  </div>
+</footer>
+
+<script src="assets/js/data.js"></script>
+<script src="assets/js/ui.js"></script>
+<script src="assets/js/calc.js"></script>
+<script src="assets/js/funds.js"></script>
+<script src="assets/js/site.js"></script>
+<script src="assets/js/pages/funds.js"></script>
+</body>
+</html>

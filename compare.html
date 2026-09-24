@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="en-IN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Compare schemes — FundClear India</title>
+<meta name="description" content="Put up to four Indian mutual fund schemes side by side: NAV, plan, category, fund house and what the expense ratio difference is worth over time.">
+<link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="assets/css/style.css">
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+
+<header class="site-header">
+  <div class="wrap">
+    <a class="brand" href="index.html">
+      <svg width="24" height="24" viewBox="0 0 24 24" aria-hidden="true">
+        <rect x="2" y="13" width="4" height="9" rx="1.2" fill="#0f6a4f"></rect>
+        <rect x="8" y="9" width="4" height="13" rx="1.2" fill="#2a9d78"></rect>
+        <rect x="14" y="5" width="4" height="17" rx="1.2" fill="#5bbf99"></rect>
+        <rect x="20" y="10" width="2.5" height="12" rx="1.2" fill="#8ad6b8"></rect>
+      </svg>
+      <span>FundClear India<small>data, not advice</small></span>
+    </a>
+    <nav class="site-nav" aria-label="Primary">
+      <a href="index.html">Home</a>
+      <a href="funds.html">Schemes</a>
+      <a href="compare.html">Compare</a>
+      <a href="calculators.html">Calculators</a>
+      <a href="methodology.html">Methodology</a>
+      <a href="legal.html">Legal</a>
+    </nav>
+  </div>
+</header>
+
+<div class="data-strip">
+  <div class="wrap">
+    <span>NAV date <strong data-nav-date>—</strong></span>
+    <span><strong data-pair-count>—</strong> funds list both plans</span>
+    <span>Source: <strong data-source>AMFI</strong></span>
+  </div>
+</div>
+
+<main id="main">
+  <div class="wrap">
+    <section class="section">
+      <header>
+        <h1 style="font-size:22px">Compare schemes</h1>
+        <p class="section-note">
+          Up to four schemes at once. Selecting a fund's Direct and Regular plans together is the most useful
+          comparison on the site — that is the one that changes what you pay.
+        </p>
+      </header>
+
+      <div class="card">
+        <div class="card-head">
+          <span class="small muted" id="count"></span>
+          <span style="display:flex; gap:8px">
+            <button class="btn btn-sm" type="button" id="share">Copy link</button>
+            <button class="btn btn-sm" type="button" id="clear-all">Clear</button>
+          </span>
+        </div>
+
+        <label class="field" for="pick-search" style="margin-top:12px">
+          <span class="lbl">Add a scheme</span>
+          <input type="search" id="pick-search" placeholder="Search by name, fund house or AMFI code" autocomplete="off">
+        </label>
+        <ul class="scheme-list" id="pick-options" hidden></ul>
+
+        <div class="field" style="margin-top:14px">
+          <span class="lbl">Selected</span>
+          <div class="chips" id="picked"></div>
+        </div>
+
+        <div class="field" style="margin-bottom:0">
+          <span class="lbl">Or start from a fund that lists both plans</span>
+          <div class="chips" id="presets"></div>
+        </div>
+      </div>
+    </section>
+
+    <div id="compare-body" hidden>
+      <section class="section" id="pair-note"></section>
+
+      <section class="section">
+        <header>
+          <h2>Side by side</h2>
+          <p class="section-note">
+            NAVs are the figures AMFI published. Expense ratios are labelled assumptions, and the modelled value is
+            arithmetic on those assumptions — not a forecast.
+          </p>
+        </header>
+        <div id="compare-table"></div>
+      </section>
+    </div>
+
+    <section class="section">
+      <div class="note">
+        <strong>Reading this honestly:</strong> a lower NAV is not a better or worse fund, and a lower expense ratio
+        is only one input. FundClear ranks nothing and recommends nothing.
+      </div>
+    </section>
+  </div>
+</main>
+
+<footer class="site-footer">
+  <div class="wrap">
+    <div class="cols">
+      <div>
+        <h4>FundClear India</h4>
+        <p>A static, independent view of Indian mutual fund data. One data file, no backend, no bill.</p>
+        <p class="small">Data: <span data-source>AMFI</span>, snapshot taken <span data-fetched-at>—</span>.</p>
+      </div>
+      <div>
+        <h4>Use the site</h4>
+        <ul>
+          <li><a href="funds.html">All schemes</a></li>
+          <li><a href="compare.html">Compare schemes</a></li>
+          <li><a href="calculators.html">Calculators</a></li>
+          <li><a href="methodology.html">Methodology</a></li>
+        </ul>
+      </div>
+      <div>
+        <h4>The legal set</h4>
+        <ul>
+          <li><a href="legal.html#disclaimer">Risk disclaimer</a></li>
+          <li><a href="legal.html#privacy">Privacy notice</a></li>
+          <li><a href="legal.html#terms">Terms of use</a></li>
+          <li><a href="legal.html#grievance">Grievance contact</a></li>
+        </ul>
+      </div>
+    </div>
+    <p class="risk-line" data-risk-line></p>
+    <p class="small">© <span data-year>2026</span> FundClear India. Not affiliated with AMFI, NSE, BSE or any fund house.</p>
+  </div>
+</footer>
+
+<script src="assets/js/data.js"></script>
+<script src="assets/js/ui.js"></script>
+<script src="assets/js/calc.js"></script>
+<script src="assets/js/funds.js"></script>
+<script src="assets/js/site.js"></script>
+<script src="assets/js/pages/compare.js"></script>
+</body>
+</html>

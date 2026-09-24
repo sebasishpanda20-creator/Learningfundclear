@@ -1,0 +1,10 @@
+# Personal-use bhavcopy CSVs: exchange data licensed for personal analysis
+# only — never publish. They live in the PRIVATE bhavcopy-data repo instead.
+data/
+bhavcopy-data/
+
+# tooling noise
+__pycache__/
+*.pyc
+.DS_Store
+Thumbs.db
