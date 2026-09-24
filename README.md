@@ -63,6 +63,20 @@ which is gitignored and therefore never committed or deployed, and
 files nightly (see `bhavcopy-data/README.md`). Don't add either folder to this
 repo, and don't publish the CSVs.
 
+Two things enforce that, because a CSV is easy to commit by accident: the
+**pre-commit hook** in `.githooks/` refuses to stage a CSV or anything under
+`data/` or `bhavcopy-data/`, and the deploy workflow refuses to publish the
+folder if one ever gets past it. Git never runs hooks out of a clone on its own
+— otherwise cloning any repository would run its code — so enable it once per
+clone:
+
+```bash
+git config core.hooksPath .githooks
+```
+
+Nothing else depends on that line: the deploy check is the backstop, and any
+clone without the hook still behaves normally.
+
 ## Structure
 
 ```

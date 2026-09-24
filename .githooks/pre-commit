@@ -1,0 +1,48 @@
+#!/bin/sh
+# pre-commit - FundClear India
+#
+# Refuses to stage exchange-licensed data. NSE/BSE end-of-day files are licensed
+# for personal use only, so committing one here would make this public repo a
+# redistribution of licensed data; they belong in the private bhavcopy-data repo.
+#
+# Git deliberately never runs hooks out of a cloned repository - otherwise
+# cloning anything would execute its code - so enable this once per clone:
+#
+#     git config core.hooksPath .githooks
+#
+# The deploy workflow has the matching check ("Refuse to publish licensed
+# exchange data") for anything that gets past this one. Undoing a commit is
+# cheap; rewriting history is not, which is why this one runs first.
+#
+# Bypassing is possible, and occasionally correct:  git commit --no-verify
+
+set -e
+
+# --diff-filter=ACMR leaves deletions out on purpose: removing a leaked file is
+# a fix, and must never be blocked.
+leaks=$(
+  git diff --cached --name-only --diff-filter=ACMR |
+  while IFS= read -r path; do
+    lower=$(printf '%s' "$path" | tr 'A-Z' 'a-z')
+    case "$lower" in
+      data/* | bhavcopy-data/*) printf '%s\n' "$path" ;;
+      *.csv | *.zip | *.xls | *.xlsx) printf '%s\n' "$path" ;;
+    esac
+  done
+)
+
+if [ -n "$leaks" ]; then
+  echo "pre-commit: refusing to commit exchange-licensed data:" >&2
+  printf '%s\n' "$leaks" | sed 's/^/  /' >&2
+  echo "" >&2
+  echo "  NSE/BSE end-of-day data is licensed for personal use only and this" >&2
+  echo "  repository is public. Move the file(s) into the private bhavcopy-data" >&2
+  echo "  repo, then unstage them here:" >&2
+  echo "" >&2
+  echo "      git restore --staged <file>" >&2
+  echo "" >&2
+  echo "  Deliberately keeping one?  git commit --no-verify" >&2
+  exit 1
+fi
+
+exit 0
