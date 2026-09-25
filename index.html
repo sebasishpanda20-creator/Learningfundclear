@@ -37,54 +37,7 @@ function clearForm(){editing=null;["ticker","name","sector","entry","target","st
 async function loadUsers(){if(!isAdmin)return;const{data}=await sb.from("app_users").select("*").order("created_at",{ascending:false});$("usersBody").innerHTML=(data||[]).map(x=>`<tr><td>${esc(x.username)}</td><td>${esc(x.display_name||"")}</td><td>${x.is_admin?"Yes":"No"}</td><td>${x.is_active?"Yes":"No"}</td><td>${dt(x.created_at)}</td></tr>`).join("")}
 async function loadAudit(){if(!isAdmin)return;const{data}=await sb.from("audit_log").select("*,app_users(username),ideas(ticker)").order("created_at",{ascending:false}).limit(50);$("auditBody").innerHTML=(data||[]).map(x=>`<tr><td>${dtt(x.created_at)}</td><td>${esc(x.app_users?.username||"")}</td><td>${esc(x.action||"")}</td><td>${esc(x.ideas?.ticker||"")}</td><td>${esc(JSON.stringify(x.details||{}))}</td></tr>`).join("")}
 $("createUser").onclick=async()=>{if(!isAdmin)return alert("Admin access is required");const username=$("newUsername").value.trim(),display_name=$("newDisplayName").value.trim(),password=$("newPassword").value;if(!username||!password)return alert("Username and password are required");const{data:{session}}=await sb.auth.getSession();if(!session?.access_token)return alert("Your session has expired. Please log in again.");const b=$("createUser");b.disabled=true;const old=b.textContent;b.textContent="Creating…";try{const{data,error}=await sb.functions.invoke("create-user",{body:{username,display_name,password},headers:{Authorization:`Bearer ${session.access_token}`}});if(error)return alert("Create user failed: "+error.message);if(data?.error)return alert("Create user failed: "+data.error);alert("User created successfully: "+username);$("newUsername").value="";$("newDisplayName").value="";$("newPassword").value="";await loadUsers()}finally{b.disabled=false;b.textContent=old}}
-async function loadUser(uid){const{data:u,error}=await sb.from("app_users").select("*").eq("id",uid).single();if(error||!u||!u.is_active){await sb.auth.signOut();return}me=u;isAdmin=!!u.is_admin;$("login").classList.add("hidden");$("header").classList.remove("hidden");$("userDisplay").textContent=u.display_name||u.username;$("adminBtn").classList.toggle("hidden",!isAdmin);show("dash");window.LfcAuth&&LfcAuth.stamp({u:u.username||u.id,n:u.display_name||u.username||"",a:!!u.is_admin});await loadIdeas();await loadWatch();if(window.Alerts)Alerts.setIdeas(ideas);if(isAdmin){await loadUsers();await loadAudit()}if(window.DhanQuotes){DhanQuotes.refresh().then(()=>DhanQuotes._startPolling())}}
+async function loadUser(uid){const{data:u,error}=await sb.from("app_users").select("*").eq("id",uid).single();if(error||!u||!u.is_active){await sb.auth.signOut();return}me=u;isAdmin=!!u.is_admin;$("login").classList.add("hidden");$("header").classList.remove("hidden");$("userDisplay").textContent=u.display_name||u.username;$("adminBtn").classList.toggle("hidden",!isAdmin);show("dash");window.LfcAuth&&LfcAuth.stamp({u:u.username||u.id,n:u.display_name||u.username||"",a:!!u.is_admin});await loadIdeas();await loadWatch();if(isAdmin){await loadUsers();await loadAudit()}}
 $("loginBtn").onclick=async()=>{const u=$("loginUser").value.trim(),p=$("loginPass").value;if(!u||!p)return alert("Enter username and password");const{error}=await sb.auth.signInWithPassword({email:(u.includes("@")?u:u+"@portal.local").toLowerCase(),password:p});if(error)alert(error.message)};$("logoutBtn").onclick=async()=>{window.LfcAuth&&LfcAuth.clear();await sb.auth.signOut();location.reload()};$("dashboardBtn").onclick=()=>show("dash");$("fundsBtn").onclick=()=>{location.href="funds/index.html"};$("scannerBtn").onclick=()=>{location.href="scanner.html"};$("performanceBtn").onclick=()=>{show("perf");fillYears();renderPerf()};$("adminBtn").onclick=()=>isAdmin&&show("admin");$("saveIdea").onclick=saveIdea;$("clearIdea").onclick=clearForm;$("closeIdeaBtn").onclick=closeResearch;$("adminSearch").oninput=renderAdmin;$("retryIdeas").onclick=loadIdeas;$("perfYear").onchange=renderPerf;["search","rating","status","timeFrame","watchFilter"].forEach(id=>$(id).oninput=renderIdeas);$("toggleWatch").onclick=()=>{$("watchHead").classList.toggle("hidden");renderIdeas()};document.querySelectorAll("[data-period]").forEach(b=>b.onclick=()=>{document.querySelectorAll("[data-period]").forEach(x=>x.classList.remove("active"));b.classList.add("active");period=b.dataset.period;renderPerf()});document.addEventListener("click",e=>{const w=e.target.closest("[data-watch]");if(w)toggleWatch(w.dataset.watch);const ed=e.target.closest("[data-edit]");if(ed)editIdea(ed.dataset.edit);const dl=e.target.closest("[data-delete]");if(dl)deleteIdea(dl.dataset.delete)});$("ticker").oninput=()=>{const x=symbols.find(a=>String(a.symbol).toUpperCase()===$("ticker").value.trim().toUpperCase());$("name").value=x?.name||""};async function symbolsLoad(){try{const r=await fetch("india_symbols.json");if(!r.ok)throw new Error("india_symbols.json HTTP "+r.status);symbols=await r.json();$("symbols").innerHTML=symbols.map(x=>`<option value="${esc(x.symbol)}">${esc(x.name||"")}</option>`).join("")}catch(e){console.error(e)}}symbolsLoad();sb.auth.onAuthStateChange(async(e,s)=>{if(e==="SIGNED_IN"&&s)loadUser(s.user.id);if(e==="SIGNED_OUT")location.reload()});const{data:{session}}=await sb.auth.getSession();if(session)loadUser(session.user.id);
-if(window.DhanQuotes){
-  DhanQuotes.init({
-    getToken:()=>Promise.resolve(sb.auth.getSession()).then(r=>r.data&&r.data.session?r.data.session.access_token:null),
-    onChange:(q)=>{paintQuotes(q);if(window.Alerts)Alerts.processQuotes(q);}
-  });
-  document.addEventListener("dhanquote",e=>{paintQuotes(e.detail.quotes);if(window.Alerts)Alerts.processQuotes(e.detail.quotes);});
-}
-if(window.Alerts)Alerts.init(()=>ideas);
 
-// ---------- VAULT: per-user encrypted Dhan credentials ----------
-async function vaultConnect(){
-  const st=await sb.auth.getSession();
-  if(!st.data||!st.data.session)return alert("Sign in first, then connect Dhan.");
-  const remembered=Vault.isRemembered();
-  let pass=prompt(remembered?"Vault passphrase (remembered — press OK)":"Choose a vault passphrase.\nIt encrypts your Dhan token; without it the stored blob is unreadable. Enter the SAME passphrase next time.", remembered?localStorage.getItem("lnt_vault_pass"):"");
-  if(pass===null)return;
-  let token=Vault.getToken(),cid=Vault.getClientId();
-  if(!token){
-    token=prompt("Dhan access token (web.dhan.co → My Profile → DhanHQ APIs → Generate, valid 24h)");
-    if(!token)return;
-    cid=prompt("Dhan client-id (numeric, same page)");
-    if(!cid)return;
-  }
-  try{
-    if(!token||!cid||!pass)return;
-    await Vault.save(pass,token.trim(),cid.trim());
-    if(confirm("Remember passphrase on this device? (Convenience only)"))Vault.remember(pass);
-    DhanQuotes.setCreds(Vault.getToken(),Vault.getClientId());
-    alert("Dhan connected via encrypted vault.");
-  }catch(e){alert("Vault save failed: "+(e.message||e));}
-}
-// Prefer vault creds over legacy localStorage on boot.
-if(window.Vault)Vault.init(sb).then(()=>{if(Vault.hasCreds()&&window.DhanQuotes)DhanQuotes.setCreds(Vault.getToken(),Vault.getClientId());});
-// Replace the chip's default prompt flow with the vault flow.
-if(window.DhanQuotes){
-  const chipEl=document.getElementById("dhanChip");
-  if(chipEl)chipEl.replaceWith(chipEl.cloneNode(true));
-  document.getElementById("dhanChip").addEventListener("click",vaultConnect);
-}
-function paintQuotes(quotes){
-  document.querySelectorAll("[data-ltp]").forEach(cell=>{
-    const t=(cell.getAttribute("data-ltp")||"").toUpperCase();
-    const q=quotes[t];
-    if(!q||q.ltp==null)return;
-    const d=q.chgPct;
-    cell.innerHTML=esc(money(q.ltp))+(d==null?"":` <span style="font-size:11px;color:${d>=0?"var(--green)":"var(--red)"}">${d>=0?"+":""}${d.toFixed(2)}%</span>`);
-  });
-}
 </script></body></html>
