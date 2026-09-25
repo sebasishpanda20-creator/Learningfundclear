@@ -4,8 +4,9 @@ A small, static, independent website that publishes Indian mutual fund data — 
 nothing else. No recommendations, no return projections, no backend, no bill.
 
 **Layout:** this repository hosts two things — the private stock-research journal
-(index.html + alerts.js + vault.js + dhan-quotes.js at the root, backed by Supabase and
-login-protected via signin.html; auth-guard.js gates the fund pages on the same session) and the public fund portal under `funds/`. The two are cross-linked:
+(index.html at the root, backed by Supabase and login-protected via signin.html;
+auth-guard.js gates the fund pages on the same session). Prices shown are end-of-day
+NAV figures from AMFI; no broker integration. and the public fund portal under `funds/`. The two are cross-linked:
 every fund page carries a "Stock Journal" nav link, and the journal header has a Funds
 button. Data tooling for the fund portal lives in `funds/tools/`.
 
