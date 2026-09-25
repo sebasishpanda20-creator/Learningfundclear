@@ -93,6 +93,10 @@
 </div>
 
 <div class="card" id="resultsCard" style="display:none">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;gap:10px;flex-wrap:wrap">
+    <h3 style="font-size:15px">Scan results</h3>
+    <button class="ghost" id="downloadBtn">Download Results (CSV)</button>
+  </div>
   <table>
     <thead><tr>
       <th>Symbol</th><th>Price ₹</th><th>Trend</th><th>Demand zone</th><th>Position</th><th>Zone from</th><th>Vol vs 20d</th><th></th>
@@ -119,6 +123,7 @@ professional before making an investment decision.</p>
 (function () {
   "use strict";
   var $ = function (id) { return document.getElementById(id); };
+  var lastRows = [];
 
   var DEFAULT_WATCH = ["COALINDIA.NS", "ASHOKLEY.NS", "RELIANCE.NS", "TCS.NS", "INFY.NS", "SBIN.NS"];
   var BARS_NEEDED = 100;
@@ -244,6 +249,45 @@ professional before making an investment decision.</p>
     return res.demandBottom.toFixed(2) + " – " + res.demandTop.toFixed(2);
   }
 
+  function volText(res) {
+    if (res.avgVol20 && res.lastVol) {
+      var ratio = res.lastVol / res.avgVol20;
+      return (ratio >= 1 ? "+" : "") + Math.round((ratio - 1) * 100) + "%";
+    }
+    return "—";
+  }
+
+  // CSV export of the current scan, like the reference's Download Results button.
+  function downloadCSV() {
+    if (!lastRows.length) return;
+    function cell(v) {
+      v = v == null ? "" : String(v);
+      return /[",\n]/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v;
+    }
+    var head = ["Symbol", "Price", "Trend", "Demand Zone", "Position", "Zone Date", "Vol vs 20d"];
+    var lines = [head.join(",")];
+    lastRows.forEach(function (r) {
+      lines.push([
+        cell(r.sym),
+        cell(r.res.price.toFixed(2)),
+        cell(r.res.trend),
+        cell(fmtZone(r.res)),
+        cell(r.res.insideDemand ? "INSIDE" : (r.res.touchingDemand ? "TOUCHING" : "")),
+        cell(r.res.zoneCreated || ""),
+        cell(volText(r.res))
+      ].join(","));
+    });
+    // BOM so Excel opens the UTF-8 file correctly
+    var blob = new Blob(["\ufeff" + lines.join("\r\n")], { type: "text/csv;charset=utf-8" });
+    var a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = "demand-zone-results-" + new Date().toISOString().slice(0, 10) + ".csv";
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(function () { URL.revokeObjectURL(a.href); }, 2000);
+  }
+
   function trendTag(t) {
     var cls = t === "UPTREND" ? "up" : (t === "DOWNTREND" ? "down" : "side");
     return '<span class="tag ' + cls + '">' + t + "</span>";
@@ -256,6 +300,7 @@ professional before making an investment decision.</p>
   }
 
   function render(rows) {
+    lastRows = rows;
     if (!rows.length) {
       $("msg").textContent = "No stocks matched the selected conditions.";
       return;
@@ -268,11 +313,7 @@ professional before making an investment decision.</p>
     body.innerHTML = "";
     rows.forEach(function (r, idx) {
       var tr = document.createElement("tr");
-      var volTxt = "—";
-      if (r.res.avgVol20 && r.res.lastVol) {
-        var ratio = r.res.lastVol / r.res.avgVol20;
-        volTxt = (ratio >= 1 ? "+" : "") + Math.round((ratio - 1) * 100) + "%";
-      }
+      var volTxt = volText(r.res);
       tr.innerHTML =
         "<td><b>" + r.sym + "</b></td>" +
         "<td>" + r.res.price.toFixed(2) + "</td>" +
@@ -366,6 +407,7 @@ professional before making an investment decision.</p>
   $("watchInput").value = loadWatch().join(", ");
   $("saveWatch").onclick = saveWatch;
   $("scanBtn").onclick = scan;
+  $("downloadBtn").onclick = downloadCSV;
   if (!window.LfcAuth || !window.LfcAuth.current()) {
     location.replace("signin.html?next=scanner.html");
   }
