@@ -306,19 +306,21 @@ professional before making an investment decision.</p>
   }
 
   // The data proxy rate-limits bursts (observed 429s on back-to-back waves), so fetch
-  // through a small worker pool and retry failures with backoff instead of queueing
-  // everything one-by-one at a fixed pace.
+  // through a small worker pool. Retries do NOT run inside the pool — a symbol stuck in
+  // backoff would stall its worker — failed symbols are re-fetched in a gentle recovery
+  // pass once the burst has cooled down.
   function sleep(ms) { return new Promise(function (res) { setTimeout(res, ms); }); }
 
-  function getBarsWithRetry(symbol, days) {
-    var delays = [1500, 3500, 6000];
-    function attempt(n) {
-      return getBars(symbol, days).catch(function (e) {
-        if (n >= delays.length) return null;         // give up: symbol counted as skipped
-        return sleep(delays[n]).then(function () { return attempt(n + 1); });
-      });
-    }
-    return attempt(0);
+  function recoverFailures(failed, days, onResult) {
+    // cool-down, then two workers with one spaced retry each
+    return sleep(2500).then(function () {
+      var stillFailed = [];
+      return runPool(failed, 2, function (sym) {
+        return getBars(sym, days)
+          .catch(function () { return sleep(4000).then(function () { return getBars(sym, days); }); })
+          .then(function (data) { if (data) onResult(sym, data); else stillFailed.push(sym); });
+      }).then(function () { return stillFailed; });
+    });
   }
 
   function runPool(items, limit, worker) {
@@ -367,17 +369,19 @@ professional before making an investment decision.</p>
     $("stInside").textContent = "—";
     $("stTouch").textContent = "—";
 
-    var rows = [], scanned = 0, skipped = 0;
-    var rendered = false;
+    var rows = [], scanned = 0, skipped = 0, rendered = false;
+    var counted = {};    // symbol -> final verdict recorded?
+    var failedOnce = {}; // symbol -> first pass could not fetch it
 
-    function account(sym, data) {
+    function verdict(sym, data) {
+      if (counted[sym]) return;
+      counted[sym] = true;
       scanned++;
-      if (!data || data.bars.length < BARS_NEEDED) {
-        skipped++;
-      } else {
+      var ok = data && data.bars.length >= BARS_NEEDED;
+      if (!ok) { skipped++; failedOnce[sym] = true; }
+      if (ok) {
         var res = window.LfcScanner.computeZones(data.bars, opts);
-        if (!res) { skipped++; }
-        else if (window.LfcScanner.includeRow(res, opts)) {
+        if (res && window.LfcScanner.includeRow(res, opts)) {
           rows.push({ sym: sym, res: res, bars: data.bars });
           rows.sort(function (a, b) { return a.sym < b.sym ? -1 : 1; });
           render(rows);   // progressive: results appear as they arrive
@@ -389,118 +393,50 @@ professional before making an investment decision.</p>
       $("stInside").textContent = rows.filter(function (r) { return r.res.insideDemand; }).length;
     }
 
-    runPool(symbols, 5, function (sym) {
-      return getBarsWithRetry(sym, days).then(function (data) { account(sym, data); });
-    }).then(function () {
+    function finish(stillFailed) {
       $("scanBtn").disabled = false;
       if (rendered) {
-        $("msg").textContent = skipped
-          ? "Done — " + skipped + " symbol(s) could not be fetched (bad symbol or data source hiccup)."
+        $("msg").textContent = stillFailed
+          ? "Done — " + stillFailed + " symbol(s) could not be fetched (bad symbol or data source hiccup)."
           : "Done.";
       } else {
-        $("msg").textContent = skipped
-          ? "No stocks matched, and " + skipped + " symbol(s) could not be fetched."
+        $("msg").textContent = stillFailed
+          ? "No stocks matched, and " + stillFailed + " symbol(s) could not be fetched."
           : "No stocks matched the selected conditions.";
       }
-    });
-  }
-
-  function fmtZone(res) {
-    if (res.demandTop == null) return "No zone";
-    return res.demandBottom.toFixed(2) + " – " + res.demandTop.toFixed(2);
-  }
-
-  function volText(res) {
-    if (res.avgVol20 && res.lastVol) {
-      var ratio = res.lastVol / res.avgVol20;
-      return (ratio >= 1 ? "+" : "") + Math.round((ratio - 1) * 100) + "%";
     }
-    return "—";
-  }
 
-  function distText(res) {
-    if (res.distDemand == null) return "—";
-    if (res.distDemand === 0) return "in zone";
-    return (res.distDemand * 100).toFixed(1) + "%";
-  }
-
-  // CSV export of the current scan, like the reference's Download Results button.
-  function downloadCSV() {
-    if (!lastRows.length) return;
-    function cell(v) {
-      v = v == null ? "" : String(v);
-      return /[",\n]/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v;
-    }
-    var head = ["Symbol", "Price", "Trend", "Demand Zone", "Position", "Dist to zone", "Zone Date", "Vol vs 20d"];
-    var lines = [head.join(",")];
-    lastRows.forEach(function (r) {
-      lines.push([
-        cell(r.sym),
-        cell(r.res.price.toFixed(2)),
-        cell(r.res.trend),
-        cell(fmtZone(r.res)),
-        cell(r.res.insideDemand ? "INSIDE" : (r.res.touchingDemand ? "TOUCHING" : "")),
-        cell(distText(r.res)),
-        cell(r.res.zoneCreated || ""),
-        cell(volText(r.res))
-      ].join(","));
+    // first pass: 5 workers, single attempt each (no backoff inside the pool — a stalled
+    // worker would hold a slot hostage)
+    runPool(symbols, 5, function (sym) {
+      return getBars(sym, days).then(
+        function (data) { verdict(sym, data); },
+        function () { verdict(sym, null); }
+      );
+    }).then(function () {
+      var failed = symbols.filter(function (s) { return failedOnce[s]; });
+      if (!failed.length) { finish(0); return; }
+      // recovery pass: let the proxy cool down, then retry gently with 2 workers
+      $("msg").textContent = "Recovering " + failed.length + " rate-limited symbol(s)…";
+      sleep(2500).then(function () {
+        return runPool(failed, 2, function (sym) {
+          return getBars(sym, days)
+            .catch(function () { return sleep(4000).then(function () { return getBars(sym, days); }); })
+            .then(
+              function (data) {
+                if (data) {           // recovered: undo the skip, re-judge
+                  failedOnce[sym] = false;
+                  skipped--; counted[sym] = false; scanned--;
+                  verdict(sym, data);
+                }
+              },
+              function () { /* stays failed */ }
+            );
+        });
+      }).then(function () {
+        finish(symbols.filter(function (s) { return failedOnce[s]; }).length);
+      });
     });
-    // BOM so Excel opens the UTF-8 file correctly
-    var blob = new Blob(["\ufeff" + lines.join("\r\n")], { type: "text/csv;charset=utf-8" });
-    var a = document.createElement("a");
-    a.href = URL.createObjectURL(blob);
-    a.download = "demand-zone-results-" + new Date().toISOString().slice(0, 10) + ".csv";
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    setTimeout(function () { URL.revokeObjectURL(a.href); }, 2000);
-  }
-
-  function trendTag(t) {
-    var cls = t === "UPTREND" ? "up" : (t === "DOWNTREND" ? "down" : "side");
-    return '<span class="tag ' + cls + '">' + t + "</span>";
-  }
-
-  function posTag(res) {
-    if (res.insideDemand) return '<span class="tag in">INSIDE</span>';
-    if (res.touchingDemand) return '<span class="tag touch">TOUCHING</span>';
-    return "—";
-  }
-
-  function render(rows) {
-    lastRows = rows;
-    if (!rows.length) {
-      $("msg").textContent = "No stocks matched the selected conditions.";
-      return;
-    }
-    var inside = rows.filter(function (r) { return r.res.insideDemand; }).length;
-    $("stInside").textContent = inside;
-    $("stTouch").textContent = rows.length - inside;
-
-    var body = $("resultsBody");
-    body.innerHTML = "";
-    rows.forEach(function (r, idx) {
-      var tr = document.createElement("tr");
-      var volTxt = volText(r.res);
-      tr.innerHTML =
-        "<td><b>" + r.sym + "</b></td>" +
-        "<td>" + r.res.price.toFixed(2) + "</td>" +
-        "<td>" + trendTag(r.res.trend) + "</td>" +
-        "<td>" + fmtZone(r.res) + "</td>" +
-        "<td>" + posTag(r.res) + "</td>" +
-        "<td>" + distText(r.res) + "</td>" +
-        "<td>" + (r.res.zoneCreated || "—") + "</td>" +
-        "<td>" + volTxt + "</td>" +
-        '<td><button class="ghost" data-chart="' + idx + '">Chart</button></td>';
-      body.appendChild(tr);
-    });
-    $("resultsCard").style.display = "";
-
-    body.onclick = function (ev) {
-      var b = ev.target.closest("[data-chart]");
-      if (b) drawChart(rows[parseInt(b.getAttribute("data-chart"), 10)]);
-    };
-    drawChart(rows[0]);
   }
 
   // ---------- minimal canvas chart: close line, EMA20, demand zones ----------
