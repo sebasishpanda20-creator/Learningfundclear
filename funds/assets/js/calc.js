@@ -1,5 +1,5 @@
 /*!
- * LearningFundClear India - calculator maths
+ * LearningFundClear - calculator maths
  *
  * Pure functions, no DOM. Every output here is arithmetic on the inputs you gave,
  * not a forecast: nothing in this file knows or claims what any fund will return.

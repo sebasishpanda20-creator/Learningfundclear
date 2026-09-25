@@ -1,5 +1,5 @@
 /*!
- * LearningFundClear India - single scheme page
+ * LearningFundClear - single scheme page
  * Reads ?code= (AMFI scheme code) and renders one scheme, its other plan if it has
  * one, the expense-ratio assumption, and same-category peers.
  */
@@ -25,7 +25,7 @@
   }
 
   function render(scheme) {
-    document.title = scheme.name + ' — LearningFundClear India';
+    document.title = scheme.name + ' — LearningFundClear';
     document.getElementById('missing').hidden = true;
     document.getElementById('scheme-body').hidden = false;
 

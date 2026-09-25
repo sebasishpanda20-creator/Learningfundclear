@@ -1,5 +1,5 @@
 /*!
- * LearningFundClear India - page shell
+ * LearningFundClear - page shell
  * Active-nav marking, the live data strip, footer year, and the compliance strings
  * that must appear on every page.
  */

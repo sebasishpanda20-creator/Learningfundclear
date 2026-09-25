@@ -1,4 +1,4 @@
-# Free hosting and a free domain — LearningFundClear India
+# Free hosting and a free domain — LearningFundClear
 
 This folder is built to be hosted **for ₹0 a month, forever**, with no server to run and no
 backend to pay for. This document says exactly what is already configured here, what only

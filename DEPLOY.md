@@ -1,4 +1,4 @@
-# Deploying LearningFundClear India
+# Deploying LearningFundClear
 
 Three free lanes, all of them HTTPS and none of them with a bill. Pick one.
 The long version — free domains, DNS records, troubleshooting — is in
@@ -16,7 +16,7 @@ Best lane, because the included workflow also refreshes the NAV data every night
 cd Learningfundclear
 git init -b main
 git add .
-git commit -m "LearningFundClear India: initial static site"
+git commit -m "LearningFundClear: initial static site"
 gh repo create Learningfundclear --public --source=. --push     # needs the GitHub CLI, logged in
 ```
 

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-LearningFundClear India - data refresh
+LearningFundClear - data refresh
 ==============================
 
 Regenerates assets/js/data.js from AMFI's publicly published NAV file.
@@ -52,7 +52,7 @@ import sys
 import urllib.request
 
 NAV_URL = "https://www.amfiindia.com/spages/NAVAll.txt"
-USER_AGENT = "Mozilla/5.0 (compatible; LearningFundClearIndia/1.0; +static data refresh)"
+USER_AGENT = "Mozilla/5.0 (compatible; LearningFundClear/1.0; +static data refresh)"
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 PROJECT = os.path.dirname(HERE)
@@ -369,7 +369,7 @@ def build(rows, source_rows, skipped, dropped_stale):
 
     return {
         "meta": {
-            "site": "LearningFundClear India",
+            "site": "LearningFundClear",
             "source": "AMFI NAVAll.txt",
             "sourceUrl": NAV_URL,
             "sourceNote": ("AMFI publishes this file every working day. LearningFundClear does not use "
@@ -403,7 +403,7 @@ def write_js(payload, out_path):
     meta = payload["meta"]
     js = (
         "/*!\n"
-        " * LearningFundClear India - site data  (GENERATED FILE - do not hand-edit)\n"
+        " * LearningFundClear - site data  (GENERATED FILE - do not hand-edit)\n"
         " *\n"
         f" * Source  : {meta['source']} ({meta['sourceUrl']})\n"
         f" * Fetched : {meta['fetchedAt']}\n"

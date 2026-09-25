@@ -1,5 +1,5 @@
 /*!
- * LearningFundClear India - shared browser helpers
+ * LearningFundClear - shared browser helpers
  * Plain classic script: works from file://, a static host, or any sub-path.
  * No framework, no build step, no network calls.
  */

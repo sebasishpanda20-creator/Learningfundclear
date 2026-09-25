@@ -1,4 +1,4 @@
-# GitHub Pages deployment — LearningFundClear India
+# GitHub Pages deployment — LearningFundClear
 #
 # Runs the data refresh nightly, checks the site, then publishes it.
 # No secrets, no server, no build step: the published artifact is this repository folder.

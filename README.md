@@ -1,4 +1,4 @@
-# LearningFundClear India
+# LearningFundClear
 
 A small, static, independent website that publishes Indian mutual fund data — and does
 nothing else. No recommendations, no return projections, no backend, no bill.

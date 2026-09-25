@@ -1,5 +1,5 @@
 /*!
- * LearningFundClear India - compare schemes
+ * LearningFundClear - compare schemes
  * Pick up to four schemes by AMFI code (?codes=a,b,c,d) and put them side by side.
  * When two of them are the same fund's two plans, that is called out explicitly,
  * because it is the comparison that actually changes what someone pays.

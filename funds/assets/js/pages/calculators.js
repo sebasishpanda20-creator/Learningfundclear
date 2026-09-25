@@ -1,5 +1,5 @@
 /*!
- * LearningFundClear India - calculators
+ * LearningFundClear - calculators
  * Three arithmetic tools, all driven by FC.calc. Nothing here predicts a return:
  * the expected-return box is yours to set, and the output is labelled as arithmetic.
  */

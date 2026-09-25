@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-LearningFundClear India - data integrity check
+LearningFundClear - data integrity check
 ======================================
 
 Answers one question honestly: does everything on the site actually appear in AMFI's
@@ -28,7 +28,7 @@ import sys
 import urllib.request
 
 NAV_URL = "https://www.amfiindia.com/spages/NAVAll.txt"
-USER_AGENT = "Mozilla/5.0 (compatible; LearningFundClearIndia/1.0; +data verification)"
+USER_AGENT = "Mozilla/5.0 (compatible; LearningFundClear/1.0; +data verification)"
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 PROJECT = os.path.dirname(HERE)

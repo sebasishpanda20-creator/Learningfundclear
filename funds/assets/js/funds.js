@@ -1,5 +1,5 @@
 /*!
- * LearningFundClear India - data access layer
+ * LearningFundClear - data access layer
  *
  * Everything the pages know about schemes comes through here, and everything here
  * comes from the one generated file (assets/js/data.js, built by tools/refresh-data.py).

@@ -1,5 +1,5 @@
 /*!
- * LearningFundClear India - scheme directory
+ * LearningFundClear - scheme directory
  * Client-side search across the whole dataset. Filters live in the URL so any view is
  * a link you can send to someone.
  */
