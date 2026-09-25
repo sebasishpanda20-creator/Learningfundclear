@@ -143,6 +143,7 @@ professional before making an investment decision.</p>
   "use strict";
   var $ = function (id) { return document.getElementById(id); };
   var lastRows = [];
+  var cacheHits = 0;
 
   var DEFAULT_WATCH = [
     // Banking & financials
@@ -312,6 +313,45 @@ professional before making an investment decision.</p>
       .catch(function () { return fetchViaProxy(url).then(function (json) { return parseYahoo(json, symbol); }); });
   }
 
+  // ---------- EOD bar cache ----------
+  // Daily bars change once a day, so cache them per symbol+range for 20 hours:
+  // the first scan of the day fetches, every rescan after that is instant.
+  var CACHE_TTL = 20 * 60 * 60 * 1000;
+
+  function cacheKey(symbol, days) { return "lfc.bars." + symbol + "." + days; }
+
+  function pruneCache() {
+    try {
+      var keys = [];
+      for (var i = 0; i < localStorage.length; i++) {
+        var k = localStorage.key(i);
+        if (k && k.indexOf("lfc.bars.") === 0) keys.push(k);
+      }
+      keys.slice(0, Math.ceil(keys.length / 3)).forEach(function (k) { localStorage.removeItem(k); });
+    } catch (e) {}
+  }
+
+  function getBarsCached(symbol, days) {
+    try {
+      var c = JSON.parse(localStorage.getItem(cacheKey(symbol, days)) || "null");
+      if (c && c.bars && c.bars.length >= BARS_NEEDED && Date.now() - c.saved < CACHE_TTL) {
+        cacheHits++;
+        return Promise.resolve({ symbol: symbol, bars: c.bars });
+      }
+    } catch (e) {}
+    return getBars(symbol, days).then(function (data) {
+      if (data && data.bars.length >= BARS_NEEDED) {
+        try {
+          localStorage.setItem(cacheKey(symbol, days), JSON.stringify({ saved: Date.now(), bars: data.bars }));
+        } catch (e) {
+          pruneCache();
+          try { localStorage.setItem(cacheKey(symbol, days), JSON.stringify({ saved: Date.now(), bars: data.bars })); } catch (e2) {}
+        }
+      }
+      return data;
+    });
+  }
+
   // The data proxy rate-limits bursts (observed 429s on back-to-back waves), so fetch
   // through a small worker pool. Retries do NOT run inside the pool — a symbol stuck in
   // backoff would stall its worker — failed symbols are re-fetched in a gentle recovery
@@ -377,6 +417,7 @@ professional before making an investment decision.</p>
     $("stTouch").textContent = "—";
 
     var rows = [], scanned = 0, skipped = 0, rendered = false;
+    cacheHits = 0;
     var counted = {};    // symbol -> final verdict recorded?
     var failedOnce = {}; // symbol -> first pass could not fetch it
 
@@ -402,10 +443,11 @@ professional before making an investment decision.</p>
 
     function finish(stillFailed) {
       $("scanBtn").disabled = false;
+      var tail = cacheHits ? " (" + cacheHits + " from today's cache)" : "";
       if (rendered) {
         $("msg").textContent = stillFailed
-          ? "Done — " + stillFailed + " symbol(s) could not be fetched (bad symbol or data source hiccup)."
-          : "Done.";
+          ? "Done — " + stillFailed + " symbol(s) could not be fetched (bad symbol or data source hiccup)." + tail
+          : "Done." + tail;
       } else {
         $("msg").textContent = stillFailed
           ? "No stocks matched, and " + stillFailed + " symbol(s) could not be fetched."
@@ -416,7 +458,7 @@ professional before making an investment decision.</p>
     // first pass: 5 workers, single attempt each (no backoff inside the pool — a stalled
     // worker would hold a slot hostage)
     runPool(symbols, 5, function (sym) {
-      return getBars(sym, days).then(
+      return getBarsCached(sym, days).then(
         function (data) { verdict(sym, data); },
         function () { verdict(sym, null); }
       );
@@ -427,8 +469,8 @@ professional before making an investment decision.</p>
       $("msg").textContent = "Recovering " + failed.length + " rate-limited symbol(s)…";
       sleep(2500).then(function () {
         return runPool(failed, 2, function (sym) {
-          return getBars(sym, days)
-            .catch(function () { return sleep(4000).then(function () { return getBars(sym, days); }); })
+          return getBarsCached(sym, days)
+            .catch(function () { return sleep(4000).then(function () { return getBarsCached(sym, days); }); })
             .then(
               function (data) {
                 if (data) {           // recovered: undo the skip, re-judge
