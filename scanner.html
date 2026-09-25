@@ -74,6 +74,8 @@
     </div>
     <div><label><input id="trendFilter" type="checkbox"> Require bullish EMA trend</label></div>
     <div><label><input id="showTouching" type="checkbox" checked> Include candles touching a zone</label></div>
+    <div><label>Max distance above zone %</label><input id="maxDist" type="number" min="0" step="0.5" placeholder="off" style="width:90px"></div>
+    <div><label><input id="volFilter" type="checkbox"> Volume above 20-day average</label></div>
     <div><button class="primary" id="scanBtn">Scan watchlist</button></div>
   </div>
   <div class="row" style="margin-top:12px">
@@ -99,7 +101,7 @@
   </div>
   <table>
     <thead><tr>
-      <th>Symbol</th><th>Price ₹</th><th>Trend</th><th>Demand zone</th><th>Position</th><th>Zone from</th><th>Vol vs 20d</th><th></th>
+      <th>Symbol</th><th>Price ₹</th><th>Trend</th><th>Demand zone</th><th>Position</th><th>Dist to zone</th><th>Zone from</th><th>Vol vs 20d</th><th></th>
     </tr></thead>
     <tbody id="resultsBody"></tbody>
   </table>
@@ -203,11 +205,14 @@ professional before making an investment decision.</p>
       .filter(function (s, i, a) { return s.length > 1 && a.indexOf(s) === i; });
     if (!symbols.length) { $("msg").textContent = "Add at least one symbol."; return; }
 
+    var distRaw = $("maxDist").value.trim();
     var opts = {
       pivotLeft: parseInt($("pLeft").value, 10) || 3,
       pivotRight: parseInt($("pRight").value, 10) || 3,
       trendFilter: $("trendFilter").checked,
-      showTouching: $("showTouching").checked
+      showTouching: $("showTouching").checked,
+      maxDistPct: distRaw === "" ? null : Math.max(0, parseFloat(distRaw)) / 100,
+      minVolRatio: $("volFilter").checked ? 1 : null
     };
     var days = parseInt($("days").value, 10);
 
@@ -257,6 +262,12 @@ professional before making an investment decision.</p>
     return "—";
   }
 
+  function distText(res) {
+    if (res.distDemand == null) return "—";
+    if (res.distDemand === 0) return "in zone";
+    return (res.distDemand * 100).toFixed(1) + "%";
+  }
+
   // CSV export of the current scan, like the reference's Download Results button.
   function downloadCSV() {
     if (!lastRows.length) return;
@@ -264,7 +275,7 @@ professional before making an investment decision.</p>
       v = v == null ? "" : String(v);
       return /[",\n]/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v;
     }
-    var head = ["Symbol", "Price", "Trend", "Demand Zone", "Position", "Zone Date", "Vol vs 20d"];
+    var head = ["Symbol", "Price", "Trend", "Demand Zone", "Position", "Dist to zone", "Zone Date", "Vol vs 20d"];
     var lines = [head.join(",")];
     lastRows.forEach(function (r) {
       lines.push([
@@ -273,6 +284,7 @@ professional before making an investment decision.</p>
         cell(r.res.trend),
         cell(fmtZone(r.res)),
         cell(r.res.insideDemand ? "INSIDE" : (r.res.touchingDemand ? "TOUCHING" : "")),
+        cell(distText(r.res)),
         cell(r.res.zoneCreated || ""),
         cell(volText(r.res))
       ].join(","));
@@ -320,6 +332,7 @@ professional before making an investment decision.</p>
         "<td>" + trendTag(r.res.trend) + "</td>" +
         "<td>" + fmtZone(r.res) + "</td>" +
         "<td>" + posTag(r.res) + "</td>" +
+        "<td>" + distText(r.res) + "</td>" +
         "<td>" + (r.res.zoneCreated || "—") + "</td>" +
         "<td>" + volTxt + "</td>" +
         '<td><button class="ghost" data-chart="' + idx + '">Chart</button></td>';

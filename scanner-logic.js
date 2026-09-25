@@ -99,6 +99,21 @@
 
     var latest = demand[0] || null;
 
+    // Distance from the latest close to the nearest active demand zone, as a
+    // fraction of the close (0 = inside the zone). Null when no zone survives.
+    var distDemand = null;
+    if (demand.length) {
+      var best = null;
+      demand.forEach(function (z) {
+        var d;
+        if (close >= z.bottom && close <= z.top) d = 0;               // inside
+        else if (close > z.top) d = (close - z.top) / close;          // above the zone
+        else d = (z.bottom - close) / close;                          // below (rare: would be invalidated)
+        if (best === null || d < best) best = d;
+      });
+      distDemand = best;
+    }
+
     // 20-day average volume (extra column; the reference suggested it as a filter).
     var avgVol = null;
     if (bars.length >= 20) {
@@ -117,17 +132,24 @@
       supplyZones: supply,
       demandTop: latest ? latest.top : null,
       demandBottom: latest ? latest.bottom : null,
+      distDemand: distDemand,
       zoneCreated: latest ? latest.created : null,
       avgVol20: avgVol,
       lastVol: last.volume
     };
   }
 
-  /** Row-inclusion rule, mirroring the reference's scan loop exactly. */
+  /** Row-inclusion rule: the reference's scan loop, plus its two suggested filters. */
   function includeRow(result, opts) {
     var include = result.insideDemand;
     if (opts.showTouching) include = include || result.touchingDemand;
     if (opts.trendFilter) include = include && result.trend === "UPTREND";
+    if (opts.maxDistPct != null) {
+      if (result.distDemand == null || result.distDemand > opts.maxDistPct) return false;
+    }
+    if (opts.minVolRatio != null) {
+      if (!result.avgVol20 || !result.lastVol || result.lastVol <= result.avgVol20) return false;
+    }
     return include;
   }
 
