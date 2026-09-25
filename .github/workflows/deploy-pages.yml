@@ -52,7 +52,7 @@ jobs:
 
       - name: Syntax-check every script
         run: |
-          for f in $(find funds/assets/js -name '*.js') auth-guard.js; do
+          for f in $(find funds/assets/js -name '*.js') auth-guard.js scanner-logic.js; do
             echo "checking $f"
             node --check "$f"
           done
@@ -69,7 +69,7 @@ jobs:
             done
           done
           # the merged journal must ship complete
-          for f in index.html signin.html auth-guard.js india_symbols.json; do
+          for f in index.html signin.html scanner.html auth-guard.js scanner-logic.js india_symbols.json; do
             if [ ! -f "$f" ]; then
               echo "::error file=$f::journal file $f is missing from the deployment root"
               missing=1

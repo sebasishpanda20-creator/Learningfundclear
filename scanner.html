@@ -1,0 +1,374 @@
+<!DOCTYPE html>
+<html lang="en-IN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>Demand Zone Scanner — Private Research Journal</title>
+<style>
+  :root { color-scheme: dark; }
+  * { box-sizing: border-box; margin: 0; }
+  body {
+    min-height: 100vh; background: #0b0f0e; color: #e8efe9; padding: 22px;
+    font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
+  }
+  a.back { color: #7fd1a8; text-decoration: none; font-size: 13px; }
+  h1 { font-size: 24px; margin: 10px 0 2px; }
+  .sub { color: #93a39a; font-size: 13px; margin-bottom: 18px; }
+  .card {
+    background: #111714; border: 1px solid #24312b; border-radius: 12px;
+    padding: 18px; margin-bottom: 18px;
+  }
+  .row { display: flex; flex-wrap: wrap; gap: 14px; align-items: flex-end; }
+  label { display: block; font-size: 12px; color: #93a39a; margin-bottom: 4px; }
+  input, select {
+    padding: 9px 10px; border-radius: 8px; border: 1px solid #2c3a33;
+    background: #0d1310; color: #e8efe9; font-size: 13px;
+  }
+  input[type="checkbox"] { width: auto; }
+  button.primary {
+    padding: 11px 22px; border: 0; border-radius: 9px; background: #10b981;
+    color: #04241a; font-size: 14px; font-weight: 700; cursor: pointer;
+  }
+  button.primary:disabled { opacity: .55; cursor: wait; }
+  button.ghost {
+    padding: 8px 12px; border-radius: 8px; border: 1px solid #2c3a33;
+    background: transparent; color: #9fb3a8; font-size: 12px; cursor: pointer;
+  }
+  .msg { margin-top: 12px; font-size: 13px; color: #e8b34b; min-height: 18px; }
+  .stats { display: flex; flex-wrap: wrap; gap: 12px; margin: 14px 0; }
+  .stat { background: #0d1310; border: 1px solid #24312b; border-radius: 10px; padding: 10px 16px; }
+  .stat b { font-size: 18px; display: block; }
+  .stat span { font-size: 11px; color: #93a39a; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th { text-align: left; color: #93a39a; font-size: 11px; letter-spacing: .04em; padding: 8px; border-bottom: 1px solid #24312b; }
+  td { padding: 8px; border-bottom: 1px solid #1a231f; }
+  tr:hover td { background: #131b17; }
+  .tag { display: inline-block; padding: 2px 8px; border-radius: 20px; font-size: 11px; font-weight: 600; }
+  .tag.up { background: #0e3b2a; color: #5fe0a5; }
+  .tag.down { background: #3b1414; color: #ef8f8f; }
+  .tag.side { background: #33301a; color: #d8c76a; }
+  .tag.in { background: #0e3b2a; color: #5fe0a5; }
+  .tag.touch { background: #1a2b3b; color: #7fc0ef; }
+  .mut { color: #6f7f76; font-size: 11px; }
+  #chartWrap { margin-top: 10px; }
+  canvas { width: 100%; height: 340px; display: block; }
+  .disclaimer { font-size: 11px; color: #5d6d64; line-height: 1.6; max-width: 900px; }
+</style>
+</head>
+<body>
+<a class="back" href="index.html">← Back to journal</a>
+<h1>Demand Zone Scanner</h1>
+<p class="sub">End-of-day NSE/BSE scan · independent pivot-based zone approximation · private page — same sign-in as the journal</p>
+
+<div class="card">
+  <div class="row">
+    <div><label>Pivot left bars</label><input id="pLeft" type="number" min="1" max="10" value="3" style="width:70px"></div>
+    <div><label>Pivot right bars</label><input id="pRight" type="number" min="1" max="10" value="3" style="width:70px"></div>
+    <div><label>History</label>
+      <select id="days" style="width:110px">
+        <option value="365">1 year</option>
+        <option value="730" selected>2 years</option>
+        <option value="1095">3 years</option>
+      </select>
+    </div>
+    <div><label><input id="trendFilter" type="checkbox"> Require bullish EMA trend</label></div>
+    <div><label><input id="showTouching" type="checkbox" checked> Include candles touching a zone</label></div>
+    <div><button class="primary" id="scanBtn">Scan watchlist</button></div>
+  </div>
+  <div class="row" style="margin-top:12px">
+    <div style="flex:1;min-width:260px"><label>Watchlist (one NSE/BSE symbol per line, e.g. COALINDIA.NS)</label>
+      <input id="watchInput" style="width:100%" placeholder="COALINDIA.NS, ASHOKLEY.NS, RELIANCE.NS, TCS.NS, INFY.NS, SBIN.NS">
+    </div>
+    <button class="ghost" id="saveWatch">Save list</button>
+  </div>
+  <p class="msg" id="msg"></p>
+</div>
+
+<div class="stats">
+  <div class="stat"><b id="stScanned">—</b><span>scanned</span></div>
+  <div class="stat"><b id="stInside">—</b><span>inside demand zone</span></div>
+  <div class="stat"><b id="stTouch">—</b><span>touching zone</span></div>
+  <div class="stat"><b id="stSkipped">—</b><span>failed / skipped</span></div>
+</div>
+
+<div class="card" id="resultsCard" style="display:none">
+  <table>
+    <thead><tr>
+      <th>Symbol</th><th>Price ₹</th><th>Trend</th><th>Demand zone</th><th>Position</th><th>Zone from</th><th>Vol vs 20d</th><th></th>
+    </tr></thead>
+    <tbody id="resultsBody"></tbody>
+  </table>
+</div>
+
+<div class="card" id="chartCard" style="display:none">
+  <h3 id="chartTitle" style="font-size:15px;margin-bottom:8px"></h3>
+  <div id="chartWrap"><canvas id="chart" width="900" height="340"></canvas></div>
+  <p class="mut" id="chartNote"></p>
+</div>
+
+<p class="disclaimer"><strong>Private Research Journal:</strong> independent pivot-based demand-zone
+approximation on end-of-day data from Yahoo Finance. Free data sources may have missing, delayed or
+inconsistent NSE/BSE data. This is not the invite-only indicator, and it is not investment advice —
+verify every chart on your broker or exchange platform before acting. Consult a SEBI-registered
+professional before making an investment decision.</p>
+
+<script src="auth-guard.js"></script>
+<script src="scanner-logic.js"></script>
+<script>
+(function () {
+  "use strict";
+  var $ = function (id) { return document.getElementById(id); };
+
+  var DEFAULT_WATCH = ["COALINDIA.NS", "ASHOKLEY.NS", "RELIANCE.NS", "TCS.NS", "INFY.NS", "SBIN.NS"];
+  var BARS_NEEDED = 100;
+
+  // ---------- watchlist persistence ----------
+  function loadWatch() {
+    try {
+      var raw = localStorage.getItem("lfc.watchlist");
+      var arr = raw ? JSON.parse(raw) : null;
+      if (Array.isArray(arr) && arr.length) return arr;
+    } catch (e) {}
+    return DEFAULT_WATCH.slice();
+  }
+  function saveWatch() {
+    var arr = $("watchInput").value.split(/[\n,]+/).map(function (s) { return s.trim().toUpperCase(); })
+      .filter(function (s) { return s.length > 1; });
+    arr = arr.filter(function (s, i) { return arr.indexOf(s) === i; });
+    if (!arr.length) { $("msg").textContent = "Watchlist is empty."; return; }
+    try { localStorage.setItem("lfc.watchlist", JSON.stringify(arr)); } catch (e) {}
+    $("watchInput").value = arr.join(", ");
+    $("msg").textContent = "Watchlist saved (" + arr.length + " symbols, on this device).";
+  }
+
+  // ---------- EOD data: Yahoo direct, jina.ai text proxy as fallback ----------
+  function yahooUrl(symbol, days) {
+    return "https://query1.finance.yahoo.com/v8/finance/chart/" + encodeURIComponent(symbol) +
+           "?range=" + days + "d&interval=1d";
+  }
+
+  function parseYahoo(json, symbol) {
+    var r = json && json.chart && json.chart.result && json.chart.result[0];
+    if (!r || !r.timestamp) return null;
+    var q = r.indicators.quote[0];
+    var bars = [];
+    for (var i = 0; i < r.timestamp.length; i++) {
+      var o = q.open[i], h = q.high[i], l = q.low[i], c = q.close[i];
+      if (o == null || h == null || l == null || c == null) continue;
+      bars.push({
+        date: new Date(r.timestamp[i] * 1000).toISOString().slice(0, 10),
+        open: o, high: h, low: l, close: c, volume: q.volume ? q.volume[i] : 0
+      });
+    }
+    return bars.length ? { symbol: symbol, bars: bars } : null;
+  }
+
+  function fetchDirect(url) {
+    return fetch(url).then(function (r) {
+      if (!r.ok) throw new Error("HTTP " + r.status);
+      return r.json();
+    });
+  }
+
+  // r.jina.ai returns the JSON wrapped in a small text preamble; extract it.
+  function fetchViaProxy(url) {
+    return fetch("https://r.jina.ai/" + url).then(function (r) {
+      if (!r.ok) throw new Error("proxy HTTP " + r.status);
+      return r.text();
+    }).then(function (text) {
+      var start = text.indexOf('{"chart"');
+      if (start < 0) throw new Error("proxy returned no chart JSON");
+      return JSON.parse(text.slice(start));
+    });
+  }
+
+  function getBars(symbol, days) {
+    var url = yahooUrl(symbol, days);
+    return fetchDirect(url)
+      .then(function (json) { return parseYahoo(json, symbol); })
+      .catch(function () { return fetchViaProxy(url).then(function (json) { return parseYahoo(json, symbol); }); });
+  }
+
+  // ---------- scanning ----------
+  function sleep(ms) { return new Promise(function (res) { setTimeout(res, ms); }); }
+
+  function scan() {
+    var symbols = $("watchInput").value.split(/[\n,]+/).map(function (s) { return s.trim().toUpperCase(); })
+      .filter(function (s, i, a) { return s.length > 1 && a.indexOf(s) === i; });
+    if (!symbols.length) { $("msg").textContent = "Add at least one symbol."; return; }
+
+    var opts = {
+      pivotLeft: parseInt($("pLeft").value, 10) || 3,
+      pivotRight: parseInt($("pRight").value, 10) || 3,
+      trendFilter: $("trendFilter").checked,
+      showTouching: $("showTouching").checked
+    };
+    var days = parseInt($("days").value, 10);
+
+    $("scanBtn").disabled = true;
+    $("msg").textContent = "Scanning " + symbols.length + " symbols…";
+    $("resultsCard").style.display = "none";
+    $("chartCard").style.display = "none";
+
+    var rows = [], scanned = 0, skipped = 0;
+
+    symbols.reduce(function (chain, sym) {
+      return chain.then(function () {
+        return getBars(sym, days).catch(function () { return null; }).then(function (data) {
+          scanned++;
+          if (!data || data.bars.length < BARS_NEEDED) { skipped++; }
+          else {
+            var res = window.LfcScanner.computeZones(data.bars, opts);
+            if (!res) { skipped++; }
+            else if (window.LfcScanner.includeRow(res, opts)) {
+              rows.push({ sym: sym, res: res, bars: data.bars });
+            }
+          }
+          $("stScanned").textContent = scanned;
+          $("stSkipped").textContent = skipped;
+          return sleep(250);   // gentle pace for the free data source
+        });
+      });
+    }, Promise.resolve()).then(function () {
+      $("scanBtn").disabled = false;
+      $("msg").textContent = skipped
+        ? "Done — " + skipped + " symbol(s) could not be fetched (bad symbol or data source hiccup)."
+        : "Done.";
+      render(rows);
+    });
+  }
+
+  function fmtZone(res) {
+    if (res.demandTop == null) return "No zone";
+    return res.demandBottom.toFixed(2) + " – " + res.demandTop.toFixed(2);
+  }
+
+  function trendTag(t) {
+    var cls = t === "UPTREND" ? "up" : (t === "DOWNTREND" ? "down" : "side");
+    return '<span class="tag ' + cls + '">' + t + "</span>";
+  }
+
+  function posTag(res) {
+    if (res.insideDemand) return '<span class="tag in">INSIDE</span>';
+    if (res.touchingDemand) return '<span class="tag touch">TOUCHING</span>';
+    return "—";
+  }
+
+  function render(rows) {
+    if (!rows.length) {
+      $("msg").textContent = "No stocks matched the selected conditions.";
+      return;
+    }
+    var inside = rows.filter(function (r) { return r.res.insideDemand; }).length;
+    $("stInside").textContent = inside;
+    $("stTouch").textContent = rows.length - inside;
+
+    var body = $("resultsBody");
+    body.innerHTML = "";
+    rows.forEach(function (r, idx) {
+      var tr = document.createElement("tr");
+      var volTxt = "—";
+      if (r.res.avgVol20 && r.res.lastVol) {
+        var ratio = r.res.lastVol / r.res.avgVol20;
+        volTxt = (ratio >= 1 ? "+" : "") + Math.round((ratio - 1) * 100) + "%";
+      }
+      tr.innerHTML =
+        "<td><b>" + r.sym + "</b></td>" +
+        "<td>" + r.res.price.toFixed(2) + "</td>" +
+        "<td>" + trendTag(r.res.trend) + "</td>" +
+        "<td>" + fmtZone(r.res) + "</td>" +
+        "<td>" + posTag(r.res) + "</td>" +
+        "<td>" + (r.res.zoneCreated || "—") + "</td>" +
+        "<td>" + volTxt + "</td>" +
+        '<td><button class="ghost" data-chart="' + idx + '">Chart</button></td>';
+      body.appendChild(tr);
+    });
+    $("resultsCard").style.display = "";
+
+    body.onclick = function (ev) {
+      var b = ev.target.closest("[data-chart]");
+      if (b) drawChart(rows[parseInt(b.getAttribute("data-chart"), 10)]);
+    };
+    drawChart(rows[0]);
+  }
+
+  // ---------- minimal canvas chart: close line, EMA20, demand zones ----------
+  function drawChart(row) {
+    if (!row) return;
+    var bars = row.bars, res = row.res;
+    var show = bars.slice(-180);
+    var offset = bars.length - show.length;
+
+    var cvs = $("chart"), ctx = cvs.getContext("2d");
+    var W = cvs.width = cvs.clientWidth * 2;   // crisp on HiDPI
+    var H = cvs.height = 680;
+    ctx.scale(1, 1);
+
+    var min = Math.min.apply(null, show.map(function (b) { return b.low; }));
+    var max = Math.max.apply(null, show.map(function (b) { return b.high; }));
+    var pad = (max - min) * 0.06;
+    min -= pad; max += pad;
+
+    function X(i) { return (i / (show.length - 1)) * (W - 80) + 40; }
+    function Y(p) { return H - 40 - ((p - min) / (max - min)) * (H - 70); }
+
+    ctx.clearRect(0, 0, W, H);
+    ctx.fillStyle = "#0b0f0e"; ctx.fillRect(0, 0, W, H);
+
+    // demand zones (green) and supply zones (red)
+    function zones(zs, fill) {
+      zs.forEach(function (z) {
+        var zi = z.pivotIndex - offset;
+        if (zi < 0) zi = 0;
+        if (zi > show.length - 1) return;
+        ctx.fillStyle = fill;
+        ctx.globalAlpha = 0.16;
+        ctx.fillRect(X(zi), Y(z.top), W - 40 - X(zi), Y(z.bottom) - Y(z.top));
+        ctx.globalAlpha = 1;
+      });
+    }
+    zones(res.demandZones, "#10b981");
+    zones(res.supplyZones, "#ef4444");
+
+    // close line
+    function line(vals, color, width) {
+      ctx.strokeStyle = color; ctx.lineWidth = width || 2; ctx.beginPath();
+      vals.forEach(function (v, i) { i ? ctx.lineTo(X(i), Y(v)) : ctx.moveTo(X(i), Y(v)); });
+      ctx.stroke();
+    }
+    line(show.map(function (b) { return b.close; }), "#e8efe9", 2);
+    line(res.ema20.slice(offset), "#7fc0ef", 1.5);
+    line(res.ema50.slice(offset), "#d8c76a", 1.5);
+
+    // last price marker
+    var lastY = Y(res.price);
+    ctx.fillStyle = "#10b981";
+    ctx.fillRect(W - 78, lastY - 9, 70, 18);
+    ctx.fillStyle = "#04241a";
+    ctx.font = "bold 12px monospace";
+    ctx.fillText(res.price.toFixed(1), W - 72, lastY + 4);
+
+    // axis labels
+    ctx.fillStyle = "#6f7f76"; ctx.font = "11px monospace";
+    [0, 0.25, 0.5, 0.75, 1].forEach(function (f) {
+      var p = max - f * (max - min);
+      ctx.fillText(p.toFixed(0), 2, Y(p) + 4);
+    });
+
+    $("chartTitle").textContent = row.sym + " — close, EMA20 (blue), EMA50 (gold), demand zones shaded green";
+    $("chartNote").textContent = "Zones drawn from their pivot bar to the right edge. A zone disappears once a daily close trades through it.";
+    $("chartCard").style.display = "";
+  }
+
+  // ---------- boot ----------
+  $("watchInput").value = loadWatch().join(", ");
+  $("saveWatch").onclick = saveWatch;
+  $("scanBtn").onclick = scan;
+  if (!window.LfcAuth || !window.LfcAuth.current()) {
+    location.replace("signin.html?next=scanner.html");
+  }
+})();
+</script>
+</body>
+</html>
