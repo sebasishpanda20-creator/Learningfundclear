@@ -446,6 +446,103 @@ professional before making an investment decision.</p>
     });
   }
 
+  function fmtZone(res) {
+    if (res.demandTop == null) return "No zone";
+    return res.demandBottom.toFixed(2) + " – " + res.demandTop.toFixed(2);
+  }
+
+  function volText(res) {
+    if (res.avgVol20 && res.lastVol) {
+      var ratio = res.lastVol / res.avgVol20;
+      return (ratio >= 1 ? "+" : "") + Math.round((ratio - 1) * 100) + "%";
+    }
+    return "—";
+  }
+
+  function distText(res) {
+    if (res.distDemand == null) return "—";
+    if (res.distDemand === 0) return "in zone";
+    return (res.distDemand * 100).toFixed(1) + "%";
+  }
+
+  // CSV export of the current scan, like the reference's Download Results button.
+  function downloadCSV() {
+    if (!lastRows.length) return;
+    function cell(v) {
+      v = v == null ? "" : String(v);
+      return /[,\"\n]/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v;
+    }
+    var head = ["Symbol", "Price", "Trend", "Demand Zone", "Position", "Dist to zone", "Zone Date", "Vol vs 20d"];
+    var lines = [head.join(",")];
+    lastRows.forEach(function (r) {
+      lines.push([
+        cell(r.sym),
+        cell(r.res.price.toFixed(2)),
+        cell(r.res.trend),
+        cell(fmtZone(r.res)),
+        cell(r.res.insideDemand ? "INSIDE" : (r.res.touchingDemand ? "TOUCHING" : "")),
+        cell(distText(r.res)),
+        cell(r.res.zoneCreated || ""),
+        cell(volText(r.res))
+      ].join(","));
+    });
+    // BOM so Excel opens the UTF-8 file correctly
+    var blob = new Blob(["\ufeff" + lines.join("\r\n")], { type: "text/csv;charset=utf-8" });
+    var a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = "demand-zone-results-" + new Date().toISOString().slice(0, 10) + ".csv";
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(function () { URL.revokeObjectURL(a.href); }, 2000);
+  }
+
+  function trendTag(t) {
+    var cls = t === "UPTREND" ? "up" : (t === "DOWNTREND" ? "down" : "side");
+    return '<span class="tag ' + cls + '">' + t + "</span>";
+  }
+
+  function posTag(res) {
+    if (res.insideDemand) return '<span class="tag in">INSIDE</span>';
+    if (res.touchingDemand) return '<span class="tag touch">TOUCHING</span>';
+    return "—";
+  }
+
+  function render(rows) {
+    lastRows = rows;
+    if (!rows.length) {
+      $("msg").textContent = "No stocks matched the selected conditions.";
+      return;
+    }
+    var inside = rows.filter(function (r) { return r.res.insideDemand; }).length;
+    $("stInside").textContent = inside;
+    $("stTouch").textContent = rows.length - inside;
+
+    var body = $("resultsBody");
+    body.innerHTML = "";
+    rows.forEach(function (r, idx) {
+      var tr = document.createElement("tr");
+      tr.innerHTML =
+        "<td><b>" + r.sym + "</b></td>" +
+        "<td>" + r.res.price.toFixed(2) + "</td>" +
+        "<td>" + trendTag(r.res.trend) + "</td>" +
+        "<td>" + fmtZone(r.res) + "</td>" +
+        "<td>" + posTag(r.res) + "</td>" +
+        "<td>" + distText(r.res) + "</td>" +
+        "<td>" + (r.res.zoneCreated || "—") + "</td>" +
+        "<td>" + volText(r.res) + "</td>" +
+        '<td><button class="ghost" data-chart="' + idx + '">Chart</button></td>';
+      body.appendChild(tr);
+    });
+    $("resultsCard").style.display = "";
+
+    body.onclick = function (ev) {
+      var b = ev.target.closest("[data-chart]");
+      if (b) drawChart(rows[parseInt(b.getAttribute("data-chart"), 10)]);
+    };
+    drawChart(rows[0]);
+  }
+
   // ---------- minimal canvas chart: close line, EMA20, demand zones ----------
   function drawChart(row) {
     if (!row) return;
