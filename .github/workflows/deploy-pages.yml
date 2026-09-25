@@ -1,4 +1,4 @@
-# GitHub Pages deployment — FundClear India
+# GitHub Pages deployment — LearningFundClear India
 #
 # Runs the data refresh nightly, checks the site, then publishes it.
 # No secrets, no server, no build step: the published artifact is this repository folder.
@@ -40,8 +40,8 @@ jobs:
           if git diff --quiet -- assets/js/data.js; then
             echo "Data unchanged."
           else
-            git config user.name  "fundclear-bot"
-            git config user.email "fundclear-bot@users.noreply.github.com"
+            git config user.name  "Learningfundclear-bot"
+            git config user.email "Learningfundclear-bot@users.noreply.github.com"
             git add assets/js/data.js
             git commit -m "data: refresh NAV snapshot"
             git push

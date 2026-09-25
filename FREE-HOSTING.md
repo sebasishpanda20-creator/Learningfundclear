@@ -1,4 +1,4 @@
-# Free hosting and a free domain — FundClear India
+# Free hosting and a free domain — LearningFundClear India
 
 This folder is built to be hosted **for ₹0 a month, forever**, with no server to run and no
 backend to pay for. This document says exactly what is already configured here, what only
@@ -44,7 +44,7 @@ secret, no paid tier.
 
 | Lane | Free address you get | Free data refresh | HTTPS | Catch |
 |---|---|---|---|---|
-| **GitHub Pages** | `<user>.github.io/fundclear` | **Yes** — nightly Action included | Yes | Public repo; Pages source must be set to "GitHub Actions" |
+| **GitHub Pages** | `<user>.github.io/Learningfundclear` | **Yes** — nightly Action included | Yes | Public repo; Pages source must be set to "GitHub Actions" |
 | **Netlify** | `<name>.netlify.app` | Only if you connect the repo | Yes | 100 GB bandwidth/month, then politely throttled |
 | **Cloudflare Pages** | `<name>.pages.dev` | Only if you connect the repo | Yes | Unlimited requests and bandwidth — the most generous |
 

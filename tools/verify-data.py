@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-FundClear India - data integrity check
+LearningFundClear India - data integrity check
 ======================================
 
 Answers one question honestly: does everything on the site actually appear in AMFI's
@@ -28,7 +28,7 @@ import sys
 import urllib.request
 
 NAV_URL = "https://www.amfiindia.com/spages/NAVAll.txt"
-USER_AGENT = "Mozilla/5.0 (compatible; FundClearIndia/1.0; +data verification)"
+USER_AGENT = "Mozilla/5.0 (compatible; LearningFundClearIndia/1.0; +data verification)"
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 PROJECT = os.path.dirname(HERE)
@@ -69,7 +69,7 @@ def parse_published(text):
 
 def load_dataset(path):
     source = open(path, encoding="utf-8").read()
-    start = source.index("window.FUNDCLEAR")
+    start = source.index("window.LEARNINGFUNDCLEAR")
     payload = source[source.index("{", start): source.rindex("};") + 1]
     return json.loads(payload)
 
@@ -88,7 +88,7 @@ def main():
     parser.add_argument("--offline", metavar="FILE", help="check against a saved copy of NAVAll.txt")
     args = parser.parse_args()
 
-    print("FundClear data verification")
+    print("LearningFundClear data verification")
     if args.offline:
         print(f"  source : {args.offline} (offline copy)")
         text = open(args.offline, encoding="utf-8", errors="replace").read()

@@ -1,5 +1,5 @@
 /*!
- * FundClear India - page shell
+ * LearningFundClear India - page shell
  * Active-nav marking, the live data strip, footer year, and the compliance strings
  * that must appear on every page.
  */
@@ -10,7 +10,7 @@
   var ui = FC.ui;
 
   /** Shown on every page. Keep the wording intact: it is the compliance layer. */
-  var RISK_LINE = 'FundClear is not a SEBI-registered research analyst or investment adviser, and nothing here is '
+  var RISK_LINE = 'LearningFundClear is not a SEBI-registered research analyst or investment adviser, and nothing here is '
     + 'a recommendation to buy or sell any scheme. Mutual fund investments are subject to market risks; read all '
     + 'scheme-related documents carefully. Past performance does not indicate future results.';
 

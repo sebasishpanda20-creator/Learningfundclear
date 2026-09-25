@@ -1,5 +1,5 @@
 /*!
- * FundClear India - calculators
+ * LearningFundClear India - calculators
  * Three arithmetic tools, all driven by FC.calc. Nothing here predicts a return:
  * the expected-return box is yours to set, and the output is labelled as arithmetic.
  */
@@ -65,7 +65,7 @@
       statBox('Difference', ui.inr(result.gain, 0), 'arithmetic, not a promise')
     ]));
     host.appendChild(el('p', { class: 'card-note', style: { marginTop: '10px' } }, [
-      'Based on an assumed return of ' + ui.pct(value('sip-rate'), 1) + ' a year, which you typed — FundClear has no view on what any fund will return.'
+      'Based on an assumed return of ' + ui.pct(value('sip-rate'), 1) + ' a year, which you typed — LearningFundClear has no view on what any fund will return.'
     ]));
   }
 
@@ -111,7 +111,7 @@
 
     host.appendChild(el('p', { class: 'card-note', style: { marginTop: '10px' } }, [
       'This compares one portfolio held two ways. Both plans invest alike; the Regular plan simply pays more out of the same returns. ',
-      el('span', { class: 'tag-assumed', text: 'The TER figures are yours to set — FundClear does not publish per-scheme expense ratios.' })
+      el('span', { class: 'tag-assumed', text: 'The TER figures are yours to set — LearningFundClear does not publish per-scheme expense ratios.' })
     ]));
   }
 

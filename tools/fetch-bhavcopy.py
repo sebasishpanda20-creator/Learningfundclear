@@ -25,7 +25,7 @@ IMPORTANT - the compliance line this tool sits behind
 -----------------------------------------------------
 This tool is for YOUR PERSONAL USE AND ANALYSIS ONLY. Exchange data is
 licensed, not owned: the moment bhavcopy prices end up displayed on the
-public FundClear site (or any public page), you are redistributing licensed
+public LearningFundClear site (or any public page), you are redistributing licensed
 data and need exchange approval. Keep the output directory out of the site
 (it already is: data/ is not referenced by any page) and do not commit it
 to a public repo. Personal analysis is the carve-out everyone's terms allow;
@@ -51,7 +51,7 @@ import urllib.request
 import zipfile
 
 BASE = os.path.dirname(os.path.abspath(__file__))
-# This script lives in two places: <project>/tools in the public FundClear repo,
+# This script lives in two places: <project>/tools in the public LearningFundClear repo,
 # and at the root of the private bhavcopy-data repo (where the nightly workflow
 # runs `python3 fetch-bhavcopy.py` and commits `data/`). Either way the CSVs
 # belong in <project>/data/bhavcopy, so only step up out of a tools/ folder.

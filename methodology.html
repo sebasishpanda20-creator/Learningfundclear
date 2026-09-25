@@ -3,8 +3,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Methodology — FundClear India</title>
-<meta name="description" content="Where FundClear's data comes from, what it excludes, why expense ratios are labelled assumptions, and the exact calculator formulas.">
+<title>Methodology — LearningFundClear India</title>
+<meta name="description" content="Where LearningFundClear's data comes from, what it excludes, why expense ratios are labelled assumptions, and the exact calculator formulas.">
 <link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
 <link rel="stylesheet" href="assets/css/style.css">
 </head>
@@ -20,7 +20,7 @@
         <rect x="14" y="5" width="4" height="17" rx="1.2" fill="#5bbf99"></rect>
         <rect x="20" y="10" width="2.5" height="12" rx="1.2" fill="#8ad6b8"></rect>
       </svg>
-      <span>FundClear India<small>data, not advice</small></span>
+      <span>LearningFundClear India<small>data, not advice</small></span>
     </a>
     <nav class="site-nav" aria-label="Primary">
       <a href="index.html">Home</a>
@@ -47,7 +47,7 @@
       <header>
         <h1 style="font-size:22px">Methodology</h1>
         <p class="section-note">
-          FundClear is a small dataset and a few formulas. This page documents both, so the site can be audited
+          LearningFundClear is a small dataset and a few formulas. This page documents both, so the site can be audited
           rather than trusted.
         </p>
       </header>
@@ -68,7 +68,7 @@
             <li><span class="k">Funds listing both plans</span><span class="v" data-pair-count>—</span></li>
           </ul>
           <p class="card-note" style="margin-top:12px">
-            AMFI publishes this file every working day, free of charge. FundClear uses nothing else:
+            AMFI publishes this file every working day, free of charge. LearningFundClear uses nothing else:
             no NSE or BSE feeds, no scraped websites, no broker APIs, no third-party quote providers.
           </p>
         </div>
@@ -107,7 +107,7 @@
         <h2 style="font-size:17px">Why expense ratios are assumptions, not data</h2>
         <p>
           Expense ratio (TER) is the single most useful number for the Direct-versus-Regular comparison, and it is
-          the one number AMFI does <em>not</em> publish in a machine-readable file. FundClear checked: the
+          the one number AMFI does <em>not</em> publish in a machine-readable file. LearningFundClear checked: the
           <code>TERAll.txt</code> path that older tools referenced now returns HTTP 404, and the public pages expose
           no equivalent file.
         </p>
@@ -211,9 +211,9 @@ python tools/verify-data.py          # checks the result against AMFI's file, fi
 
     <section class="section">
       <div class="card">
-        <h2 style="font-size:17px">What FundClear does not do</h2>
+        <h2 style="font-size:17px">What LearningFundClear does not do</h2>
         <ul>
-          <li>No buy, sell or hold calls on any scheme or security — FundClear is not registered as a research analyst or investment adviser, and does not give advice.</li>
+          <li>No buy, sell or hold calls on any scheme or security — LearningFundClear is not registered as a research analyst or investment adviser, and does not give advice.</li>
           <li>No expected, assured or projected returns. Ever.</li>
           <li>No ranking of funds by "best", no model portfolios, no tips, no subscription signals.</li>
           <li>No exchange price data, stock screener or IPO grey-market premium.</li>
@@ -233,7 +233,7 @@ python tools/verify-data.py          # checks the result against AMFI's file, fi
   <div class="wrap">
     <div class="cols">
       <div>
-        <h4>FundClear India</h4>
+        <h4>LearningFundClear India</h4>
         <p>A static, independent view of Indian mutual fund data. One data file, no backend, no bill.</p>
         <p class="small">Data: <span data-source>AMFI</span>, snapshot taken <span data-fetched-at>—</span>.</p>
       </div>
@@ -257,7 +257,7 @@ python tools/verify-data.py          # checks the result against AMFI's file, fi
       </div>
     </div>
     <p class="risk-line" data-risk-line></p>
-    <p class="small">© <span data-year>2026</span> FundClear India. Not affiliated with AMFI, NSE, BSE or any fund house.</p>
+    <p class="small">© <span data-year>2026</span> LearningFundClear India. Not affiliated with AMFI, NSE, BSE or any fund house.</p>
   </div>
 </footer>
 

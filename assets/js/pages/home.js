@@ -1,5 +1,5 @@
 /*!
- * FundClear India - home page
+ * LearningFundClear India - home page
  * Shows what the site is, the single most useful comparison it can make from real
  * NAV data (same fund, two plans), and a way into the directory.
  */

@@ -1,15 +1,15 @@
 /*!
- * FundClear India - data access layer
+ * LearningFundClear India - data access layer
  *
  * Everything the pages know about schemes comes through here, and everything here
  * comes from the one generated file (assets/js/data.js, built by tools/refresh-data.py).
- * Keep it that way: no page should reach into window.FUNDCLEAR directly.
+ * Keep it that way: no page should reach into window.LEARNINGFUNDCLEAR directly.
  */
 (function (global) {
   'use strict';
 
   var FC = global.FC = global.FC || {};
-  var DATA = global.FUNDCLEAR;
+  var DATA = global.LEARNINGFUNDCLEAR;
   var ui = FC.ui;
 
   function meta() { return DATA.meta; }

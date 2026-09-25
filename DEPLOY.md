@@ -1,4 +1,4 @@
-# Deploying FundClear India
+# Deploying LearningFundClear India
 
 Three free lanes, all of them HTTPS and none of them with a bill. Pick one.
 The long version — free domains, DNS records, troubleshooting — is in
@@ -13,27 +13,27 @@ Nothing here needs a build step. What you deploy is this folder, as it is.
 Best lane, because the included workflow also refreshes the NAV data every night.
 
 ```bash
-cd fundclear
+cd Learningfundclear
 git init -b main
 git add .
-git commit -m "FundClear India: initial static site"
-gh repo create fundclear --public --source=. --push     # needs the GitHub CLI, logged in
+git commit -m "LearningFundClear India: initial static site"
+gh repo create Learningfundclear --public --source=. --push     # needs the GitHub CLI, logged in
 ```
 
 Then, in the repository on github.com: **Settings → Pages → Build and deployment →
 Source: GitHub Actions**. The included workflow takes over on the next push and publishes
-the site at `https://<your-user>.github.io/fundclear/`.
+the site at `https://<your-user>.github.io/Learningfundclear/`.
 
 No `gh` CLI? Create an empty public repository in the browser, then:
 
 ```bash
-git remote add origin https://github.com/<your-user>/fundclear.git
+git remote add origin https://github.com/<your-user>/Learningfundclear.git
 git push -u origin main
 ```
 
 ## Lane 2 — Netlify (fastest, drag and drop)
 
-Go to <https://app.netlify.com/drop> and drag the `fundclear` folder onto the page.
+Go to <https://app.netlify.com/drop> and drag the `Learningfundclear` folder onto the page.
 It is live in about ten seconds at `https://<random-name>.netlify.app`. Rename it under
 **Site configuration → Change site name**. `netlify.toml` in this folder is picked up
 automatically, so caching, the 404 fallback and the security headers are already set.
@@ -51,7 +51,7 @@ the security headers apply here too.
 Or, from the command line, without git:
 
 ```bash
-npx wrangler pages deploy . --project-name fundclear
+npx wrangler pages deploy . --project-name Learningfundclear
 ```
 
 ---

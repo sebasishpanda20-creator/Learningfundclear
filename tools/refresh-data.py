@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-FundClear India - data refresh
+LearningFundClear India - data refresh
 ==============================
 
 Regenerates assets/js/data.js from AMFI's publicly published NAV file.
@@ -52,7 +52,7 @@ import sys
 import urllib.request
 
 NAV_URL = "https://www.amfiindia.com/spages/NAVAll.txt"
-USER_AGENT = "Mozilla/5.0 (compatible; FundClearIndia/1.0; +static data refresh)"
+USER_AGENT = "Mozilla/5.0 (compatible; LearningFundClearIndia/1.0; +static data refresh)"
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 PROJECT = os.path.dirname(HERE)
@@ -369,10 +369,10 @@ def build(rows, source_rows, skipped, dropped_stale):
 
     return {
         "meta": {
-            "site": "FundClear India",
+            "site": "LearningFundClear India",
             "source": "AMFI NAVAll.txt",
             "sourceUrl": NAV_URL,
-            "sourceNote": ("AMFI publishes this file every working day. FundClear does not use "
+            "sourceNote": ("AMFI publishes this file every working day. LearningFundClear does not use "
                            "NSE or BSE price feeds and does not redistribute licensed exchange data."),
             "fetchedAt": dt.datetime.now().astimezone().strftime("%d %b %Y, %H:%M %Z"),
             "navDates": nav_dates,
@@ -403,7 +403,7 @@ def write_js(payload, out_path):
     meta = payload["meta"]
     js = (
         "/*!\n"
-        " * FundClear India - site data  (GENERATED FILE - do not hand-edit)\n"
+        " * LearningFundClear India - site data  (GENERATED FILE - do not hand-edit)\n"
         " *\n"
         f" * Source  : {meta['source']} ({meta['sourceUrl']})\n"
         f" * Fetched : {meta['fetchedAt']}\n"
@@ -413,7 +413,7 @@ def write_js(payload, out_path):
         " * Expense ratios are NOT in this file - see tools/refresh-data.py for why.\n"
         " * Regenerate with:  python tools/refresh-data.py\n"
         " */\n"
-        f"window.FUNDCLEAR = {body};\n"
+        f"window.LEARNINGFUNDCLEAR = {body};\n"
     )
     os.makedirs(os.path.dirname(out_path), exist_ok=True)
     with open(out_path, "w", encoding="utf-8", newline="\n") as handle:
@@ -422,7 +422,7 @@ def write_js(payload, out_path):
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Refresh FundClear's data file from AMFI.")
+    parser = argparse.ArgumentParser(description="Refresh LearningFundClear's data file from AMFI.")
     parser.add_argument("--check", action="store_true", help="report only, write nothing")
     parser.add_argument("--url", default=NAV_URL, help="override the NAV file URL")
     parser.add_argument("--out", default=OUT_PATH, help="output JS path")

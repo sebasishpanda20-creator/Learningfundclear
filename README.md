@@ -1,4 +1,4 @@
-# FundClear India
+# LearningFundClear India
 
 A small, static, independent website that publishes Indian mutual fund data — and does
 nothing else. No recommendations, no return projections, no backend, no bill.
@@ -80,7 +80,7 @@ clone without the hook still behaves normally.
 ## Structure
 
 ```
-fundclear/
+Learningfundclear/
 ├─ index.html            what the site is, live latest-NAV date, the Direct-vs-Regular insight
 ├─ funds.html            every scheme: search, filters, sorts, URL-synced
 ├─ scheme.html           one scheme: facts, sibling plan, same-category peers

@@ -1,5 +1,5 @@
 /*!
- * FundClear India - single scheme page
+ * LearningFundClear India - single scheme page
  * Reads ?code= (AMFI scheme code) and renders one scheme, its other plan if it has
  * one, the expense-ratio assumption, and same-category peers.
  */
@@ -25,7 +25,7 @@
   }
 
   function render(scheme) {
-    document.title = scheme.name + ' — FundClear India';
+    document.title = scheme.name + ' — LearningFundClear India';
     document.getElementById('missing').hidden = true;
     document.getElementById('scheme-body').hidden = false;
 
@@ -110,7 +110,7 @@
     terHost.appendChild(el('div', { class: 'card' }, [
       el('h3', { text: 'Expense ratio (assumed)' }),
       el('p', { class: 'card-note' }, [
-        'FundClear does not publish a per-scheme expense ratio, because AMFI has no machine-readable TER file. ',
+        'LearningFundClear does not publish a per-scheme expense ratio, because AMFI has no machine-readable TER file. ',
         el('span', { class: 'tag-assumed', text: 'These are illustrative industry ranges, not this fund\'s actual figures.' }),
         ' Check the fund\'s factsheet for the real number.'
       ]),
