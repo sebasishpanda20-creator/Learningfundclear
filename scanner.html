@@ -164,6 +164,7 @@ professional before making an investment decision.</p>
     "LT.NS", "ULTRACEMCO.NS", "GRASIM.NS", "ADANIPORTS.NS", "DMART.NS", "TITAN.NS"
   ];
   var BARS_NEEDED = 100;
+  var SETTINGS_KEY = "lfc.scanSettings";
 
   // ---------- symbol normalization ----------
   // Accepts pasted CSV/lines/mixed junk and returns clean Yahoo-style symbols.
@@ -321,6 +322,14 @@ professional before making an investment decision.</p>
       maxDistPct: distRaw === "" ? null : Math.max(0, parseFloat(distRaw)) / 100,
       minVolRatio: $("volFilter").checked ? 1 : null
     };
+    // remember exactly what was used, so tomorrow's visit starts here
+    try {
+      localStorage.setItem(SETTINGS_KEY, JSON.stringify({
+        pLeft: $("pLeft").value, pRight: $("pRight").value, days: $("days").value,
+        trendFilter: $("trendFilter").checked, showTouching: $("showTouching").checked,
+        maxDist: $("maxDist").value, volFilter: $("volFilter").checked
+      }));
+    } catch (e) {}
     var days = parseInt($("days").value, 10);
 
     $("scanBtn").disabled = true;
@@ -524,6 +533,21 @@ professional before making an investment decision.</p>
   }
 
   // ---------- boot ----------
+  // ---------- restore last-used settings ----------
+  (function restoreSettings() {
+    try {
+      var s = JSON.parse(localStorage.getItem(SETTINGS_KEY) || "null");
+      if (!s) return;
+      if (s.pLeft != null) $("pLeft").value = s.pLeft;
+      if (s.pRight != null) $("pRight").value = s.pRight;
+      if (s.days != null) $("days").value = s.days;
+      if (s.trendFilter != null) $("trendFilter").checked = !!s.trendFilter;
+      if (s.showTouching != null) $("showTouching").checked = !!s.showTouching;
+      if (s.maxDist != null) $("maxDist").value = s.maxDist;
+      if (s.volFilter != null) $("volFilter").checked = !!s.volFilter;
+    } catch (e) {}
+  })();
+
   $("watchInput").value = loadWatch().join(", ");
   $("saveWatch").onclick = saveWatch;
   $("scanBtn").onclick = scan;
