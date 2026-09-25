@@ -279,8 +279,15 @@ professional before making an investment decision.</p>
     return bars.length ? { symbol: symbol, bars: bars } : null;
   }
 
+  // fetch with a hard timeout — a hung response must never hold a worker forever
+  function fetchT(url, ms) {
+    var ctrl = new AbortController();
+    var timer = setTimeout(function () { ctrl.abort(); }, ms);
+    return fetch(url, { signal: ctrl.signal }).finally(function () { clearTimeout(timer); });
+  }
+
   function fetchDirect(url) {
-    return fetch(url).then(function (r) {
+    return fetchT(url, 15000).then(function (r) {
       if (!r.ok) throw new Error("HTTP " + r.status);
       return r.json();
     });
@@ -288,7 +295,7 @@ professional before making an investment decision.</p>
 
   // r.jina.ai returns the JSON wrapped in a small text preamble; extract it.
   function fetchViaProxy(url) {
-    return fetch("https://r.jina.ai/" + url).then(function (r) {
+    return fetchT("https://r.jina.ai/" + url, 25000).then(function (r) {
       if (!r.ok) throw new Error("proxy HTTP " + r.status);
       return r.text();
     }).then(function (text) {
