@@ -305,9 +305,37 @@ professional before making an investment decision.</p>
       .catch(function () { return fetchViaProxy(url).then(function (json) { return parseYahoo(json, symbol); }); });
   }
 
-  // ---------- scanning ----------
+  // The data proxy rate-limits bursts (observed 429s on back-to-back waves), so fetch
+  // through a small worker pool and retry failures with backoff instead of queueing
+  // everything one-by-one at a fixed pace.
   function sleep(ms) { return new Promise(function (res) { setTimeout(res, ms); }); }
 
+  function getBarsWithRetry(symbol, days) {
+    var delays = [1500, 3500, 6000];
+    function attempt(n) {
+      return getBars(symbol, days).catch(function (e) {
+        if (n >= delays.length) return null;         // give up: symbol counted as skipped
+        return sleep(delays[n]).then(function () { return attempt(n + 1); });
+      });
+    }
+    return attempt(0);
+  }
+
+  function runPool(items, limit, worker) {
+    var next = 0;
+    function launch() {
+      if (next >= items.length) return Promise.resolve();
+      var i = next++;
+      return Promise.resolve()
+        .then(function () { return worker(items[i], i); })
+        .then(launch);
+    }
+    var pool = [];
+    for (var k = 0; k < Math.min(limit, items.length); k++) pool.push(launch());
+    return Promise.all(pool);
+  }
+
+  // ---------- scanning ----------
   function scan() {
     var symbols = $("watchInput").value.split(/[\n,]+/).map(function (s) { return s.trim().toUpperCase(); })
       .filter(function (s, i, a) { return s.length > 1 && a.indexOf(s) === i; });
@@ -333,35 +361,47 @@ professional before making an investment decision.</p>
     var days = parseInt($("days").value, 10);
 
     $("scanBtn").disabled = true;
-    $("msg").textContent = "Scanning " + symbols.length + " symbols…";
+    $("msg").textContent = "Scanning " + symbols.length + " symbols (5 at a time)…";
     $("resultsCard").style.display = "none";
     $("chartCard").style.display = "none";
+    $("stInside").textContent = "—";
+    $("stTouch").textContent = "—";
 
     var rows = [], scanned = 0, skipped = 0;
+    var rendered = false;
 
-    symbols.reduce(function (chain, sym) {
-      return chain.then(function () {
-        return getBars(sym, days).catch(function () { return null; }).then(function (data) {
-          scanned++;
-          if (!data || data.bars.length < BARS_NEEDED) { skipped++; }
-          else {
-            var res = window.LfcScanner.computeZones(data.bars, opts);
-            if (!res) { skipped++; }
-            else if (window.LfcScanner.includeRow(res, opts)) {
-              rows.push({ sym: sym, res: res, bars: data.bars });
-            }
-          }
-          $("stScanned").textContent = scanned;
-          $("stSkipped").textContent = skipped;
-          return sleep(250);   // gentle pace for the free data source
-        });
-      });
-    }, Promise.resolve()).then(function () {
+    function account(sym, data) {
+      scanned++;
+      if (!data || data.bars.length < BARS_NEEDED) {
+        skipped++;
+      } else {
+        var res = window.LfcScanner.computeZones(data.bars, opts);
+        if (!res) { skipped++; }
+        else if (window.LfcScanner.includeRow(res, opts)) {
+          rows.push({ sym: sym, res: res, bars: data.bars });
+          rows.sort(function (a, b) { return a.sym < b.sym ? -1 : 1; });
+          render(rows);   // progressive: results appear as they arrive
+          rendered = true;
+        }
+      }
+      $("stScanned").textContent = scanned;
+      $("stSkipped").textContent = skipped;
+      $("stInside").textContent = rows.filter(function (r) { return r.res.insideDemand; }).length;
+    }
+
+    runPool(symbols, 5, function (sym) {
+      return getBarsWithRetry(sym, days).then(function (data) { account(sym, data); });
+    }).then(function () {
       $("scanBtn").disabled = false;
-      $("msg").textContent = skipped
-        ? "Done — " + skipped + " symbol(s) could not be fetched (bad symbol or data source hiccup)."
-        : "Done.";
-      render(rows);
+      if (rendered) {
+        $("msg").textContent = skipped
+          ? "Done — " + skipped + " symbol(s) could not be fetched (bad symbol or data source hiccup)."
+          : "Done.";
+      } else {
+        $("msg").textContent = skipped
+          ? "No stocks matched, and " + skipped + " symbol(s) could not be fetched."
+          : "No stocks matched the selected conditions.";
+      }
     });
   }
 
