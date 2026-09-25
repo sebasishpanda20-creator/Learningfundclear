@@ -33,6 +33,7 @@
     width: 100%; margin-top: 16px; padding: 12px; border: 0; border-radius: 10px;
     background: #6d5df1; color: #fff; font-size: 15px; font-weight: 600; cursor: pointer;
   }
+  a.primary { display: block; text-align: center; text-decoration: none; }
   button.primary:disabled { opacity: .6; cursor: wait; }
   .msg { min-height: 18px; font-size: 13px; color: #e8b34b; margin-top: 10px; }
   .small { font-size: 12px; color: #6f7f76; margin-top: 14px; line-height: 1.5; }
@@ -58,11 +59,12 @@
 
 <div class="card hidden" id="adminCard">
   <h2>Admin · Create sign-in</h2>
-  <p class="sub">You are signed in as an administrator. Create who you want.</p>
+  <p class="sub" id="adminWho">Signed in as an administrator. Create who you want.</p>
   <label>Username<input id="newUsername" autocomplete="off"></label>
   <label>Display name<input id="newDisplayName" autocomplete="off"></label>
   <label>Password<input id="newPassword" type="password" autocomplete="new-password"></label>
   <button class="primary" id="createUser">Create user</button>
+  <a class="primary" id="continueBtn" href="./">Continue to the portal →</a>
   <p class="small">The new user signs in on this page and gets the whole journal, subject to the roles
   you set in the journal's Admin panel.</p>
 </div>
@@ -99,6 +101,14 @@ async function activeUser(session) {
   return u && u.is_active ? u : null;
 }
 
+// Admins arrive here to mint credentials; everyone else just passes through.
+function showAdmin(u) {
+  $("loginCard").classList.add("hidden");
+  $("adminCard").classList.remove("hidden");
+  $("adminWho").textContent = (u.display_name || u.username || "") + " · administrator";
+  $("continueBtn").href = params.get("next") || "./";
+}
+
 // Returning visitor with a live session (or ?signout=1 after signing out elsewhere).
 (async () => {
   if (params.get("signout")) {
@@ -110,13 +120,9 @@ async function activeUser(session) {
   const u = await activeUser(session);
   if (u) {
     stamp(u);
+    if (u.is_admin && !params.get("next")) { showAdmin(u); return; }
     location.replace(params.get("next") || "./");
     return;
-  }
-  // Show the admin create-user panel to signed-in admins whose row lookup failed above.
-  if (session) {
-    const { data: me } = await sb.from("app_users").select("*").eq("id", session.user.id).single();
-    if (me && me.is_admin && me.is_active) $("adminCard").classList.remove("hidden");
   }
 })();
 
@@ -142,6 +148,11 @@ $("loginBtn").onclick = async () => {
     return;
   }
   stamp(uRow);
+  if (uRow.is_admin && !params.get("next")) {
+    showAdmin(uRow);
+    $("loginBtn").disabled = false;
+    return;
+  }
   location.replace(params.get("next") || "./");
 };
 
