@@ -67,7 +67,16 @@
   <div class="row">
     <div><label>Pivot left bars</label><input id="pLeft" type="number" min="1" max="10" value="3" style="width:70px"></div>
     <div><label>Pivot right bars</label><input id="pRight" type="number" min="1" max="10" value="3" style="width:70px"></div>
-    <div><label>History</label>
+    <div><label>Timeframes</label>
+      <div style="display:flex;gap:10px;flex-wrap:wrap;font-size:12px;color:#93a39a">
+        <label style="margin:0"><input type="checkbox" id="tfDaily" checked> Daily</label>
+        <label style="margin:0"><input type="checkbox" id="tfWeekly"> Weekly</label>
+        <label style="margin:0"><input type="checkbox" id="tfMonthly"> Monthly</label>
+        <label style="margin:0"><input type="checkbox" id="tfHourly"> Hourly</label>
+        <label style="margin:0"><input type="checkbox" id="tf15"> 15m (MIS)</label>
+      </div>
+    </div>
+    <div><label>Daily history</label>
       <select id="days" style="width:110px">
         <option value="365">1 year</option>
         <option value="730" selected>2 years</option>
@@ -118,7 +127,7 @@ ASHOKLEY.NS, Coal India
   </div>
   <table>
     <thead><tr>
-      <th>Symbol</th><th>Price ₹</th><th>Trend</th><th>Demand zone</th><th>Position</th><th>Dist to zone</th><th>Zone from</th><th>Vol vs 20d</th><th></th>
+      <th>Symbol</th><th>TF</th><th>Price ₹</th><th>Trend</th><th>Demand zone</th><th>Position</th><th>Dist to zone</th><th>Zone from</th><th>Vol vs 20d</th><th></th>
     </tr></thead>
     <tbody id="resultsBody"></tbody>
   </table>
@@ -164,7 +173,6 @@ professional before making an investment decision.</p>
     // Infra, cement & others
     "LT.NS", "ULTRACEMCO.NS", "GRASIM.NS", "ADANIPORTS.NS", "DMART.NS", "TITAN.NS"
   ];
-  var BARS_NEEDED = 100;
   var SETTINGS_KEY = "lfc.scanSettings";
 
   // ---------- symbol normalization ----------
@@ -259,12 +267,24 @@ professional before making an investment decision.</p>
   }
 
   // ---------- EOD data: Yahoo direct, jina.ai text proxy as fallback ----------
-  function yahooUrl(symbol, days) {
+  function yahooUrl(symbol, interval, range) {
     return "https://query1.finance.yahoo.com/v8/finance/chart/" + encodeURIComponent(symbol) +
-           "?range=" + days + "d&interval=1d";
+           "?range=" + range + "&interval=" + interval;
   }
 
-  function parseYahoo(json, symbol) {
+  var TF_ORDER = ["d", "w", "m", "1h", "15m"];
+  function selectedTFs() {
+    var days = parseInt($("days").value, 10);
+    var out = [];
+    if ($("tfDaily").checked)   out.push({ id: "d",   label: "Daily",     interval: "1d",  range: days + "d", minBars: 100 });
+    if ($("tfWeekly").checked)  out.push({ id: "w",   label: "Weekly",    interval: "1wk", range: "1095d",    minBars: 60 });
+    if ($("tfMonthly").checked) out.push({ id: "m",   label: "Monthly",   interval: "1mo", range: "3650d",    minBars: 36 });
+    if ($("tfHourly").checked)  out.push({ id: "1h",  label: "Hourly",    interval: "1h",  range: "90d",      minBars: 200 });
+    if ($("tf15").checked)      out.push({ id: "15m", label: "15m (MIS)", interval: "15m", range: "30d",      minBars: 200 });
+    return out;
+  }
+
+  function parseYahoo(json, symbol, interval) {
     var r = json && json.chart && json.chart.result && json.chart.result[0];
     if (!r || !r.timestamp) return null;
     var q = r.indicators.quote[0];
@@ -272,8 +292,15 @@ professional before making an investment decision.</p>
     for (var i = 0; i < r.timestamp.length; i++) {
       var o = q.open[i], h = q.high[i], l = q.low[i], c = q.close[i];
       if (o == null || h == null || l == null || c == null) continue;
+      var label;
+      if (interval === "1d") {
+        label = new Date(r.timestamp[i] * 1000).toISOString().slice(0, 10);
+      } else {
+        // intraday/weekly labels carry IST time so zones are traceable on the chart
+        label = new Date((r.timestamp[i] + 19800) * 1000).toISOString().slice(0, 16).replace("T", " ");
+      }
       bars.push({
-        date: new Date(r.timestamp[i] * 1000).toISOString().slice(0, 10),
+        date: label,
         open: o, high: h, low: l, close: c, volume: q.volume ? q.volume[i] : 0
       });
     }
@@ -306,11 +333,11 @@ professional before making an investment decision.</p>
     });
   }
 
-  function getBars(symbol, days) {
-    var url = yahooUrl(symbol, days);
+  function getBars(symbol, tf) {
+    var url = yahooUrl(symbol, tf.interval, tf.range);
     return fetchDirect(url)
-      .then(function (json) { return parseYahoo(json, symbol); })
-      .catch(function () { return fetchViaProxy(url).then(function (json) { return parseYahoo(json, symbol); }); });
+      .then(function (json) { return parseYahoo(json, symbol, tf.interval); })
+      .catch(function () { return fetchViaProxy(url).then(function (json) { return parseYahoo(json, symbol, tf.interval); }); });
   }
 
   // ---------- EOD bar cache ----------
@@ -318,7 +345,7 @@ professional before making an investment decision.</p>
   // the first scan of the day fetches, every rescan after that is instant.
   var CACHE_TTL = 20 * 60 * 60 * 1000;
 
-  function cacheKey(symbol, days) { return "lfc.bars." + symbol + "." + days; }
+  function cacheKey(symbol, tf) { return "lfc.bars." + symbol + "." + tf.interval + "." + tf.range; }
 
   function pruneCache() {
     try {
@@ -331,21 +358,21 @@ professional before making an investment decision.</p>
     } catch (e) {}
   }
 
-  function getBarsCached(symbol, days) {
+  function getBarsCached(symbol, tf) {
     try {
-      var c = JSON.parse(localStorage.getItem(cacheKey(symbol, days)) || "null");
-      if (c && c.bars && c.bars.length >= BARS_NEEDED && Date.now() - c.saved < CACHE_TTL) {
+      var c = JSON.parse(localStorage.getItem(cacheKey(symbol, tf)) || "null");
+      if (c && c.bars && c.bars.length >= tf.minBars && Date.now() - c.saved < CACHE_TTL) {
         cacheHits++;
         return Promise.resolve({ symbol: symbol, bars: c.bars });
       }
     } catch (e) {}
-    return getBars(symbol, days).then(function (data) {
-      if (data && data.bars.length >= BARS_NEEDED) {
+    return getBars(symbol, tf).then(function (data) {
+      if (data && data.bars.length >= tf.minBars) {
         try {
-          localStorage.setItem(cacheKey(symbol, days), JSON.stringify({ saved: Date.now(), bars: data.bars }));
+          localStorage.setItem(cacheKey(symbol, tf), JSON.stringify({ saved: Date.now(), bars: data.bars }));
         } catch (e) {
           pruneCache();
-          try { localStorage.setItem(cacheKey(symbol, days), JSON.stringify({ saved: Date.now(), bars: data.bars })); } catch (e2) {}
+          try { localStorage.setItem(cacheKey(symbol, tf), JSON.stringify({ saved: Date.now(), bars: data.bars })); } catch (e2) {}
         }
       }
       return data;
@@ -390,6 +417,9 @@ professional before making an investment decision.</p>
       .filter(function (s, i, a) { return s.length > 1 && a.indexOf(s) === i; });
     if (!symbols.length) { $("msg").textContent = "Add at least one symbol."; return; }
 
+    var tfs = selectedTFs();
+    if (!tfs.length) { $("msg").textContent = "Tick at least one timeframe."; return; }
+
     var distRaw = $("maxDist").value.trim();
     var opts = {
       pivotLeft: parseInt($("pLeft").value, 10) || 3,
@@ -403,14 +433,20 @@ professional before making an investment decision.</p>
     try {
       localStorage.setItem(SETTINGS_KEY, JSON.stringify({
         pLeft: $("pLeft").value, pRight: $("pRight").value, days: $("days").value,
+        tfs: tfs.map(function (t) { return t.id; }),
         trendFilter: $("trendFilter").checked, showTouching: $("showTouching").checked,
         maxDist: $("maxDist").value, volFilter: $("volFilter").checked
       }));
     } catch (e) {}
-    var days = parseInt($("days").value, 10);
+
+    var tasks = [];
+    symbols.forEach(function (sym) {
+      tfs.forEach(function (tf) { tasks.push({ sym: sym, tf: tf }); });
+    });
 
     $("scanBtn").disabled = true;
-    $("msg").textContent = "Scanning " + symbols.length + " symbols (5 at a time)…";
+    $("msg").textContent = "Scanning " + symbols.length + " symbols x " + tfs.length +
+      " timeframe(s) = " + tasks.length + " tasks (5 at a time)…";
     $("resultsCard").style.display = "none";
     $("chartCard").style.display = "none";
     $("stInside").textContent = "—";
@@ -418,20 +454,24 @@ professional before making an investment decision.</p>
 
     var rows = [], scanned = 0, skipped = 0, rendered = false;
     cacheHits = 0;
-    var counted = {};    // symbol -> final verdict recorded?
-    var failedOnce = {}; // symbol -> first pass could not fetch it
+    var counted = {};    // "sym|tf" -> final verdict recorded?
+    var failedOnce = {}; // "sym|tf" -> first pass could not fetch it
 
-    function verdict(sym, data) {
-      if (counted[sym]) return;
-      counted[sym] = true;
+    function verdict(task, data) {
+      var key = task.sym + "|" + task.tf.id;
+      if (counted[key]) return;
+      counted[key] = true;
       scanned++;
-      var ok = data && data.bars.length >= BARS_NEEDED;
-      if (!ok) { skipped++; failedOnce[sym] = true; }
+      var ok = data && data.bars.length >= task.tf.minBars;
+      if (!ok) { skipped++; failedOnce[key] = true; }
       if (ok) {
         var res = window.LfcScanner.computeZones(data.bars, opts);
         if (res && window.LfcScanner.includeRow(res, opts)) {
-          rows.push({ sym: sym, res: res, bars: data.bars });
-          rows.sort(function (a, b) { return a.sym < b.sym ? -1 : 1; });
+          rows.push({ sym: task.sym, tfId: task.tf.id, tf: task.tf.label, res: res, bars: data.bars });
+          rows.sort(function (a, b) {
+            if (a.sym !== b.sym) return a.sym < b.sym ? -1 : 1;
+            return TF_ORDER.indexOf(a.tfId) - TF_ORDER.indexOf(b.tfId);
+          });
           render(rows);   // progressive: results appear as they arrive
           rendered = true;
         }
@@ -443,47 +483,47 @@ professional before making an investment decision.</p>
 
     function finish(stillFailed) {
       $("scanBtn").disabled = false;
-      var tail = cacheHits ? " (" + cacheHits + " from today's cache)" : "";
+      var tail = cacheHits ? " (" + cacheHits + " from cache)" : "";
       if (rendered) {
         $("msg").textContent = stillFailed
-          ? "Done — " + stillFailed + " symbol(s) could not be fetched (bad symbol or data source hiccup)." + tail
+          ? "Done — " + stillFailed + " task(s) could not be fetched (bad symbol or data source hiccup)." + tail
           : "Done." + tail;
       } else {
         $("msg").textContent = stillFailed
-          ? "No stocks matched, and " + stillFailed + " symbol(s) could not be fetched."
+          ? "No stocks matched, and " + stillFailed + " task(s) could not be fetched."
           : "No stocks matched the selected conditions.";
       }
     }
 
     // first pass: 5 workers, single attempt each (no backoff inside the pool — a stalled
     // worker would hold a slot hostage)
-    runPool(symbols, 5, function (sym) {
-      return getBarsCached(sym, days).then(
-        function (data) { verdict(sym, data); },
-        function () { verdict(sym, null); }
+    runPool(tasks, 5, function (task) {
+      return getBarsCached(task.sym, task.tf).then(
+        function (data) { verdict(task, data); },
+        function () { verdict(task, null); }
       );
     }).then(function () {
-      var failed = symbols.filter(function (s) { return failedOnce[s]; });
+      var failed = tasks.filter(function (t) { return failedOnce[t.sym + "|" + t.tf.id]; });
       if (!failed.length) { finish(0); return; }
       // recovery pass: let the proxy cool down, then retry gently with 2 workers
-      $("msg").textContent = "Recovering " + failed.length + " rate-limited symbol(s)…";
+      $("msg").textContent = "Recovering " + failed.length + " rate-limited task(s)…";
       sleep(2500).then(function () {
-        return runPool(failed, 2, function (sym) {
-          return getBarsCached(sym, days)
-            .catch(function () { return sleep(4000).then(function () { return getBarsCached(sym, days); }); })
+        return runPool(failed, 2, function (task) {
+          return getBarsCached(task.sym, task.tf)
+            .catch(function () { return sleep(4000).then(function () { return getBarsCached(task.sym, task.tf); }); })
             .then(
               function (data) {
                 if (data) {           // recovered: undo the skip, re-judge
-                  failedOnce[sym] = false;
-                  skipped--; counted[sym] = false; scanned--;
-                  verdict(sym, data);
+                  failedOnce[task.sym + "|" + task.tf.id] = false;
+                  skipped--; counted[task.sym + "|" + task.tf.id] = false; scanned--;
+                  verdict(task, data);
                 }
               },
               function () { /* stays failed */ }
             );
         });
       }).then(function () {
-        finish(symbols.filter(function (s) { return failedOnce[s]; }).length);
+        finish(tasks.filter(function (t) { return failedOnce[t.sym + "|" + t.tf.id]; }).length);
       });
     });
   }
@@ -514,11 +554,12 @@ professional before making an investment decision.</p>
       v = v == null ? "" : String(v);
       return /[,\"\n]/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v;
     }
-    var head = ["Symbol", "Price", "Trend", "Demand Zone", "Position", "Dist to zone", "Zone Date", "Vol vs 20d"];
+    var head = ["Symbol", "TF", "Price", "Trend", "Demand Zone", "Position", "Dist to zone", "Zone Date", "Vol vs 20d"];
     var lines = [head.join(",")];
     lastRows.forEach(function (r) {
       lines.push([
         cell(r.sym),
+        cell(r.tf),
         cell(r.res.price.toFixed(2)),
         cell(r.res.trend),
         cell(fmtZone(r.res)),
@@ -566,6 +607,7 @@ professional before making an investment decision.</p>
       var tr = document.createElement("tr");
       tr.innerHTML =
         "<td><b>" + r.sym + "</b></td>" +
+        "<td><span class=\"tag touch\">" + r.tf + "</span></td>" +
         "<td>" + r.res.price.toFixed(2) + "</td>" +
         "<td>" + trendTag(r.res.trend) + "</td>" +
         "<td>" + fmtZone(r.res) + "</td>" +
@@ -650,7 +692,7 @@ professional before making an investment decision.</p>
       ctx.fillText(p.toFixed(0), 2, Y(p) + 4);
     });
 
-    $("chartTitle").textContent = row.sym + " — close, EMA20 (blue), EMA50 (gold), demand zones shaded green";
+    $("chartTitle").textContent = row.sym + " · " + row.tf + " — close, EMA20 (blue), EMA50 (gold), demand zones shaded green";
     $("chartNote").textContent = "Zones drawn from their pivot bar to the right edge. A zone disappears once a daily close trades through it.";
   }
 
@@ -663,6 +705,13 @@ professional before making an investment decision.</p>
       if (s.pLeft != null) $("pLeft").value = s.pLeft;
       if (s.pRight != null) $("pRight").value = s.pRight;
       if (s.days != null) $("days").value = s.days;
+      if (s.tfs) {
+        $("tfDaily").checked = s.tfs.indexOf("d") >= 0;
+        $("tfWeekly").checked = s.tfs.indexOf("w") >= 0;
+        $("tfMonthly").checked = s.tfs.indexOf("m") >= 0;
+        $("tfHourly").checked = s.tfs.indexOf("1h") >= 0;
+        $("tf15").checked = s.tfs.indexOf("15m") >= 0;
+      }
       if (s.trendFilter != null) $("trendFilter").checked = !!s.trendFilter;
       if (s.showTouching != null) $("showTouching").checked = !!s.showTouching;
       if (s.maxDist != null) $("maxDist").value = s.maxDist;
