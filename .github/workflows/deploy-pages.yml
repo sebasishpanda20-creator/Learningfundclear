@@ -33,26 +33,26 @@ jobs:
 
       - name: Refresh NAV data from AMFI
         continue-on-error: true
-        run: python3 tools/refresh-data.py
+        run: python3 funds/tools/refresh-data.py
 
       - name: Commit refreshed data
         run: |
-          if git diff --quiet -- assets/js/data.js; then
+          if git diff --quiet -- funds/assets/js/data.js; then
             echo "Data unchanged."
           else
             git config user.name  "Learningfundclear-bot"
             git config user.email "Learningfundclear-bot@users.noreply.github.com"
-            git add assets/js/data.js
+            git add funds/assets/js/data.js
             git commit -m "data: refresh NAV snapshot"
             git push
           fi
 
       - name: Verify the published data against AMFI's file
-        run: python3 tools/verify-data.py
+        run: python3 funds/tools/verify-data.py
 
       - name: Syntax-check every script
         run: |
-          for f in $(find assets/js -name '*.js'); do
+          for f in $(find funds/assets/js -name '*.js') alerts.js vault.js dhan-quotes.js; do
             echo "checking $f"
             node --check "$f"
           done
@@ -60,13 +60,20 @@ jobs:
       - name: Verify each page loads its stylesheet and the data file
         run: |
           missing=0
-          for page in index funds scheme compare calculators methodology legal; do
+          for page in funds/index funds/funds funds/scheme funds/compare funds/calculators funds/methodology funds/legal; do
             for asset in 'assets/css/style.css' 'assets/js/data.js' 'assets/js/site.js'; do
               if ! grep -qF "$asset" "$page.html"; then
                 echo "::error file=$page.html::$page.html does not reference $asset"
                 missing=1
               fi
             done
+          done
+          # the merged journal must ship complete
+          for f in index.html alerts.js vault.js dhan-quotes.js dhan_security_ids.json india_symbols.json; do
+            if [ ! -f "$f" ]; then
+              echo "::error file=$f::journal file $f is missing from the deployment root"
+              missing=1
+            fi
           done
           exit $missing
 
@@ -103,8 +110,8 @@ jobs:
             base="https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}"
           fi
           echo "Sitemap base: $base/"
-          sed -i "s#https://YOUR-SITE.example/#$base/#g" sitemap.xml
-          sed -i "s#Sitemap: /sitemap.xml#Sitemap: $base/sitemap.xml#" robots.txt
+          sed -i "s#https://YOUR-SITE.example/#$base/#g" robots.txt funds/sitemap.xml
+          sed -i "s#Sitemap: /sitemap.xml#Sitemap: $base/funds/sitemap.xml#" funds/robots.txt
 
       - uses: actions/upload-pages-artifact@v3
         with:

@@ -3,6 +3,12 @@
 A small, static, independent website that publishes Indian mutual fund data — and does
 nothing else. No recommendations, no return projections, no backend, no bill.
 
+**Layout:** this repository hosts two things — the private stock-research journal
+(index.html + alerts.js + vault.js + dhan-quotes.js at the root, backed by Supabase and
+login-protected) and the public fund portal under `funds/`. The two are cross-linked:
+every fund page carries a "Stock Journal" nav link, and the journal header has a Funds
+button. Data tooling for the fund portal lives in `funds/tools/`.
+
 **What it is:** NAVs and scheme facts for roughly 1,400 open-ended Indian mutual fund
 schemes, from AMFI's own free daily file, plus four calculators that do arithmetic on
 numbers you enter. The comparison the site is built around is the one AMFI's data actually
@@ -29,9 +35,9 @@ the network.
 ## Refresh the data
 
 ```bash
-python tools/refresh-data.py          # download AMFI's file and rewrite assets/js/data.js
-python tools/refresh-data.py --check  # report what would change, write nothing
-python tools/verify-data.py           # prove data.js matches AMFI's file; exits non-zero if not
+python funds/tools/refresh-data.py          # download AMFI's file and rewrite assets/js/data.js
+python funds/tools/refresh-data.py --check  # report what would change, write nothing
+python funds/tools/verify-data.py           # prove data.js matches AMFI's file; exits non-zero if not
 ```
 
 Python 3.8 or later, standard library only. Run it in this folder. `verify-data.py` is the
@@ -45,8 +51,8 @@ Two further scripts in `tools/` exist for personal NSE end-of-day analysis.
 Nothing on the site reads them or their output:
 
 ```bash
-python tools/fetch-bhavcopy.py --delivery --backfill 10   # -> data/bhavcopy/*.csv
-python tools/analyze-bhavcopy.py                          # gainers, losers, delivery
+python funds/tools/fetch-bhavcopy.py --delivery --backfill 10   # -> data/bhavcopy/*.csv
+python funds/tools/analyze-bhavcopy.py                          # gainers, losers, delivery
 ```
 
 `fetch-bhavcopy.py` downloads NSE's public bhavcopy and delivery files;

@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="en-IN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>LearningFundClear India — mutual fund NAVs, plans and honest arithmetic</title>
+<meta name="description" content="LearningFundClear India lists open-ended mutual fund schemes with real AMFI NAVs, so you can compare a Direct plan against a Regular plan and see what the expense ratio difference actually costs. No advice, no return promises, no exchange feeds.">
+<link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="assets/css/style.css">
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+
+<header class="site-header">
+  <div class="wrap">
+    <a class="brand" href="index.html">
+      <svg width="24" height="24" viewBox="0 0 24 24" aria-hidden="true">
+        <rect x="2" y="13" width="4" height="9" rx="1.2" fill="#0f6a4f"></rect>
+        <rect x="8" y="9" width="4" height="13" rx="1.2" fill="#2a9d78"></rect>
+        <rect x="14" y="5" width="4" height="17" rx="1.2" fill="#5bbf99"></rect>
+        <rect x="20" y="10" width="2.5" height="12" rx="1.2" fill="#8ad6b8"></rect>
+      </svg>
+      <span>LearningFundClear India<small>data, not advice</small></span>
+    </a>
+    <nav class="site-nav" aria-label="Primary">
+      <a href="index.html">Home</a>
+      <a href="funds.html">Schemes</a>
+      <a href="compare.html">Compare</a>
+      <a href="calculators.html">Calculators</a>
+      <a href="methodology.html">Methodology</a><a href="../index.html">Stock Journal</a>
+      <a href="legal.html">Legal</a>
+    </nav>
+  </div>
+</header>
+
+<div class="data-strip">
+  <div class="wrap">
+    <span>NAV date <strong data-nav-date>—</strong></span>
+    <span><strong data-scheme-count>—</strong> schemes</span>
+    <span><strong data-amc-count>—</strong> fund houses</span>
+    <span>Source: <strong data-source>AMFI</strong></span>
+  </div>
+</div>
+
+<main id="main">
+  <div class="wrap">
+
+    <section class="hero">
+      <h1>What a mutual fund actually costs you, in plain numbers.</h1>
+      <p class="lede">
+        Every scheme here comes from AMFI's daily NAV file — the same public data the industry publishes.
+        LearningFundClear shows NAVs and scheme facts, and does the arithmetic on expense ratios that most people never see:
+        the same fund, bought direct, versus bought through a Regular plan.
+      </p>
+      <div class="hero-actions">
+        <a class="btn btn-primary" href="funds.html">Browse schemes</a>
+        <a class="btn" href="compare.html">Compare schemes</a>
+        <a class="btn" href="calculators.html">Run the numbers</a>
+      </div>
+      <div class="stat-row" id="hero-stats"></div>
+    </section>
+
+    <section class="section">
+      <header>
+        <h2>Same fund, two plans, different NAV</h2>
+        <p class="section-note">
+          These are real NAVs straight from AMFI's file. The expense ratios below are labelled assumptions, because
+          AMFI publishes no machine-readable TER data — see <a href="methodology.html#ter">methodology</a>.
+        </p>
+      </header>
+      <div class="grid grid-2" id="showcase"></div>
+    </section>
+
+    <section class="section">
+      <header>
+        <h2>Find a scheme</h2>
+        <p class="section-note">Search by fund name, fund house, category, or AMFI scheme code.</p>
+      </header>
+      <form class="card" id="quick-search">
+        <label class="field" for="quick-search-input">
+          <span class="lbl">Search schemes</span>
+          <input type="search" id="quick-search-input" placeholder="e.g. Flexi Cap, HDFC, Nifty 50, 118989" autocomplete="off">
+          <span class="hint">Searches all <span data-scheme-count>—</span> listed schemes.</span>
+        </label>
+        <button class="btn btn-primary" type="submit">Search</button>
+      </form>
+      <div class="chips" id="category-links" style="margin-top:12px"></div>
+    </section>
+
+    <section class="section">
+      <header>
+        <h2>What this site will not do</h2>
+        <p class="section-note">The boundaries are the point. They are also what keeps this site legal.</p>
+      </header>
+      <div class="grid grid-3">
+        <div class="card">
+          <h3>No advice, no calls</h3>
+          <p class="card-note">
+            There are no buy, sell or hold recommendations anywhere on this site — not for schemes, not for stocks.
+            LearningFundClear is not a SEBI-registered research analyst or investment adviser, and does not act as one.
+          </p>
+        </div>
+        <div class="card">
+          <h3>No return promises</h3>
+          <p class="card-note">
+            The calculators take a return <em>you</em> type in and show arithmetic. Nothing here forecasts what any
+            fund will earn, and nothing should be read as a guaranteed or expected outcome.
+          </p>
+        </div>
+        <div class="card">
+          <h3>No exchange price feeds</h3>
+          <p class="card-note">
+            There are no NSE or BSE quotes, no stock screeners and no tips. Only AMFI's published mutual fund NAVs,
+            which are free to use and carry none of the licensing problems of live exchange data.
+          </p>
+        </div>
+        <div class="card">
+          <h3>No accounts, no tracking</h3>
+          <p class="card-note">
+            No sign-up, no cookies, no analytics and no advertising. Nothing you do here is profiled or sold.
+            See the <a href="legal.html#privacy">privacy notice</a>.
+          </p>
+        </div>
+        <div class="card">
+          <h3>No distributor role</h3>
+          <p class="card-note">
+            LearningFundClear does not sell schemes, does not earn commission, and has no affiliate arrangement with any fund
+            house. That is why the Direct-versus-Regular comparison can be shown plainly.
+          </p>
+        </div>
+        <div class="card">
+          <h3>Data you can check</h3>
+          <p class="card-note">
+            One source, one file, regenerated by a script you can read and run. Every figure can be verified against
+            AMFI's own file — see <a href="methodology.html">methodology</a>.
+          </p>
+        </div>
+      </div>
+    </section>
+
+  </div>
+</main>
+
+<footer class="site-footer">
+  <div class="wrap">
+    <div class="cols">
+      <div>
+        <h4>LearningFundClear India</h4>
+        <p>A static, independent view of Indian mutual fund data. One data file, no backend, no bill.</p>
+        <p class="small">Data: <span data-source>AMFI</span>, snapshot taken <span data-fetched-at>—</span>.</p>
+      </div>
+      <div>
+        <h4>Use the site</h4>
+        <ul>
+          <li><a href="funds.html">All schemes</a></li>
+          <li><a href="compare.html">Compare schemes</a></li>
+          <li><a href="calculators.html">Calculators</a></li>
+          <li><a href="methodology.html">Methodology</a></li>
+        </ul>
+      </div>
+      <div>
+        <h4>The legal set</h4>
+        <ul>
+          <li><a href="legal.html#disclaimer">Risk disclaimer</a></li>
+          <li><a href="legal.html#privacy">Privacy notice</a></li>
+          <li><a href="legal.html#terms">Terms of use</a></li>
+          <li><a href="legal.html#grievance">Grievance contact</a></li>
+        </ul>
+      </div>
+    </div>
+    <p class="risk-line" data-risk-line></p>
+    <p class="small">© <span data-year>2026</span> LearningFundClear India. Not affiliated with AMFI, NSE, BSE or any fund house.</p>
+  </div>
+</footer>
+
+<script src="assets/js/data.js"></script>
+<script src="assets/js/ui.js"></script>
+<script src="assets/js/calc.js"></script>
+<script src="assets/js/funds.js"></script>
+<script src="assets/js/site.js"></script>
+<script src="assets/js/pages/home.js"></script>
+</body>
+</html>

@@ -1,183 +1,92 @@
 <!DOCTYPE html>
-<html lang="en-IN">
+<html lang="en">
 <head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>LearningFundClear India — mutual fund NAVs, plans and honest arithmetic</title>
-<meta name="description" content="LearningFundClear India lists open-ended mutual fund schemes with real AMFI NAVs, so you can compare a Direct plan against a Regular plan and see what the expense ratio difference actually costs. No advice, no return promises, no exchange feeds.">
-<link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
-<link rel="stylesheet" href="assets/css/style.css">
-</head>
-<body>
-<a class="skip" href="#main">Skip to content</a>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Learning New Things · Private Research Journal</title>
+<style>
+:root{--bg:#0b1020;--panel:#111827;--panel2:#0f1523;--line:#263246;--text:#e5e7eb;--muted:#9ca3af;--accent:#a78bfa;--green:#34d399;--red:#f87171}*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font:14px system-ui,sans-serif}header{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:14px 18px;background:#0f1426;border-bottom:1px solid var(--line);position:sticky;top:0;z-index:5}.brand{display:flex;gap:10px;align-items:center}.logo{width:36px;height:36px;display:grid;place-items:center;border-radius:9px;background:linear-gradient(135deg,#a78bfa,#5b21b6);font-weight:700}.brand h1{margin:0;font-size:15px;letter-spacing:.1em}.brand small{color:var(--muted);font-size:11px}.userbar{display:flex;gap:8px;align-items:center;flex-wrap:wrap}.userbar span{color:var(--muted);font-size:12px}main{max-width:1280px;margin:auto;padding:18px;display:grid;gap:16px}.card,.login{background:var(--panel);border:1px solid var(--line);border-radius:14px;overflow:hidden}.card>h2{margin:0;padding:12px;border-bottom:1px solid var(--line);font-size:12px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}.content{padding:14px;display:grid;gap:12px}.login{max-width:420px;margin:60px auto;padding:18px}label{display:grid;gap:5px;color:var(--muted);font-size:12px}input,select,textarea{width:100%;min-height:44px;padding:10px;border:1px solid var(--line);border-radius:8px;background:var(--panel2);color:var(--text)}textarea{min-height:90px;resize:vertical}button{min-height:44px;padding:9px 12px;border-radius:8px;border:1px solid var(--line);background:transparent;color:var(--text);font-weight:600;cursor:pointer}.primary{background:var(--accent);color:#111827;border:0}.danger{color:#fecaca;border-color:#9f4141}.hidden{display:none!important}.grid2{display:grid;grid-template-columns:1fr 1fr;gap:8px}.grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}.filters{display:grid;grid-template-columns:repeat(6,1fr);gap:8px}.table-wrap{overflow:auto;border:1px solid var(--line);border-radius:10px}table{width:100%;border-collapse:collapse;min-width:900px}th,td{padding:10px;border-bottom:1px solid var(--line);text-align:left;vertical-align:top}th{color:var(--muted);font-size:12px;white-space:nowrap}.notes{min-width:260px;max-width:420px;line-height:1.45;color:#cbd5e1}.chip{display:inline-block;padding:4px 8px;border-radius:99px;background:#203452;color:#bfdbfe;font-size:11px;font-weight:700}.mobile-list{display:none}.idea-card{padding:15px;border:1px solid var(--line);border-radius:14px;background:var(--panel2)}.idea-card h3{margin:0}.muted,.method{color:var(--muted);font-size:12px;line-height:1.5}.prices{display:grid;grid-template-columns:repeat(4,1fr);gap:7px;margin-top:12px}.prices div{padding:9px;border:1px solid var(--line);border-radius:9px}.prices span{display:block;color:var(--muted);font-size:10px;text-transform:uppercase}.prices b{display:block;margin-top:4px}.summary-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}.metric{padding:15px;border:1px solid var(--line);background:var(--panel2);border-radius:12px}.metric span{color:var(--muted);font-size:11px;text-transform:uppercase}.metric strong{display:block;font-size:23px;margin-top:6px}.positive{color:var(--green)}.negative{color:var(--red)}.periods{display:flex;gap:8px;flex-wrap:wrap}.periods .active{background:var(--accent);color:#111827}.actions{display:flex;gap:6px;flex-wrap:wrap}.empty{text-align:center;padding:18px;color:var(--muted)}.footer{max-width:1280px;margin:auto;padding:8px 18px 20px;color:var(--muted);font-size:11px;line-height:1.5}@media(max-width:1100px){.filters{grid-template-columns:repeat(3,1fr)}}@media(max-width:767px){header{align-items:flex-start;padding:12px}.brand small,.userbar span{display:none}main{padding:12px}.desktop-only{display:none}.filters{grid-template-columns:1fr 1fr}.filters input{grid-column:1/-1}.desktop-table{display:none}.mobile-list{display:grid;gap:12px}.grid2,.grid3{grid-template-columns:1fr}.summary-grid{grid-template-columns:1fr 1fr}.periods{display:grid;grid-template-columns:1fr 1fr}.periods button{width:100%}.prices{grid-template-columns:repeat(2,1fr)}}
+</style></head><body>
+<header id="header" class="hidden"><div class="brand"><div class="logo">LN</div><div><h1>LEARNING NEW THINGS</h1><small>PRIVATE RESEARCH JOURNAL</small></div></div><div class="userbar"><span id="userDisplay">—</span><button id="dashboardBtn">Dashboard</button><button id="performanceBtn">Performance</button><button id="fundsBtn">Funds</button><button id="adminBtn" class="hidden">Admin</button><button id="logoutBtn">Logout</button></div></header>
+<main>
+<section id="login" class="login"><h2>Sign in</h2><div class="content"><label>Username<input id="loginUser" autocomplete="username"></label><label>Password<input id="loginPass" type="password" autocomplete="current-password"></label><button class="primary" id="loginBtn">Login</button><p class="muted">Private portal. Use the credentials provided by the administrator.</p></div></section>
+<section id="dashboard" class="card hidden"><h2>All ideas</h2><div class="content"><div class="filters"><input id="search" placeholder="Search ticker / name / sector"><select id="rating"><option value="">All research statuses</option><option>UNDER REVIEW</option><option>MONITORING</option><option>EVENT WATCH</option><option>RESEARCH COMPLETE</option><option>ARCHIVED</option></select><select id="status"><option value="">All status</option><option>NEW</option><option>WATCHING</option><option>ACTIVE</option><option>CLOSED</option></select><select id="timeFrame"><option value="">All timeframes</option><option>Intraday</option><option>Swing 1–3 weeks</option><option>Position</option></select><select id="watchFilter"><option value="">All</option><option value="1">My watchlist only</option></select><button id="toggleWatch">Toggle watch</button></div><div id="ideasError" class="empty hidden">Could not load ideas. <button id="retryIdeas">Retry</button></div><div class="desktop-table table-wrap"><table><thead><tr><th>Ticker</th><th>Name</th><th>Added</th><th>Sector</th><th>LTP</th><th>Observed</th><th>Target</th><th>Stop</th><th>Timeframe</th><th>Status</th><th>Summary</th><th>Updated</th><th id="watchHead" class="hidden">Watch</th></tr></thead><tbody id="ideasBody"></tbody></table></div><div id="mobileList" class="mobile-list"></div><div id="ideasEmpty" class="empty hidden">No ideas match these filters.</div></div></section>
+<section id="performance" class="card hidden"><h2>Research Outcome Tracker</h2><div class="content"><p class="method">Closed ideas only. Results use the recorded entry and exit prices.</p><div class="periods"><button class="active" data-period="weekly">Weekly</button><button data-period="monthly">Monthly</button><button data-period="quarterly">Quarterly</button><button data-period="yearly">Yearly</button><button data-period="all">All time</button><select id="perfYear"><option value="all">All years</option></select></div><div class="summary-grid"><div class="metric"><span>Closed ideas</span><strong id="closedCount">0</strong></div><div class="metric"><span>Positive</span><strong id="positiveCount" class="positive">0</strong></div><div class="metric"><span>Negative</span><strong id="negativeCount" class="negative">0</strong></div><div class="metric"><span>Average return</span><strong id="averageReturn">—</strong></div></div><div class="table-wrap"><table><thead><tr><th>Ticker</th><th>Entry</th><th>Exit</th><th>Closed</th><th>Outcome</th><th>P&amp;L/share</th><th>Return</th><th>Reason</th></tr></thead><tbody id="performanceBody"></tbody></table></div><div id="performanceEmpty" class="empty hidden">No closed ideas for this period.</div><p class="method">This is a research tracker, not individual user performance. It excludes brokerage, taxes, slippage, liquidity limits, and execution differences. Past outcomes do not guarantee future results.</p></div></section>
+<section id="admin" class="card hidden"><h2>Admin · Ideas, Users, Audit</h2><div class="content"><div class="section-title">Add / Edit idea</div><div class="grid2"><label>Script<input id="ticker" list="symbols"></label><label>Company name<input id="name" readonly></label></div><div class="grid3"><label>Sector<input id="sector"></label><label>Research status<select id="ratingIn"><option>UNDER REVIEW</option><option>MONITORING</option><option>EVENT WATCH</option><option>RESEARCH COMPLETE</option><option>ARCHIVED</option></select></label><label>Status<select id="statusIn"><option>NEW</option><option>WATCHING</option><option>ACTIVE</option><option>CLOSED</option></select></label></div><div class="grid3"><label>Entry<input id="entry" type="number" step="0.01"></label><label>Target<input id="target" type="number" step="0.01"></label><label>Stop<input id="stop" type="number" step="0.01"></label></div><div class="grid3"><label>Timeframe<select id="timeIn"><option>Intraday</option><option>Swing 1–3 weeks</option><option>Position</option></select></label><label>Risk/reward<input id="riskReward"></label><label>Source URL<input id="sourceUrl"></label></div><label>Summary (visible to all)<textarea id="summary"></textarea></label><label>Admin notes<textarea id="adminNotes"></textarea></label><div class="actions"><button class="primary" id="saveIdea">Save idea</button><button id="clearIdea">Clear</button></div><datalist id="symbols"></datalist><hr style="width:100%;border-color:var(--line)"><div class="section-title">Close research</div><div class="grid3"><label>Idea<select id="closeIdea"></select></label><label>Exit/sell price<input id="exitPrice" type="number" step="0.01"></label><label>Closed date<input id="closedAt" type="datetime-local"></label></div><label>Closure reason<select id="closureReason"><option value="target_hit">Target hit</option><option value="stop_hit">Stop hit</option><option value="thesis_changed">Thesis changed</option><option value="time_expired">Time expired</option><option value="manual_close">Manual close</option></select></label><label>Closure note<textarea id="closureNote"></textarea></label><button class="primary" id="closeIdeaBtn">Close research and record result</button><hr style="width:100%;border-color:var(--line)"><div class="section-title">Manage ideas</div><input id="adminSearch" placeholder="Search ticker or company"><div class="table-wrap"><table><thead><tr><th>Ticker</th><th>Company</th><th>Added</th><th>Status</th><th>Actions</th></tr></thead><tbody id="adminIdeasBody"></tbody></table></div><div id="adminEmpty" class="empty hidden">No ideas found.</div><hr style="width:100%;border-color:var(--line)"><div class="section-title">Create user</div><div class="grid3"><label>Username<input id="newUsername"></label><label>Display name<input id="newDisplayName"></label><label>Password<input id="newPassword" type="password"></label></div><button class="primary" id="createUser">Create user</button><div class="section-title">Users</div><div class="table-wrap"><table><thead><tr><th>Username</th><th>Display</th><th>Admin</th><th>Active</th><th>Created</th></tr></thead><tbody id="usersBody"></tbody></table></div><div class="section-title">Audit log</div><div class="table-wrap"><table><thead><tr><th>Time</th><th>User</th><th>Action</th><th>Ticker</th><th>Details</th></tr></thead><tbody id="auditBody"></tbody></table></div></div></section>
+</main><p class="footer"><strong>Private Research Journal:</strong> This portal contains educational and informational material, market observations, source references and research hypotheses. It is not investment advice, a research recommendation, a solicitation, an offer, or an inducement to buy, sell, hold or deal in any security. Content is not tailored to any user’s objectives, financial circumstances or risk profile. Data and AI-assisted summaries may be incomplete, delayed or inaccurate and must be independently verified. Investments in securities are subject to market risk. Consult a SEBI-registered professional before making an investment decision.</p>
+<script src="alerts.js"></script>
+<script src="vault.js"></script>
+<script src="dhan-quotes.js"></script>
+<script type="module">
+import{createClient}from"https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm";
+const SUPABASE_URL="https://chbtjicvbezbiosuouwm.supabase.co";
+const SUPABASE_ANON_KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNoYnRqaWN2YmV6Ymlvc3VvdXdtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODkzODc2NjAsImV4cCI6MjEwNDk2MzY2MH0.jlTyYWnf1TnvmwCa4NCc-hJ4wZgjWTuSc94DqvMTdNQ";
+const sb=createClient(SUPABASE_URL,SUPABASE_ANON_KEY),$=id=>document.getElementById(id);let me=null,isAdmin=false,ideas=[],watch=new Set(),editing=null,period="weekly",symbols=[];
+const cols="id,ticker,name,sector,rating,status,entry,target,stop,time_frame,risk_reward,summary,source_url,created_at,updated_at,exit_price,closed_at,closure_reason,closure_note";
+const esc=v=>String(v??"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/\"/g,"&quot;").replace(/'/g,"&#039;");const money=v=>{const n=Number(v);return Number.isFinite(n)?`₹${n.toLocaleString("en-IN",{minimumFractionDigits:2,maximumFractionDigits:2})}`:"—"};const dt=v=>v?new Intl.DateTimeFormat("en-IN",{day:"2-digit",month:"short",year:"numeric",timeZone:"Asia/Kolkata"}).format(new Date(v)):"—";const dtt=v=>v?new Intl.DateTimeFormat("en-IN",{day:"2-digit",month:"short",year:"numeric",hour:"2-digit",minute:"2-digit",hour12:true,timeZone:"Asia/Kolkata"}).format(new Date(v)):"—";
+function show(p){$("dashboard").classList.toggle("hidden",p!=="dash");$("performance").classList.toggle("hidden",p!=="perf");$("admin").classList.toggle("hidden",p!=="admin")}
+async function loadIdeas(){const{data,error}=await sb.from("ideas").select(cols).order("created_at",{ascending:false}).order("id",{ascending:false});if(error){console.error(error);$("ideasError").classList.remove("hidden");return}$("ideasError").classList.add("hidden");ideas=data||[];renderIdeas();renderAdmin();fillClose();renderPerf()}
+async function loadWatch(){const{data}=await sb.from("user_watchlist").select("idea_id").eq("user_id",me.id);watch=new Set((data||[]).map(x=>x.idea_id));renderIdeas()}
+function filtered(){const q=$("search").value.toLowerCase(),r=$("rating").value,s=$("status").value,t=$("timeFrame").value,w=$("watchFilter").value;return ideas.filter(x=>(!q||`${x.ticker} ${x.name} ${x.sector}`.toLowerCase().includes(q))&&(!r||x.rating===r)&&(!s||x.status===s)&&(!t||x.time_frame===t)&&(w!=="1"||watch.has(x.id)))}
+function renderIdeas(){const rows=filtered(),body=$("ideasBody"),mobile=$("mobileList");body.innerHTML="";mobile.innerHTML="";$("ideasEmpty").classList.toggle("hidden",rows.length>0);rows.forEach(x=>{const inW=watch.has(x.id),tr=document.createElement("tr");tr.dataset.ideaId=x.id;tr.innerHTML=`<td><b>${esc(x.ticker)}</b></td><td>${esc(x.name)}</td><td>${dt(x.created_at)}</td><td>${esc(x.sector||"—")}</td><td data-ltp="${esc(x.ticker)}">—</td><td>${money(x.entry)}</td><td>${money(x.target)}</td><td>${money(x.stop)}</td><td>${esc(x.time_frame||"—")}</td><td><span class="chip">${esc(x.status)}</span></td><td class="notes">${esc(x.summary||"—")}</td><td>${dt(x.updated_at)}</td><td class="${$("watchHead").classList.contains("hidden")?"hidden":""}"><button data-watch="${x.id}">${inW?"Unwatch":"Watch"}</button></td>`;body.appendChild(tr);const c=document.createElement("article");c.className="idea-card";c.dataset.ideaId=x.id;c.innerHTML=`<h3>${esc(x.ticker)} <span class="chip">${esc(x.status)}</span></h3><p class="muted">${esc(x.name)} · ${esc(x.sector||"—")}</p><p class="muted">Added ${dt(x.created_at)} · Updated ${dt(x.updated_at)}</p><div class="prices"><div><span>LTP</span><b data-ltp="${esc(x.ticker)}">—</b></div><div><span>Observed</span><b>${money(x.entry)}</b></div><div><span>Target</span><b>${money(x.target)}</b></div><div><span>Stop</span><b>${money(x.stop)}</b></div></div><p class="muted">${esc(x.time_frame||"—")}</p><p>${esc(x.summary||"—")}</p><button data-watch="${x.id}">${inW?"★ Watching":"☆ Watch"}</button>`;mobile.appendChild(c)})}
+async function toggleWatch(id){const has=watch.has(id),q=has?sb.from("user_watchlist").delete().eq("user_id",me.id).eq("idea_id",id):sb.from("user_watchlist").insert({user_id:me.id,idea_id:id});const{error}=await q;if(error)return alert(error.message);has?watch.delete(id):watch.add(id);renderIdeas()}
+function closed(){return ideas.filter(x=>x.status==="CLOSED"&&x.entry!=null&&x.exit_price!=null&&x.closed_at)}function ret(x){return((Number(x.exit_price)-Number(x.entry))/Number(x.entry))*100}function getRows(){const y=$("perfYear").value,now=new Date(),all=closed().filter(x=>y==="all"||new Date(x.closed_at).getFullYear()===+y);if(period==="all"||period==="yearly")return all.filter(x=>period!=="yearly"||new Date(x.closed_at).getFullYear()===+y);if(period==="monthly")return all.filter(x=>{const d=new Date(x.closed_at);return d.getFullYear()===now.getFullYear()&&d.getMonth()===now.getMonth()});if(period==="quarterly")return all.filter(x=>{const d=new Date(x.closed_at);return d.getFullYear()===now.getFullYear()&&Math.floor(d.getMonth()/3)===Math.floor(now.getMonth()/3)});const start=new Date(now);start.setDate(now.getDate()-7);return all.filter(x=>new Date(x.closed_at)>=start)}function renderPerf(){const rows=getRows(),vals=rows.map(ret),avg=vals.length?vals.reduce((a,b)=>a+b,0)/vals.length:null;$("closedCount").textContent=rows.length;$("positiveCount").textContent=vals.filter(x=>x>0).length;$("negativeCount").textContent=vals.filter(x=>x<0).length;$("averageReturn").textContent=avg==null?"—":`${avg>=0?"+":""}${avg.toFixed(2)}%`;const b=$("performanceBody");b.innerHTML="";$("performanceEmpty").classList.toggle("hidden",rows.length>0);rows.sort((a,b)=>new Date(b.closed_at)-new Date(a.closed_at)).forEach(x=>{const r=ret(x),p=Number(x.exit_price)-Number(x.entry),tr=document.createElement("tr");tr.innerHTML=`<td>${esc(x.ticker)}</td><td>${money(x.entry)}</td><td>${money(x.exit_price)}</td><td>${dt(x.closed_at)}</td><td class="${r>=0?"positive":"negative"}">${r>=0?"Positive":"Negative"}</td><td class="${p>=0?"positive":"negative"}">${p>=0?"+":"−"}${money(Math.abs(p))}</td><td class="${r>=0?"positive":"negative"}">${r>=0?"+":""}${r.toFixed(2)}%</td><td>${esc(x.closure_reason||"—")}</td>`;b.appendChild(tr)})}function fillYears(){const ys=[...new Set(closed().map(x=>new Date(x.closed_at).getFullYear()))].sort((a,b)=>b-a);$("perfYear").innerHTML=`<option value="all">All years</option>`+ys.map(y=>`<option>${y}</option>`).join("")}
+function fillClose(){if(!isAdmin)return;$("closeIdea").innerHTML=`<option value="">Select an idea</option>`+ideas.filter(x=>x.status!=="CLOSED").map(x=>`<option value="${x.id}">${esc(x.ticker)} · ${esc(x.name)}</option>`).join("")}
+async function closeResearch(){const id=$("closeIdea").value,p=Number($("exitPrice").value),when=$("closedAt").value;if(!id||!Number.isFinite(p)||!when)return alert("Select an idea, exit price and closed date");const{error}=await sb.from("ideas").update({status:"CLOSED",exit_price:p,closed_at:new Date(when).toISOString(),closure_reason:$("closureReason").value,closure_note:$("closureNote").value.trim(),updated_at:new Date().toISOString()}).eq("id",id);if(error)return alert(error.message);alert("Research closed and result recorded");await loadIdeas()}
+function renderAdmin(){if(!isAdmin)return;const q=$("adminSearch").value.toLowerCase(),b=$("adminIdeasBody");b.innerHTML="";const rows=ideas.filter(x=>`${x.ticker} ${x.name}`.toLowerCase().includes(q));$("adminEmpty").classList.toggle("hidden",rows.length>0);rows.forEach(x=>{const tr=document.createElement("tr");tr.innerHTML=`<td>${esc(x.ticker)}</td><td>${esc(x.name)}</td><td>${dt(x.created_at)}</td><td>${esc(x.status)}</td><td><button data-edit="${x.id}">Edit</button> <button class="danger" data-delete="${x.id}">Delete</button></td>`;b.appendChild(tr)})}
+async function editIdea(id){const{data:x,error}=await sb.from("ideas").select("*").eq("id",id).single();if(error)return alert(error.message);editing=id;["ticker","name","sector"].forEach(k=>$(k).value=x[k]||"");$("ratingIn").value=x.rating||"UNDER REVIEW";$("statusIn").value=x.status||"NEW";$("entry").value=x.entry??"";$("target").value=x.target??"";$("stop").value=x.stop??"";$("timeIn").value=x.time_frame||"Intraday";$("riskReward").value=x.risk_reward||"";$("sourceUrl").value=x.source_url||"";$("summary").value=x.summary||"";$("adminNotes").value=x.admin_notes||"";show("admin")}
+async function deleteIdea(id){const x=ideas.find(a=>a.id===id);if(!x)return;const t=prompt(`Type ${x.ticker} exactly to delete`);if(t?.toUpperCase()!==x.ticker.toUpperCase())return;const{error}=await sb.from("ideas").delete().eq("id",id);if(error)return alert(error.message);await sb.from("audit_log").insert({user_id:me.id,action:"IDEA_DELETE",idea_id:id,details:{ticker:x.ticker}});await loadIdeas()}
+async function saveIdea(){if(!isAdmin)return;const p={ticker:$("ticker").value.trim().toUpperCase(),name:$("name").value.trim(),sector:$("sector").value.trim(),rating:$("ratingIn").value,status:$("statusIn").value,entry:$("entry").value?+$("entry").value:null,target:$("target").value?+$("target").value:null,stop:$("stop").value?+$("stop").value:null,time_frame:$("timeIn").value,risk_reward:$("riskReward").value.trim(),source_url:$("sourceUrl").value.trim(),summary:$("summary").value.trim(),admin_notes:$("adminNotes").value.trim()};if(!p.ticker)return alert("Ticker is required");let q=editing?sb.from("ideas").update({...p,updated_at:new Date().toISOString()}).eq("id",editing):sb.from("ideas").insert(p);const{error}=await q;if(error)return alert(error.message);editing=null;await loadIdeas()}
+function clearForm(){editing=null;["ticker","name","sector","entry","target","stop","riskReward","sourceUrl","summary","adminNotes"].forEach(id=>$(id).value="")}
+async function loadUsers(){if(!isAdmin)return;const{data}=await sb.from("app_users").select("*").order("created_at",{ascending:false});$("usersBody").innerHTML=(data||[]).map(x=>`<tr><td>${esc(x.username)}</td><td>${esc(x.display_name||"")}</td><td>${x.is_admin?"Yes":"No"}</td><td>${x.is_active?"Yes":"No"}</td><td>${dt(x.created_at)}</td></tr>`).join("")}
+async function loadAudit(){if(!isAdmin)return;const{data}=await sb.from("audit_log").select("*,app_users(username),ideas(ticker)").order("created_at",{ascending:false}).limit(50);$("auditBody").innerHTML=(data||[]).map(x=>`<tr><td>${dtt(x.created_at)}</td><td>${esc(x.app_users?.username||"")}</td><td>${esc(x.action||"")}</td><td>${esc(x.ideas?.ticker||"")}</td><td>${esc(JSON.stringify(x.details||{}))}</td></tr>`).join("")}
+$("createUser").onclick=async()=>{if(!isAdmin)return alert("Admin access is required");const username=$("newUsername").value.trim(),display_name=$("newDisplayName").value.trim(),password=$("newPassword").value;if(!username||!password)return alert("Username and password are required");const{data:{session}}=await sb.auth.getSession();if(!session?.access_token)return alert("Your session has expired. Please log in again.");const b=$("createUser");b.disabled=true;const old=b.textContent;b.textContent="Creating…";try{const{data,error}=await sb.functions.invoke("create-user",{body:{username,display_name,password},headers:{Authorization:`Bearer ${session.access_token}`}});if(error)return alert("Create user failed: "+error.message);if(data?.error)return alert("Create user failed: "+data.error);alert("User created successfully: "+username);$("newUsername").value="";$("newDisplayName").value="";$("newPassword").value="";await loadUsers()}finally{b.disabled=false;b.textContent=old}}
+async function loadUser(uid){const{data:u,error}=await sb.from("app_users").select("*").eq("id",uid).single();if(error||!u||!u.is_active){await sb.auth.signOut();return}me=u;isAdmin=!!u.is_admin;$("login").classList.add("hidden");$("header").classList.remove("hidden");$("userDisplay").textContent=u.display_name||u.username;$("adminBtn").classList.toggle("hidden",!isAdmin);show("dash");await loadIdeas();await loadWatch();if(window.Alerts)Alerts.setIdeas(ideas);if(isAdmin){await loadUsers();await loadAudit()}if(window.DhanQuotes){DhanQuotes.refresh().then(()=>DhanQuotes._startPolling())}}
+$("loginBtn").onclick=async()=>{const u=$("loginUser").value.trim(),p=$("loginPass").value;if(!u||!p)return alert("Enter username and password");const{error}=await sb.auth.signInWithPassword({email:(u.includes("@")?u:u+"@portal.local").toLowerCase(),password:p});if(error)alert(error.message)};$("logoutBtn").onclick=async()=>{await sb.auth.signOut();location.reload()};$("dashboardBtn").onclick=()=>show("dash");$("fundsBtn").onclick=()=>{location.href="funds/index.html"};$("performanceBtn").onclick=()=>{show("perf");fillYears();renderPerf()};$("adminBtn").onclick=()=>isAdmin&&show("admin");$("saveIdea").onclick=saveIdea;$("clearIdea").onclick=clearForm;$("closeIdeaBtn").onclick=closeResearch;$("adminSearch").oninput=renderAdmin;$("retryIdeas").onclick=loadIdeas;$("perfYear").onchange=renderPerf;["search","rating","status","timeFrame","watchFilter"].forEach(id=>$(id).oninput=renderIdeas);$("toggleWatch").onclick=()=>{$("watchHead").classList.toggle("hidden");renderIdeas()};document.querySelectorAll("[data-period]").forEach(b=>b.onclick=()=>{document.querySelectorAll("[data-period]").forEach(x=>x.classList.remove("active"));b.classList.add("active");period=b.dataset.period;renderPerf()});document.addEventListener("click",e=>{const w=e.target.closest("[data-watch]");if(w)toggleWatch(w.dataset.watch);const ed=e.target.closest("[data-edit]");if(ed)editIdea(ed.dataset.edit);const dl=e.target.closest("[data-delete]");if(dl)deleteIdea(dl.dataset.delete)});$("ticker").oninput=()=>{const x=symbols.find(a=>String(a.symbol).toUpperCase()===$("ticker").value.trim().toUpperCase());$("name").value=x?.name||""};async function symbolsLoad(){try{const r=await fetch("india_symbols.json");if(!r.ok)throw new Error("india_symbols.json HTTP "+r.status);symbols=await r.json();$("symbols").innerHTML=symbols.map(x=>`<option value="${esc(x.symbol)}">${esc(x.name||"")}</option>`).join("")}catch(e){console.error(e)}}symbolsLoad();sb.auth.onAuthStateChange(async(e,s)=>{if(e==="SIGNED_IN"&&s)loadUser(s.user.id);if(e==="SIGNED_OUT")location.reload()});const{data:{session}}=await sb.auth.getSession();if(session)loadUser(session.user.id);
+if(window.DhanQuotes){
+  DhanQuotes.init({
+    getToken:()=>Promise.resolve(sb.auth.getSession()).then(r=>r.data&&r.data.session?r.data.session.access_token:null),
+    onChange:(q)=>{paintQuotes(q);if(window.Alerts)Alerts.processQuotes(q);}
+  });
+  document.addEventListener("dhanquote",e=>{paintQuotes(e.detail.quotes);if(window.Alerts)Alerts.processQuotes(e.detail.quotes);});
+}
+if(window.Alerts)Alerts.init(()=>ideas);
 
-<header class="site-header">
-  <div class="wrap">
-    <a class="brand" href="index.html">
-      <svg width="24" height="24" viewBox="0 0 24 24" aria-hidden="true">
-        <rect x="2" y="13" width="4" height="9" rx="1.2" fill="#0f6a4f"></rect>
-        <rect x="8" y="9" width="4" height="13" rx="1.2" fill="#2a9d78"></rect>
-        <rect x="14" y="5" width="4" height="17" rx="1.2" fill="#5bbf99"></rect>
-        <rect x="20" y="10" width="2.5" height="12" rx="1.2" fill="#8ad6b8"></rect>
-      </svg>
-      <span>LearningFundClear India<small>data, not advice</small></span>
-    </a>
-    <nav class="site-nav" aria-label="Primary">
-      <a href="index.html">Home</a>
-      <a href="funds.html">Schemes</a>
-      <a href="compare.html">Compare</a>
-      <a href="calculators.html">Calculators</a>
-      <a href="methodology.html">Methodology</a>
-      <a href="legal.html">Legal</a>
-    </nav>
-  </div>
-</header>
-
-<div class="data-strip">
-  <div class="wrap">
-    <span>NAV date <strong data-nav-date>—</strong></span>
-    <span><strong data-scheme-count>—</strong> schemes</span>
-    <span><strong data-amc-count>—</strong> fund houses</span>
-    <span>Source: <strong data-source>AMFI</strong></span>
-  </div>
-</div>
-
-<main id="main">
-  <div class="wrap">
-
-    <section class="hero">
-      <h1>What a mutual fund actually costs you, in plain numbers.</h1>
-      <p class="lede">
-        Every scheme here comes from AMFI's daily NAV file — the same public data the industry publishes.
-        LearningFundClear shows NAVs and scheme facts, and does the arithmetic on expense ratios that most people never see:
-        the same fund, bought direct, versus bought through a Regular plan.
-      </p>
-      <div class="hero-actions">
-        <a class="btn btn-primary" href="funds.html">Browse schemes</a>
-        <a class="btn" href="compare.html">Compare schemes</a>
-        <a class="btn" href="calculators.html">Run the numbers</a>
-      </div>
-      <div class="stat-row" id="hero-stats"></div>
-    </section>
-
-    <section class="section">
-      <header>
-        <h2>Same fund, two plans, different NAV</h2>
-        <p class="section-note">
-          These are real NAVs straight from AMFI's file. The expense ratios below are labelled assumptions, because
-          AMFI publishes no machine-readable TER data — see <a href="methodology.html#ter">methodology</a>.
-        </p>
-      </header>
-      <div class="grid grid-2" id="showcase"></div>
-    </section>
-
-    <section class="section">
-      <header>
-        <h2>Find a scheme</h2>
-        <p class="section-note">Search by fund name, fund house, category, or AMFI scheme code.</p>
-      </header>
-      <form class="card" id="quick-search">
-        <label class="field" for="quick-search-input">
-          <span class="lbl">Search schemes</span>
-          <input type="search" id="quick-search-input" placeholder="e.g. Flexi Cap, HDFC, Nifty 50, 118989" autocomplete="off">
-          <span class="hint">Searches all <span data-scheme-count>—</span> listed schemes.</span>
-        </label>
-        <button class="btn btn-primary" type="submit">Search</button>
-      </form>
-      <div class="chips" id="category-links" style="margin-top:12px"></div>
-    </section>
-
-    <section class="section">
-      <header>
-        <h2>What this site will not do</h2>
-        <p class="section-note">The boundaries are the point. They are also what keeps this site legal.</p>
-      </header>
-      <div class="grid grid-3">
-        <div class="card">
-          <h3>No advice, no calls</h3>
-          <p class="card-note">
-            There are no buy, sell or hold recommendations anywhere on this site — not for schemes, not for stocks.
-            LearningFundClear is not a SEBI-registered research analyst or investment adviser, and does not act as one.
-          </p>
-        </div>
-        <div class="card">
-          <h3>No return promises</h3>
-          <p class="card-note">
-            The calculators take a return <em>you</em> type in and show arithmetic. Nothing here forecasts what any
-            fund will earn, and nothing should be read as a guaranteed or expected outcome.
-          </p>
-        </div>
-        <div class="card">
-          <h3>No exchange price feeds</h3>
-          <p class="card-note">
-            There are no NSE or BSE quotes, no stock screeners and no tips. Only AMFI's published mutual fund NAVs,
-            which are free to use and carry none of the licensing problems of live exchange data.
-          </p>
-        </div>
-        <div class="card">
-          <h3>No accounts, no tracking</h3>
-          <p class="card-note">
-            No sign-up, no cookies, no analytics and no advertising. Nothing you do here is profiled or sold.
-            See the <a href="legal.html#privacy">privacy notice</a>.
-          </p>
-        </div>
-        <div class="card">
-          <h3>No distributor role</h3>
-          <p class="card-note">
-            LearningFundClear does not sell schemes, does not earn commission, and has no affiliate arrangement with any fund
-            house. That is why the Direct-versus-Regular comparison can be shown plainly.
-          </p>
-        </div>
-        <div class="card">
-          <h3>Data you can check</h3>
-          <p class="card-note">
-            One source, one file, regenerated by a script you can read and run. Every figure can be verified against
-            AMFI's own file — see <a href="methodology.html">methodology</a>.
-          </p>
-        </div>
-      </div>
-    </section>
-
-  </div>
-</main>
-
-<footer class="site-footer">
-  <div class="wrap">
-    <div class="cols">
-      <div>
-        <h4>LearningFundClear India</h4>
-        <p>A static, independent view of Indian mutual fund data. One data file, no backend, no bill.</p>
-        <p class="small">Data: <span data-source>AMFI</span>, snapshot taken <span data-fetched-at>—</span>.</p>
-      </div>
-      <div>
-        <h4>Use the site</h4>
-        <ul>
-          <li><a href="funds.html">All schemes</a></li>
-          <li><a href="compare.html">Compare schemes</a></li>
-          <li><a href="calculators.html">Calculators</a></li>
-          <li><a href="methodology.html">Methodology</a></li>
-        </ul>
-      </div>
-      <div>
-        <h4>The legal set</h4>
-        <ul>
-          <li><a href="legal.html#disclaimer">Risk disclaimer</a></li>
-          <li><a href="legal.html#privacy">Privacy notice</a></li>
-          <li><a href="legal.html#terms">Terms of use</a></li>
-          <li><a href="legal.html#grievance">Grievance contact</a></li>
-        </ul>
-      </div>
-    </div>
-    <p class="risk-line" data-risk-line></p>
-    <p class="small">© <span data-year>2026</span> LearningFundClear India. Not affiliated with AMFI, NSE, BSE or any fund house.</p>
-  </div>
-</footer>
-
-<script src="assets/js/data.js"></script>
-<script src="assets/js/ui.js"></script>
-<script src="assets/js/calc.js"></script>
-<script src="assets/js/funds.js"></script>
-<script src="assets/js/site.js"></script>
-<script src="assets/js/pages/home.js"></script>
-</body>
-</html>
+// ---------- VAULT: per-user encrypted Dhan credentials ----------
+async function vaultConnect(){
+  const st=await sb.auth.getSession();
+  if(!st.data||!st.data.session)return alert("Sign in first, then connect Dhan.");
+  const remembered=Vault.isRemembered();
+  let pass=prompt(remembered?"Vault passphrase (remembered — press OK)":"Choose a vault passphrase.\nIt encrypts your Dhan token; without it the stored blob is unreadable. Enter the SAME passphrase next time.", remembered?localStorage.getItem("lnt_vault_pass"):"");
+  if(pass===null)return;
+  let token=Vault.getToken(),cid=Vault.getClientId();
+  if(!token){
+    token=prompt("Dhan access token (web.dhan.co → My Profile → DhanHQ APIs → Generate, valid 24h)");
+    if(!token)return;
+    cid=prompt("Dhan client-id (numeric, same page)");
+    if(!cid)return;
+  }
+  try{
+    if(!token||!cid||!pass)return;
+    await Vault.save(pass,token.trim(),cid.trim());
+    if(confirm("Remember passphrase on this device? (Convenience only)"))Vault.remember(pass);
+    DhanQuotes.setCreds(Vault.getToken(),Vault.getClientId());
+    alert("Dhan connected via encrypted vault.");
+  }catch(e){alert("Vault save failed: "+(e.message||e));}
+}
+// Prefer vault creds over legacy localStorage on boot.
+Vault.init(sb).then(()=>{if(Vault.hasCreds())DhanQuotes.setCreds(Vault.getToken(),Vault.getClientId());});
+// Replace the chip's default prompt flow with the vault flow.
+if(window.DhanQuotes){
+  const chipEl=document.getElementById("dhanChip");
+  if(chipEl)chipEl.replaceWith(chipEl.cloneNode(true));
+  document.getElementById("dhanChip").addEventListener("click",vaultConnect);
+}
+function paintQuotes(quotes){
+  document.querySelectorAll("[data-ltp]").forEach(cell=>{
+    const t=(cell.getAttribute("data-ltp")||"").toUpperCase();
+    const q=quotes[t];
+    if(!q||q.ltp==null)return;
+    const d=q.chgPct;
+    cell.innerHTML=esc(money(q.ltp))+(d==null?"":` <span style="font-size:11px;color:${d>=0?"var(--green)":"var(--red)"}">${d>=0?"+":""}${d.toFixed(2)}%</span>`);
+  });
+}
+</script></body></html>

@@ -74,8 +74,8 @@ npx wrangler pages deploy . --project-name Learningfundclear
 ## Refreshing the data
 
 ```bash
-python tools/refresh-data.py            # fetch AMFI's file, rewrite assets/js/data.js
-python tools/refresh-data.py --check    # report changes without writing
+python funds/tools/refresh-data.py            # fetch AMFI's file, rewrite assets/js/data.js
+python funds/tools/refresh-data.py --check    # report changes without writing
 ```
 
 Run it from this folder. It needs Python 3.8+ and nothing else — no packages, no API key.

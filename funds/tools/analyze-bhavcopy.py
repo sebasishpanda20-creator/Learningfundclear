@@ -106,7 +106,7 @@ def main() -> int:
     ap.add_argument("--all-series", action="store_true",
                     help="include BE and other series, not just EQ")
     ap.add_argument("--dir", default=DATA_DIR,
-                    help="directory with the CSVs (default: Learningfundclear/data/bhavcopy; "
+                    help="directory with the CSVs (default: Learningfundclear/funds/data/bhavcopy; "
                          "point it at the bhavcopy-data repo when analysing that archive)")
     args = ap.parse_args()
 

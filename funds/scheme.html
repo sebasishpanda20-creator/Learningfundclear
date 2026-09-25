@@ -3,8 +3,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Compare schemes — LearningFundClear India</title>
-<meta name="description" content="Put up to four Indian mutual fund schemes side by side: NAV, plan, category, fund house and what the expense ratio difference is worth over time.">
+<title>Scheme details — LearningFundClear India</title>
+<meta name="description" content="Latest AMFI NAV and scheme facts for an Indian mutual fund scheme, with the other plan of the same fund for comparison.">
 <link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
 <link rel="stylesheet" href="assets/css/style.css">
 </head>
@@ -27,7 +27,7 @@
       <a href="funds.html">Schemes</a>
       <a href="compare.html">Compare</a>
       <a href="calculators.html">Calculators</a>
-      <a href="methodology.html">Methodology</a>
+      <a href="methodology.html">Methodology</a><a href="../index.html">Stock Journal</a>
       <a href="legal.html">Legal</a>
     </nav>
   </div>
@@ -36,70 +36,65 @@
 <div class="data-strip">
   <div class="wrap">
     <span>NAV date <strong data-nav-date>—</strong></span>
-    <span><strong data-pair-count>—</strong> funds list both plans</span>
     <span>Source: <strong data-source>AMFI</strong></span>
+    <span>Snapshot <strong data-fetched-at>—</strong></span>
   </div>
 </div>
 
 <main id="main">
   <div class="wrap">
-    <section class="section">
-      <header>
-        <h1 style="font-size:22px">Compare schemes</h1>
-        <p class="section-note">
-          Up to four schemes at once. Selecting a fund's Direct and Regular plans together is the most useful
-          comparison on the site — that is the one that changes what you pay.
-        </p>
-      </header>
 
-      <div class="card">
-        <div class="card-head">
-          <span class="small muted" id="count"></span>
-          <span style="display:flex; gap:8px">
-            <button class="btn btn-sm" type="button" id="share">Copy link</button>
-            <button class="btn btn-sm" type="button" id="clear-all">Clear</button>
-          </span>
-        </div>
+    <div class="empty card" id="missing" hidden>
+      <h1 style="font-size:20px">No scheme with that code</h1>
+      <p>This page reads a scheme from the <code>code</code> parameter, which is AMFI's scheme code. It may be
+        missing, or that scheme may not be in the current snapshot.</p>
+      <p><a class="btn btn-primary" href="funds.html">Browse all schemes</a></p>
+    </div>
 
-        <label class="field" for="pick-search" style="margin-top:12px">
-          <span class="lbl">Add a scheme</span>
-          <input type="search" id="pick-search" placeholder="Search by name, fund house or AMFI code" autocomplete="off">
-        </label>
-        <ul class="scheme-list" id="pick-options" hidden></ul>
+    <div id="scheme-body" hidden>
+      <section class="section" id="scheme">
+        <div id="scheme-head"></div>
+      </section>
 
-        <div class="field" style="margin-top:14px">
-          <span class="lbl">Selected</span>
-          <div class="chips" id="picked"></div>
-        </div>
-
-        <div class="field" style="margin-bottom:0">
-          <span class="lbl">Or start from a fund that lists both plans</span>
-          <div class="chips" id="presets"></div>
-        </div>
+      <div class="grid grid-2">
+        <section class="section" id="scheme-facts"></section>
+        <section class="section">
+          <div class="card">
+            <h3>Scheme facts</h3>
+            <p class="card-note">As published in AMFI's NAV file, unchanged.</p>
+            <ul class="kv" id="scheme-table"></ul>
+          </div>
+        </section>
       </div>
-    </section>
 
-    <div id="compare-body" hidden>
-      <section class="section" id="pair-note"></section>
+      <section class="section" id="sibling"></section>
+      <section class="section" id="ter"></section>
 
       <section class="section">
         <header>
-          <h2>Side by side</h2>
-          <p class="section-note">
-            NAVs are the figures AMFI published. Expense ratios are labelled assumptions, and the modelled value is
-            arithmetic on those assumptions — not a forecast.
-          </p>
+          <h2>Other schemes in this category</h2>
+          <p class="section-note">Same category, same plan. Listing is alphabetical, not a ranking.</p>
         </header>
-        <div id="compare-table"></div>
+        <ul class="scheme-list" id="peers"></ul>
+      </section>
+
+      <section class="section">
+        <div class="card">
+          <h3>Where this data comes from</h3>
+          <p class="card-note">Check any figure here against the publisher's own file.</p>
+          <ul class="kv" id="verify"></ul>
+        </div>
+      </section>
+
+      <section class="section">
+        <div class="note warn">
+          <strong>A NAV is not a verdict.</strong> Two funds can hold the same portfolio and carry different expense
+          ratios; equally, a higher NAV says nothing about quality, because funds launch at different times.
+          LearningFundClear publishes data and shows arithmetic, and never tells you what to buy.
+        </div>
       </section>
     </div>
 
-    <section class="section">
-      <div class="note">
-        <strong>Reading this honestly:</strong> a lower NAV is not a better or worse fund, and a lower expense ratio
-        is only one input. LearningFundClear ranks nothing and recommends nothing.
-      </div>
-    </section>
   </div>
 </main>
 
@@ -140,6 +135,6 @@
 <script src="assets/js/calc.js"></script>
 <script src="assets/js/funds.js"></script>
 <script src="assets/js/site.js"></script>
-<script src="assets/js/pages/compare.js"></script>
+<script src="assets/js/pages/scheme.js"></script>
 </body>
 </html>

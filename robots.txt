@@ -1,7 +1,5 @@
 User-agent: *
 Allow: /
-Disallow: /404.html
-Disallow: /tools/
 
-# No sitemap index needed: one static site, one sitemap.
-Sitemap: /sitemap.xml
+# Fund pages sitemap
+Sitemap: https://YOUR-SITE.example/funds/sitemap.xml
