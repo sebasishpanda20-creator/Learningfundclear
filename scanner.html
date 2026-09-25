@@ -299,6 +299,8 @@ professional before making an investment decision.</p>
     var bars = row.bars, res = row.res;
     var show = bars.slice(-180);
     var offset = bars.length - show.length;
+    // the card must be visible BEFORE the canvas is measured, or clientWidth is 0
+    $("chartCard").style.display = "";
 
     var cvs = $("chart"), ctx = cvs.getContext("2d");
     var W = cvs.width = cvs.clientWidth * 2;   // crisp on HiDPI
@@ -358,7 +360,6 @@ professional before making an investment decision.</p>
 
     $("chartTitle").textContent = row.sym + " — close, EMA20 (blue), EMA50 (gold), demand zones shaded green";
     $("chartNote").textContent = "Zones drawn from their pivot bar to the right edge. A zone disappears once a daily close trades through it.";
-    $("chartCard").style.display = "";
   }
 
   // ---------- boot ----------
