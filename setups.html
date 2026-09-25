@@ -1,0 +1,352 @@
+<!DOCTYPE html>
+<html lang="en-IN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>Setups — Private Research Journal</title>
+<style>
+  :root { color-scheme: dark; }
+  * { box-sizing: border-box; margin: 0; }
+  body {
+    min-height: 100vh; background: #0b0f0e; color: #e8efe9; padding: 22px;
+    font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
+  }
+  a.back { color: #7fd1a8; text-decoration: none; font-size: 13px; }
+  h1 { font-size: 24px; margin: 10px 0 2px; }
+  .sub { color: #93a39a; font-size: 13px; margin-bottom: 18px; }
+  .card { background: #111714; border: 1px solid #24312b; border-radius: 12px; padding: 18px; margin-bottom: 18px; }
+  h3 { font-size: 15px; margin-bottom: 10px; }
+  .row { display: flex; flex-wrap: wrap; gap: 14px; align-items: flex-end; }
+  label { display: block; font-size: 12px; color: #93a39a; margin-bottom: 4px; }
+  input, select {
+    padding: 9px 10px; border-radius: 8px; border: 1px solid #2c3a33;
+    background: #0d1310; color: #e8efe9; font-size: 13px;
+  }
+  input[type="checkbox"] { width: auto; }
+  button.primary { padding: 11px 22px; border: 0; border-radius: 9px; background: #6d5df1; color: #fff; font-size: 14px; font-weight: 600; cursor: pointer; }
+  button.primary:disabled { opacity: .55; cursor: wait; }
+  button.ghost { padding: 8px 12px; border-radius: 8px; border: 1px solid #2c3a33; background: transparent; color: #9fb3a8; font-size: 12px; cursor: pointer; }
+  button.danger { border-color: #5c2323; color: #ef8f8f; }
+  .msg { margin-top: 10px; font-size: 13px; color: #e8b34b; min-height: 18px; }
+  .mut { color: #6f7f76; font-size: 11px; line-height: 1.5; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th { text-align: left; color: #93a39a; font-size: 11px; letter-spacing: .04em; padding: 8px; border-bottom: 1px solid #24312b; }
+  td { padding: 8px; border-bottom: 1px solid #1a231f; vertical-align: top; }
+  tr:hover td { background: #131b17; }
+  .tag { display: inline-block; padding: 2px 8px; border-radius: 20px; font-size: 11px; font-weight: 600; }
+  .tag.long { background: #0e3b2a; color: #5fe0a5; }
+  .tag.short { background: #3b1414; color: #ef8f8f; }
+  .tag.src { background: #1a2b3b; color: #7fc0ef; }
+  .tag.manual { background: #33301a; color: #d8c76a; }
+  .tag.open { background: #0e3b2a; color: #5fe0a5; }
+  .tag.closed { background: #262b33; color: #aebac5; }
+  .tag.win { background: #0e3b2a; color: #5fe0a5; }
+  .tag.loss { background: #3b1414; color: #ef8f8f; }
+  .stats { display: flex; flex-wrap: wrap; gap: 12px; margin: 14px 0; }
+  .stat { background: #0d1310; border: 1px solid #24312b; border-radius: 10px; padding: 10px 16px; }
+  .stat b { font-size: 18px; display: block; }
+  .stat span { font-size: 11px; color: #93a39a; }
+  .grid4 { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; }
+  .riskout { background: #0d1310; border: 1px solid #24312b; border-radius: 10px; padding: 12px; font-size: 13px; }
+  .riskout b { display: block; font-size: 17px; }
+  .riskout span { font-size: 11px; color: #93a39a; }
+  .big { font-size: 17px; font-weight: 700; }
+  .pos { color: #5fe0a5; } .neg { color: #ef8f8f; }
+  .disclaimer { font-size: 11px; color: #5d6d64; line-height: 1.6; max-width: 950px; }
+</style>
+</head>
+<body>
+<a class="back" href="index.html">← Back to journal</a>
+<h1>SMC Setups &amp; Paper Trades</h1>
+<p class="sub">TradingView signals → risk sizing → manual execution → paper-trade ledger · private page, same sign-in as the journal</p>
+
+<div class="card">
+  <h3>Signals</h3>
+  <div class="row" style="margin-bottom:10px">
+    <label style="margin:0"><input type="checkbox" id="tvEnable" checked> Pull TradingView alerts from Supabase (needs webhook, see setup note below)</label>
+    <button class="ghost" id="refreshSigs">Refresh</button>
+  </div>
+  <table id="sigTable">
+    <thead><tr><th>When</th><th>Symbol</th><th>Action</th><th>Price</th><th>Details</th><th></th></tr></thead>
+    <tbody id="sigBody"></tbody>
+  </table>
+  <p class="mut" id="sigEmpty">No signals yet. TradingView alerts land here via a Supabase edge-function webhook; you can also log a setup manually below.</p>
+</div>
+
+<div class="card">
+  <h3>Log a setup manually</h3>
+  <div class="row">
+    <div><label>Symbol</label><input id="mSym" placeholder="COALINDIA" style="width:120px"></div>
+    <div><label>Direction</label>
+      <select id="mSide" style="width:90px"><option value="LONG">Long</option><option value="SHORT">Short</option></select>
+    </div>
+    <div><label>Entry</label><input id="mEntry" type="number" step="0.01" style="width:90px"></div>
+    <div><label>Stop</label><input id="mStop" type="number" step="0.01" style="width:90px"></div>
+    <div><label>Target</label><input id="mTarget" type="number" step="0.01" style="width:90px"></div>
+    <div><label>Setup note</label><input id="mNote" placeholder="BOS + OB retest, 15m" style="width:220px"></div>
+    <button class="primary" id="addManual">Add setup</button>
+  </div>
+</div>
+
+<div class="card" id="riskCard" style="display:none">
+  <h3>Risk sizing — <span id="riskSym"></span></h3>
+  <div class="row">
+    <div><label>Account (₹)</label><input id="rCapital" type="number" value="100000" style="width:120px"></div>
+    <div><label>Risk per trade (%)</label><input id="rRisk" type="number" step="0.1" value="1" style="width:80px"></div>
+    <div><label>Leverage×</label><input id="rLev" type="number" step="0.5" value="1" style="width:70px"></div>
+  </div>
+  <div class="stats">
+    <div class="riskout"><b id="oRiskAmt">—</b><span>₹ at risk</span></div>
+    <div class="riskout"><b id="oQty">—</b><span>position size</span></div>
+    <div class="riskout"><b id="oNotional">—</b><span>notional ₹</span></div>
+    <div class="riskout"><b id="oRR">—</b><span>reward : risk</span></div>
+    <div class="riskout"><b id="oTarget">—</b><span>target ₹</span></div>
+  </div>
+  <div class="row">
+    <button class="primary" id="paperOpen">Open paper trade</button>
+    <span class="mut" id="riskMsg"></span>
+  </div>
+</div>
+
+<div class="card">
+  <h3>Paper-trade ledger</h3>
+  <div class="stats" id="ledgerStats"></div>
+  <table>
+    <thead><tr><th>Opened</th><th>Symbol</th><th>Side</th><th>Qty</th><th>Entry</th><th>Stop</th><th>Target</th><th>R:R</th><th>Status</th><th>Exit</th><th>P&amp;L ₹</th><th></th></tr></thead>
+    <tbody id="ledgerBody"></tbody>
+  </table>
+  <p class="mut" id="ledgerEmpty" style="display:none">No paper trades yet. Pick a signal, size it, open one.</p>
+</div>
+
+<p class="disclaimer"><strong>Private Research Journal:</strong> SMC setup notes and paper trades are
+educational records, not investment advice or recommendations. Signals come from your own
+TradingView alerts; free/indicator logic can misfire. Paper-trade results do not represent real
+performance. Verify every level on your broker platform before placing any real order, and consult a
+SEBI-registered professional before making an investment decision.</p>
+
+<script src="auth-guard.js"></script>
+<script type="module">
+import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm";
+
+const SUPABASE_URL = "https://chbtjicvbezbiosuouwm.supabase.co";
+const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNoYnRqaWN2YmV6Ymlvc3VvdXdtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODkzODc2NjAsImV4cCI6MjEwNDk2MzY2MH0.jlTyYWnf1TnvmwCa4NCc-hJ4wZgjWTuSc94DqvMTdNQ";
+const $ = id => document.getElementById(id);
+const sb = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+const LS_TRADES = "lfc.papertrades";
+
+let signals = [];   // unified: {id, ts, symbol, action, price, details, source, used}
+
+// ---------- helpers ----------
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const money = v => (v == null || isNaN(v)) ? "—" : Number(v).toLocaleString("en-IN", { maximumFractionDigits: 2 });
+const dt = iso => { try { return new Date(iso).toLocaleString("en-IN", { dateStyle: "medium", timeStyle: "short" }); } catch (e) { return "—"; } };
+
+function loadTrades() { try { return JSON.parse(localStorage.getItem(LS_TRADES) || "[]"); } catch (e) { return []; } }
+function saveTrades(t) { try { localStorage.setItem(LS_TRADES, JSON.stringify(t)); } catch (e) {} }
+let trades = loadTrades();
+
+// ---------- signals: Supabase (TV webhook) + manual ----------
+async function loadSignals() {
+  signals = [];
+  if ($("tvEnable").checked) {
+    try {
+      const { data, error } = await sb.from("signal_events").select("*").order("created_at", { ascending: false }).limit(25);
+      if (!error && data) {
+        data.forEach(r => signals.push({
+          id: "db-" + r.id, ts: r.created_at, symbol: r.symbol, action: r.action || "",
+          price: r.price, details: r.details || "", source: "TV", used: false
+        }));
+      }
+    } catch (e) { /* table not migrated yet — manual flow still works */ }
+  }
+  renderSignals();
+}
+
+function renderSignals() {
+  const b = $("sigBody");
+  b.innerHTML = "";
+  $("sigEmpty").style.display = signals.length ? "none" : "";
+  signals.forEach((s, i) => {
+    const tr = document.createElement("tr");
+    tr.innerHTML =
+      `<td>${esc(dt(s.ts))}</td>` +
+      `<td><b>${esc(s.symbol)}</b></td>` +
+      `<td>${s.action.toUpperCase().includes("SHORT") || s.action.toUpperCase().includes("SELL") ? '<span class="tag short">SHORT</span>' : '<span class="tag long">LONG</span>'}</td>` +
+      `<td>${s.price != null ? esc(s.price) : "—"}</td>` +
+      `<td class="mut">${esc(s.details)}</td>` +
+      `<td><span class="tag ${s.source === "TV" ? "src" : "manual"}">${esc(s.source)}</span> <button class="ghost" data-size="${i}">Size it</button></td>`;
+    b.appendChild(tr);
+  });
+  b.onclick = ev => {
+    const btn = ev.target.closest("[data-size]");
+    if (btn) primeRisk(signals[parseInt(btn.getAttribute("data-size"), 10)]);
+  };
+}
+
+// ---------- manual setup ----------
+$("addManual").onclick = () => {
+  const sym = $("mSym").value.trim().toUpperCase();
+  const entry = parseFloat($("mEntry").value), stop = parseFloat($("mStop").value), target = parseFloat($("mTarget").value);
+  if (!sym || isNaN(entry) || isNaN(stop)) { $("msg").textContent = "Symbol, entry and stop are required."; return; }
+  signals.unshift({
+    id: "man-" + Date.now(), ts: new Date().toISOString(), symbol: sym,
+    action: $("mSide").value, price: entry,
+    details: `stop ${isNaN(stop) ? "?" : stop}${!isNaN(target) ? " · target " + target : ""}${$("mNote").value.trim() ? " · " + $("mNote").value.trim() : ""}`,
+    source: "Manual", used: false
+  });
+  $("mSym").value = ""; $("mEntry").value = ""; $("mStop").value = ""; $("mTarget").value = ""; $("mNote").value = "";
+  $("msg").textContent = "Setup added to the signal list below.";
+  renderSignals();
+  primeRisk(signals[0]);
+};
+
+// ---------- risk ----------
+let riskCtx = null;
+function primeRisk(sig) {
+  riskCtx = sig;
+  $("riskCard").style.display = "";
+  $("riskSym").textContent = sig.symbol + " (" + sig.action + ")";
+  computeRisk();
+}
+["rCapital", "rRisk", "rLev"].forEach(id => { $(id).oninput = computeRisk; });
+
+function computeRisk() {
+  if (!riskCtx) return;
+  const cap = parseFloat($("rCapital").value), riskPct = parseFloat($("rRisk").value);
+  const lev = parseFloat($("rLev").value) || 1;
+  const entry = parseFloat(riskCtx.price);
+  // parse "stop 212.5 · target 230" out of the details
+  const stopM = /stop\s+([\d.]+)/i.exec(riskCtx.details || "");
+  const tgtM = /target\s+([\d.]+)/i.exec(riskCtx.details || "");
+  const stop = stopM ? parseFloat(stopM[1]) : NaN;
+  const target = tgtM ? parseFloat(tgtM[1]) : NaN;
+  const isShort = /SHORT|SELL/i.test(riskCtx.action || "");
+  const riskAmt = cap * (riskPct / 100);
+
+  if (isNaN(entry) || isNaN(stop) || stop === entry) {
+    ["oRiskAmt", "oQty", "oNotional", "oRR", "oTarget"].forEach(id => $(id).textContent = "—");
+    $("riskMsg").textContent = "This signal has no usable stop — edit it into a manual setup first.";
+    return;
+  }
+  const perUnit = Math.abs(entry - stop);
+  const qty = riskAmt / perUnit;
+  const rr = !isNaN(target) ? Math.abs(target - entry) / perUnit : NaN;
+
+  $("oRiskAmt").textContent = "₹" + money(riskAmt);
+  $("oQty").textContent = money(Math.floor(qty * 100) / 100);
+  $("oNotional").textContent = "₹" + money(entry * qty);
+  $("oRR").textContent = isNaN(rr) ? "—" : rr.toFixed(2) + " : 1";
+  $("oTarget").textContent = !isNaN(target) ? "₹" + money(Math.abs(target - entry) * qty) : "—";
+  $("riskMsg").textContent = isShort ? "Short setup — margin rules apply on the real order." :
+    (lev > 1 ? "Leverage " + lev + "× assumed for notional only; qty is risk-derived." : "");
+}
+
+$("paperOpen").onclick = () => {
+  if (!riskCtx) return;
+  const cap = parseFloat($("rCapital").value), riskPct = parseFloat($("rRisk").value);
+  const entry = parseFloat(riskCtx.price);
+  const stopM = /stop\s+([\d.]+)/i.exec(riskCtx.details || "");
+  const tgtM = /target\s+([\d.]+)/i.exec(riskCtx.details || "");
+  const stop = stopM ? parseFloat(stopM[1]) : NaN;
+  const target = tgtM ? parseFloat(tgtM[1]) : NaN;
+  const riskAmt = cap * (riskPct / 100);
+  if (isNaN(entry) || isNaN(stop) || stop === entry) { $("riskMsg").textContent = "Cannot open without a valid stop."; return; }
+  const qty = Math.floor((riskAmt / Math.abs(entry - stop)) * 100) / 100;
+  trades.unshift({
+    id: "pt-" + Date.now(), opened: new Date().toISOString(),
+    symbol: riskCtx.symbol,
+    side: /SHORT|SELL/i.test(riskCtx.action || "") ? "SHORT" : "LONG",
+    qty, entry, stop, target: isNaN(target) ? null : target,
+    note: riskCtx.details || "", source: riskCtx.source, status: "OPEN"
+  });
+  saveTrades(trades);
+  $("msg").textContent = "Paper trade opened for " + riskCtx.symbol + ". Place the real order manually on your broker.";
+  riskCtx = null;
+  $("riskCard").style.display = "none";
+  renderLedger();
+};
+
+// ---------- ledger ----------
+function pnl(t, exitPrice) {
+  return t.side === "SHORT" ? (t.entry - exitPrice) * t.qty : (exitPrice - t.entry) * t.qty;
+}
+
+function renderLedger() {
+  const b = $("ledgerBody");
+  b.innerHTML = "";
+  $("ledgerEmpty").style.display = trades.length ? "none" : "";
+
+  const closed = trades.filter(t => t.status === "CLOSED");
+  const wins = closed.filter(t => t.pnl > 0);
+  const gross = closed.reduce((a, t) => a + t.pnl, 0);
+  const stats = {
+    open: trades.filter(t => t.status === "OPEN").length,
+    closed: closed.length,
+    winRate: closed.length ? Math.round(wins.length / closed.length * 100) + "%" : "—",
+    netPnl: gross
+  };
+  $("ledgerStats").innerHTML =
+    `<div class="stat"><b>${stats.open}</b><span>open</span></div>` +
+    `<div class="stat"><b>${stats.closed}</b><span>closed</span></div>` +
+    `<div class="stat"><b>${stats.winRate}</b><span>win rate</span></div>` +
+    `<div class="stat"><b class="${gross >= 0 ? "pos" : "neg"}">${gross >= 0 ? "+" : ""}₹${money(gross)}</b><span>paper P&L (net)</span></div>`;
+
+  trades.forEach((t, i) => {
+    const tr = document.createElement("tr");
+    let status = t.status === "OPEN" ? '<span class="tag open">OPEN</span>' : (t.pnl >= 0 ? '<span class="tag win">WIN</span>' : '<span class="tag loss">LOSS</span>');
+    let exitCell, pnlCell;
+    if (t.status === "OPEN") {
+      exitCell = `<input type="number" step="0.01" placeholder="exit ₹" id="exit-${i}" style="width:90px"> <button class="ghost" data-close="${i}">Close</button>`;
+      pnlCell = "—";
+    } else {
+      exitCell = esc(t.exit);
+      pnlCell = `<span class="${t.pnl >= 0 ? "pos" : "neg"}">${t.pnl >= 0 ? "+" : ""}₹${money(t.pnl)}</span>`;
+    }
+    tr.innerHTML =
+      `<td>${esc(dt(t.opened))}</td>` +
+      `<td><b>${esc(t.symbol)}</b><div class="mut">${esc(t.note || "")}</div></td>` +
+      `<td>${t.side === "SHORT" ? '<span class="tag short">SHORT</span>' : '<span class="tag long">LONG</span>'}</td>` +
+      `<td>${money(t.qty)}</td><td>${money(t.entry)}</td><td>${money(t.stop)}</td><td>${t.target != null ? money(t.target) : "—"}</td>` +
+      `<td>${t.stop && t.target ? (Math.abs(t.target - t.entry) / Math.abs(t.entry - t.stop)).toFixed(2) : "—"}</td>` +
+      `<td>${status}</td><td>${exitCell}</td><td>${pnlCell}</td>` +
+      `<td><button class="ghost danger" data-del="${i}">✕</button></td>`;
+    b.appendChild(tr);
+  });
+
+  b.onclick = ev => {
+    const c = ev.target.closest("[data-close]");
+    if (c) {
+      const i = parseInt(c.getAttribute("data-close"), 10);
+      const exit = parseFloat($("exit-" + i).value);
+      if (isNaN(exit) || exit <= 0) { $("msg").textContent = "Enter the exit price to close."; return; }
+      const t = trades[i];
+      t.status = "CLOSED"; t.exit = exit; t.pnl = Math.round(pnl(t, exit) * 100) / 100;
+      t.closedAt = new Date().toISOString();
+      saveTrades(trades);
+      $("msg").textContent = t.symbol + " closed — paper P&L ₹" + t.pnl;
+      renderLedger();
+      return;
+    }
+    const d = ev.target.closest("[data-del]");
+    if (d) {
+      trades.splice(parseInt(d.getAttribute("data-del"), 10), 1);
+      saveTrades(trades);
+      renderLedger();
+    }
+  };
+}
+
+// ---------- boot ----------
+$("refreshSigs").onclick = loadSignals;
+(function boot() {
+  if (!window.LfcAuth || !window.LfcAuth.current()) {
+    location.replace("signin.html?next=setups.html");
+    return;
+  }
+  loadSignals();
+  renderLedger();
+})();
+</script>
+</body>
+</html>
