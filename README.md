@@ -114,11 +114,15 @@ Learningfundclear/
 ├─ bhavcopy-data/        SEPARATE private repo: the nightly archive of that data
 ├─ .github/workflows/    nightly refresh + checks + GitHub Pages deploy
 ├─ netlify.toml, _headers, .nojekyll, robots.txt, sitemap.xml
+├─ SECURITY.md           credential inventory, blast radius, exact rotation steps
 └─ FREE-HOSTING.md, DEPLOY.md
 ```
 
 The single rule that keeps this maintainable: **every page gets its data from `data.js`
 through `funds.js`**, and adding a scheme is a data-refresh, not a code change.
+
+If a credential leaks or a rotation is due, start at **`SECURITY.md`** — it lists every
+credential, what it can actually do, and the exact steps to rotate it.
 
 ## Design decisions worth knowing
 
