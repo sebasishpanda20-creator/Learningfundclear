@@ -1,5 +1,5 @@
 {
-  "note": "Symbols the nightly EOD zone scan checks. Edit this list and commit to change it. NSE equities use .NS (BSE uses .BO); commodities use the global futures Yahoo carries (GC=F gold, SI=F silver, CL=F WTI crude, NG=F natural gas, HG=F copper) — the contracts MCX prices track.",
+  "note": "Symbols the nightly EOD zone scan checks. Edit this list and commit to change it. NSE equities use .NS (BSE uses .BO); commodities use the global futures Yahoo carries (GC=F gold, SI=F silver, CL=F WTI crude, NG=F natural gas, HG=F copper) — the contracts MCX prices track. Every symbol must exist on Yahoo: renamed or delisted tickers are reported as unavailable instead of failing silently. TATAMOTORS.NS was replaced by its two demerger successors TMCV.NS (commercial vehicles) and TMPV.NS (passenger vehicles); LTIM.NS was dropped after Yahoo stopped carrying it.",
   "symbols": [
     "HDFCBANK.NS",
     "ICICIBANK.NS",
@@ -16,7 +16,6 @@
     "WIPRO.NS",
     "HCLTECH.NS",
     "TECHM.NS",
-    "LTIM.NS",
     "RELIANCE.NS",
     "ONGC.NS",
     "NTPC.NS",
@@ -30,7 +29,8 @@
     "DABUR.NS",
     "TATACONSUM.NS",
     "MARUTI.NS",
-    "TATAMOTORS.NS",
+    "TMCV.NS",
+    "TMPV.NS",
     "M&M.NS",
     "BAJAJ-AUTO.NS",
     "EICHERMOT.NS",

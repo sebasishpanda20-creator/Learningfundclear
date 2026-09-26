@@ -109,16 +109,34 @@ function chartUrl(symbol, tf) {
 
 async function fetchChart(symbol, tf) {
   const url = chartUrl(symbol, tf);
+  let unknownSymbol = false;
+
   try {
     const res = await fetch(url, {
       headers: { "User-Agent": UA, "Accept": "application/json" },
       signal: AbortSignal.timeout(15000),
     });
-    if (res.ok) {
-      const bars = parseYahoo(await res.json());
+    // Yahoo answers 200 for a good symbol and 404 with a JSON error body for a
+    // delisted one, so the body is worth reading either way.
+    let json = null;
+    try { json = await res.json(); } catch (e) { /* non-JSON body (e.g. rate limit page) */ }
+    if (json) {
+      const bars = parseYahoo(json);
       if (bars) return bars;
+      // "Not Found / delisted" is permanent (renamed or merged listing): retrying, or
+      // asking the proxy, only produces a confusing 403, so say what is actually wrong.
+      const err = (json.chart && json.chart.error) || null;
+      const text = `${err && err.code} ${err && err.description}`;
+      if (/not found|delisted/i.test(text)) unknownSymbol = true;
     }
-  } catch (e) { /* fall through to the proxy */ }
+  } catch (e) { /* network hiccup: try the proxy below */ }
+
+  if (unknownSymbol) {
+    const err = new Error("no data on Yahoo — symbol delisted or renamed?");
+    err.permanent = true;
+    throw err;
+  }
+
   const res = await fetch("https://r.jina.ai/" + url, {
     headers: { "User-Agent": UA },
     signal: AbortSignal.timeout(25000),
@@ -134,12 +152,9 @@ async function getBars(symbol, tf) {
   try {
     return await fetchChart(symbol, tf);
   } catch (first) {
-    await sleep(RETRY_DELAY_MS);          // transient Yahoo/proxy hiccups are common at this volume
-    try {
-      return await fetchChart(symbol, tf);
-    } catch (second) {
-      throw new Error(second.message);
-    }
+    if (first.permanent) throw first;      // delisted symbol: retrying cannot help
+    await sleep(RETRY_DELAY_MS);           // transient Yahoo/proxy hiccups are common at this volume
+    return await fetchChart(symbol, tf);
   }
 }
 
