@@ -201,6 +201,12 @@ function buildSignal(symbol, action, zone, price, trend, date, tf) {
     tfId: tf.id,
     tf: tf.label,
     price: Number(f(price)),
+    zoneBottom: Number(f(zone.bottom)),
+    zoneTop: Number(f(zone.top)),
+    stop: Number(f(stop)),
+    target: Number(f(target)),
+    trend,
+    date,
     details: `${tf.label} zone ${f(zone.bottom)}-${f(zone.top)} stop ${f(stop)} target ${f(target)} · ${trend} · EOD ${date}`,
   };
 }
@@ -240,6 +246,104 @@ function loadWatchlist() {
   const file = path.join(__dirname, "signal-watchlist.json");
   const parsed = JSON.parse(fs.readFileSync(file, "utf8"));
   return (parsed.symbols || []).filter(Boolean);
+}
+
+// ── job summary ───────────────────────────────────────────────────────────
+// GitHub renders this markdown on the workflow run page. Locally the env var
+// is absent, so the same content simply stays in the console output.
+const TOP_SIGNALS = 5;
+const TREND_FOR = { LONG: "UPTREND", SHORT: "DOWNTREND" };
+
+function writeSummary(markdown) {
+  const file = process.env.GITHUB_STEP_SUMMARY;
+  if (!file) return;
+  try {
+    fs.appendFileSync(file, markdown + "\n");
+  } catch (e) {
+    console.log("could not write the job summary:", e.message);
+  }
+}
+
+// Trend-aligned first, then the tightest stop relative to price: a zone touch
+// in the direction of the EMA stack with a near invalidation is the setup worth
+// reading before the other thirty.
+// The run page already prints a UTC timestamp; every reader of this portal is on
+// IST, so the digest repeats it in the timezone the signals were acted on.
+function istStamp(d) {
+  const t = new Date(d.getTime() + 5.5 * 3600 * 1000);
+  return t.toISOString().slice(0, 16).replace("T", " ") + " IST";
+}
+
+function rankSignals(signals) {
+  return signals.slice().sort((a, b) => {
+    const at = a.trend === TREND_FOR[a.action] ? 0 : 1;
+    const bt = b.trend === TREND_FOR[b.action] ? 0 : 1;
+    if (at !== bt) return at - bt;
+    const ar = Math.abs(a.price - a.stop) / a.price;
+    const br = Math.abs(b.price - b.stop) / b.price;
+    if (ar !== br) return ar - br;
+    return a.symbol < b.symbol ? -1 : 1;
+  });
+}
+
+function buildDigest(ctx) {
+  const symbols = ctx.symbols, timeframes = ctx.timeframes, tasks = ctx.tasks;
+  const signals = ctx.signals, failures = ctx.failures, dryRun = ctx.dryRun;
+  const outcomeLabel = { found: "Found", saved: "Saved", duplicate: "Already recorded", error: "Failed to save" };
+  const outcomes = dryRun ? ["found"] : ["saved", "duplicate", "error"];
+
+  const L = [];
+  L.push(`## ${dryRun ? "Dry run — nightly" : "Nightly"} zone scan`);
+  L.push("");
+  const plural = (n, word) => `${n} ${word}${n === 1 ? "" : "s"}`;
+  L.push(`**${plural(symbols, "symbol")} × ${plural(timeframes.length, "timeframe")} = ${plural(tasks, "task")}** · scanned ${timeframes.map((t) => t.label).join(", ")}`);
+  L.push("");
+  L.push(signals.length
+    ? `_Run ${istStamp(new Date())} · bars to ${signals[0].date}_`
+    : `_Run ${istStamp(new Date())}_`);
+  L.push("");
+
+  if (!signals.length) {
+    L.push("No zone touches today.");
+    L.push("");
+  } else {
+    L.push(`| Result | ${timeframes.map((t) => t.label).join(" | ")} | Total |`);
+    L.push(`|---|---|${timeframes.map(() => "---").join("|")}|---|`);
+    for (const key of outcomes) {
+      const cells = timeframes.map((t) => signals.filter((s) => s.tfId === t.id && s.outcome === key).length);
+      L.push(`| ${outcomeLabel[key]} | ${cells.join(" | ")} | ${cells.reduce((a, b) => a + b, 0)} |`);
+    }
+    L.push("");
+
+    const top = rankSignals(signals).slice(0, TOP_SIGNALS);
+    L.push(`### Top ${top.length} of ${signals.length}`);
+    L.push("");
+    L.push("Trend-aligned setups first, then the tightest stop. The full list is on the Setups page.");
+    L.push("");
+    L.push("| # | Symbol | TF | Side | Price | Zone | Stop | Target | Trend |");
+    L.push("|---|---|---|---|---|---|---|---|---|");
+    top.forEach((s, i) => {
+      const side = s.action === "LONG" ? "🟢 LONG" : "🔴 SHORT";
+      const aligned = s.trend === TREND_FOR[s.action] ? "✅ " : "";
+      L.push(`| ${i + 1} | **${s.symbol}** | ${s.tf} | ${side} | ${s.price} | ${s.zoneBottom}-${s.zoneTop} | ${s.stop} | ${s.target} | ${aligned}${s.trend} |`);
+    });
+    L.push("");
+  }
+
+  if (failures.length) {
+    L.push(`<details><summary>${failures.length} symbol/timeframe pair(s) had no usable data</summary>`);
+    L.push("");
+    failures.slice(0, 40).forEach((f) => L.push(`- \`${f}\``));
+    if (failures.length > 40) L.push(`- …and ${failures.length - 40} more`);
+    L.push("");
+    L.push("</details>");
+    L.push("");
+  }
+
+  L.push(dryRun
+    ? "_Dry run — nothing was posted to the portal._"
+    : "Signals are on the [Setups page](https://sebasishpanda20-creator.github.io/Learningfundclear/setups.html) — open it and hit Refresh.");
+  return L.join("\n");
 }
 
 async function main() {
@@ -298,6 +402,10 @@ async function main() {
   }
 
   if (DRY_RUN) {
+    signals.forEach((s) => { s.outcome = "found"; });
+    writeSummary(buildDigest({
+      symbols: symbols.length, timeframes, tasks: tasks.length, signals, failures, dryRun: true,
+    }));
     console.log("\ndry run — nothing posted.");
     if (!signals.length && failures.length === tasks.length) process.exit(1);
     return;
@@ -309,20 +417,28 @@ async function main() {
       const r = await post(signal);
       if (r.status === 200 && r.body.includes('"skipped":"duplicate"')) {
         duplicates++;
+        signal.outcome = "duplicate";
         console.log(`  skip  ${signal.symbol} ${signal.tf} (already recorded)`);
       } else if (r.status === 200) {
         posted++;
+        signal.outcome = "saved";
         console.log(`  saved ${signal.symbol} ${signal.tf} ${signal.action}`);
       } else {
         errors++;
+        signal.outcome = "error";
         console.log(`  FAIL  ${signal.symbol} ${signal.tf} HTTP ${r.status} ${r.body}`);
       }
     } catch (e) {
       errors++;
+      signal.outcome = "error";
       console.log(`  FAIL  ${signal.symbol} ${signal.tf} ${e.message}`);
     }
   }
   console.log(`\ndone — ${posted} saved, ${duplicates} duplicate(s) skipped, ${errors} error(s)`);
+
+  writeSummary(buildDigest({
+    symbols: symbols.length, timeframes, tasks: tasks.length, signals, failures, dryRun: false,
+  }));
 
   // a total data outage is worth a red run so it gets noticed
   if (!signals.length && failures.length === tasks.length) process.exit(1);
