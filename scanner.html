@@ -60,8 +60,7 @@
 </head>
 <body>
 <a class="back" href="index.html">← Back to journal</a>
-<h1>Demand Zone Scanner</h1>
-<p class="sub">End-of-day NSE/BSE scan · independent pivot-based zone approximation · private page — same sign-in as the journal</p>
+<h1>Demand Zone Scanner</h1>  <p class="sub">End-of-day NSE/BSE + global commodity futures scan · independent pivot-based zone approximation · private page — same sign-in as the journal</p>
 
 <div class="card">
   <div class="row">
@@ -90,11 +89,12 @@
     <div><button class="primary" id="scanBtn">Scan watchlist</button></div>
   </div>
   <div class="row" style="margin-top:12px">
-    <div style="flex:1;min-width:260px"><label>Watchlist (one NSE/BSE symbol per line, e.g. COALINDIA.NS)</label>
-      <input id="watchInput" style="width:100%" placeholder="COALINDIA.NS, ASHOKLEY.NS, RELIANCE.NS, TCS.NS, INFY.NS, SBIN.NS">
+    <div style="flex:1;min-width:260px"><label>Watchlist (one NSE/BSE symbol or futures like GC=F per line, e.g. COALINDIA.NS)</label>
+      <input id="watchInput" style="width:100%" placeholder="COALINDIA.NS, ASHOKLEY.NS, RELIANCE.NS, GC=F, CL=F">
     </div>
     <button class="ghost" id="saveWatch">Save list</button>
     <button class="ghost" id="importToggle">Import list…</button>
+    <button class="ghost" id="addCommodities" title="Adds gold, silver, crude, natgas, copper, zinc, aluminium — the global futures MCX tracks (MCX codes themselves aren't on Yahoo)">Add commodities</button>
   </div>
   <div class="row hidden" id="importRow" style="margin-top:12px">
     <div style="flex:1;min-width:260px"><label>Paste symbols — CSV, one per line, or comma/semicolon separated (bare symbol → NSE, bare number → BSE)</label>
@@ -173,6 +173,20 @@ professional before making an investment decision.</p>
     // Infra, cement & others
     "LT.NS", "ULTRACEMCO.NS", "GRASIM.NS", "ADANIPORTS.NS", "DMART.NS", "TITAN.NS"
   ];
+  // Commodities: Yahoo carries the global futures that MCX prices follow
+  // (COMEX metals, NYMEX energy). MCX contract codes themselves (CRUDEOIL.MCX
+  // etc.) do not exist on Yahoo — these proxies track the same moves.
+  var DEFAULT_COMMODITIES = [
+    "GC=F",   // Gold (COMEX)      ~ MCX GOLD/GOLDM
+    "SI=F",   // Silver (COMEX)    ~ MCX SILVER
+    "CL=F",   // Crude WTI (NYMEX) ~ MCX CRUDEOIL
+    "BZ=F",   // Brent (ICE)       ~ MCX BRENT CRUDEOIL
+    "NG=F",   // Natural Gas (NYMEX) ~ MCX NATURALGAS
+    "HG=F",   // Copper (COMEX)    ~ MCX COPPER
+    "ALI=F",  // Aluminium (COMEX) ~ MCX ALUMINIUM
+    "ZNC=F",  // Zinc (COMEX)      ~ MCX ZINC
+    "PL=F"    // Platinum (NYMEX)
+  ];
   var SETTINGS_KEY = "lfc.scanSettings";
 
   // ---------- symbol normalization ----------
@@ -183,6 +197,7 @@ professional before making an investment decision.</p>
   //   500325.BO     -> kept
   //   "Coal India"  -> looked up in the NSE master, else skipped
   //   SYMBOL,NAME rows (CSV with a header or two columns) are handled.
+  //   GC=F / BZ=F    -> kept (globally-traded futures; MCX tracks these)
   function normaliseSymbols(text, knownNames) {
     var out = [];
     function add(s) { if (out.indexOf(s) < 0) out.push(s); }
@@ -192,7 +207,8 @@ professional before making an investment decision.</p>
       s = s.replace(/^\d{1,2}\.\s*/, "");             // strip list numbering like "1. RELIANCE"
       if (!s || s === "SYMBOL" || s === "NAME" || s === "TICKER") return;
       if (s.length < 2 || s.length > 20) return;
-      if (!/^[A-Z0-9&\-\.]+$/.test(s)) {
+      var isFut = /=F$/.test(s);                       // futures contract, e.g. GC=F
+      if (!isFut && !/^[A-Z0-9&\-\.]+$/.test(s)) {
         // prose (a company name) — try the name index, else give up on this field
         var hit = knownNames && knownNames[s.toLowerCase()];
         if (hit) add(hit);
@@ -202,12 +218,13 @@ professional before making an investment decision.</p>
       // resolves through the index rather than becoming a bogus INFOSYS.NS
       var nameHit = knownNames && knownNames[s.toLowerCase()];
       if (nameHit) { add(nameHit); return; }
-      if (/^\d{5,6}$/.test(s)) s = s + ".BO";        // bare Scrip code assumes BSE
+      if (isFut) { /* futures: kept as-is */ }
+      else if (/^\d{5,6}$/.test(s)) s = s + ".BO";    // bare Scrip code assumes BSE
       else if (/\.(NS|BO)$/.test(s)) { /* already suffixed */ }
       else if (/\.NSE$/.test(s)) s = s.replace(/\.NSE$/, ".NS");
       else if (/\.BSE$/.test(s)) s = s.replace(/\.BSE$/, ".BO");
       else s = s + ".NS";                            // bare word assumes NSE
-      if (/\.NS$/.test(s) && /\d/.test(s)) return;    // NSE equity tickers carry no digits
+      if (!isFut && /\.NS$/.test(s) && /\d/.test(s)) return;  // NSE equity tickers carry no digits
       add(s);
     }
     text.split(/[\r\n]+/).forEach(function (line) {
@@ -747,6 +764,17 @@ professional before making an investment decision.</p>
     $("watchInput").value = DEFAULT_WATCH.join(", ");
     try { localStorage.setItem("lfc.watchlist", JSON.stringify(DEFAULT_WATCH)); } catch (e) {}
     $("msg").textContent = "Default list restored (" + DEFAULT_WATCH.length + " symbols, saved).";
+  };
+
+  // one click to pull the MCX-tracked commodity futures into the watchlist
+  $("addCommodities").onclick = function () {
+    var existing = $("watchInput").value.split(/[\n,]+/).map(function (s) { return s.trim().toUpperCase(); }).filter(Boolean);
+    var added = 0;
+    DEFAULT_COMMODITIES.forEach(function (c) { if (existing.indexOf(c) < 0) { existing.push(c); added++; } });
+    if (!added) { $("msg").textContent = "Commodity futures were already on the list."; return; }
+    $("watchInput").value = existing.join(", ");
+    try { localStorage.setItem("lfc.watchlist", JSON.stringify(existing)); } catch (e) {}
+    $("msg").textContent = "Added " + added + " commodity futures (gold, silver, crude, natgas, copper, zinc, aluminium, platinum) — saved. MCX codes aren't on Yahoo; these global contracts track the same moves.";
   };
 
   $("importFileBtn").onclick = function () { $("importFile").click(); };
