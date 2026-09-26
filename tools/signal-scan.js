@@ -46,12 +46,69 @@ const TIMEFRAMES = [
 ];
 const TF_ORDER = TIMEFRAMES.map((t) => t.id);
 
-// ── tunables (mirror the scanner's defaults so portal and cron agree) ───────
-const PIVOT_LEFT = 3;
-const PIVOT_RIGHT = 3;
-const STOP_BUF_PCT = 0.5;      // stop sits this % beyond the zone edge
-const RR_TARGET = 2.0;         // target = entry ± risk × R:R
-const TREND_FILTER = false;    // true = only zones aligned with the EMA10/20/50 stack
+// ── signal rules: tools/scan-rules.json, no code edit needed ───────────────
+// Defaults mirror the scanner so portal and cron agree. The file may override
+// any subset; anything missing keeps its default. Fail-closed on purpose: an
+// unknown key or wrong type aborts the run rather than silently scanning with
+// different rules than the file's author believed (a typo like "trendFiter"
+// would otherwise just be ignored, and the trend filter would be off while the
+// commit message claimed it was on).
+const RULES_DEFAULTS = {
+  trendFilter: { type: "boolean", value: false },   // only EMA-aligned zones
+  insideOnly: { type: "boolean", value: false },    // close inside, not just touch
+  minVolume: { type: "number", value: 0 },          // min volume on the signal bar
+  stopBufPct: { type: "number", value: 0.5 },       // stop beyond zone edge, %
+  rrTarget: { type: "number", value: 2.0 },         // target R:R
+  pivotLeft: { type: "integer", value: 3 },         // pivot strength left
+  pivotRight: { type: "integer", value: 3 },        // pivot strength right
+};
+
+function loadRules() {
+  const file = path.join(__dirname, "scan-rules.json");
+  let raw;
+  try {
+    raw = JSON.parse(fs.readFileSync(file, "utf8"));
+  } catch (e) {
+    if (e.code === "ENOENT") {
+      // fresh clone before the file is restored: scan with documented defaults
+      console.log("scan-rules.json not found — using built-in defaults (trendFilter off, touch mode, no volume gate)");
+      const rules = {};
+      for (const [key, def] of Object.entries(RULES_DEFAULTS)) rules[key] = def.value;
+      return rules;
+    }
+    console.error(`FATAL: tools/scan-rules.json is not valid JSON (${e.message}). Fix or delete the file — refusing to scan with unknown rules.`);
+    process.exit(1);
+  }
+  const rules = {};
+  for (const [key, def] of Object.entries(RULES_DEFAULTS)) {
+    const v = raw[key];
+    if (v === undefined || v === null) {
+      rules[key] = def.value;                       // absent → default
+      continue;
+    }
+    const ok = def.type === "boolean" ? typeof v === "boolean"
+      : def.type === "integer" ? Number.isInteger(v)
+      : typeof v === "number" && Number.isFinite(v);
+    if (!ok) {
+      console.error(`FATAL: scan-rules.json key "${key}" must be a ${def.type}, got ${JSON.stringify(v)}. Refusing to scan.`);
+    }
+    rules[key] = v;
+  }
+  const unknown = Object.keys(raw).filter((k) => k !== "_comment" && !(k in RULES_DEFAULTS));
+  if (unknown.length) {
+    console.error(`FATAL: scan-rules.json has unknown key(s): ${unknown.join(", ")}. Recognised: ${Object.keys(RULES_DEFAULTS).join(", ")}. (A typo here would silently disable a filter.)`);
+    process.exit(1);
+  }
+  if (rules.pivotLeft < 1 || rules.pivotRight < 1) {
+    console.error("FATAL: pivotLeft/pivotRight must be >= 1.");
+    process.exit(1);
+  }
+  return rules;
+}
+
+const RULES = loadRules();
+
+// ── infrastructure tunables (not signal rules — leave in code) ──────────────
 const CONCURRENCY = 4;
 const RETRY_DELAY_MS = 2000;   // one spaced retry: three timeframes triples the request count
 const UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36";
@@ -158,29 +215,37 @@ async function getBars(symbol, tf) {
   }
 }
 
-// ── signal decision (same rules as the scanner's touch filter) ─────────────
+// ── signal decision (same rules as the scanner's touch filter, tuned by RULES) ─
 function scanSymbol(symbol, bars, tf) {
-  const res = computeZones(bars, { pivotLeft: PIVOT_LEFT, pivotRight: PIVOT_RIGHT });
+  const res = computeZones(bars, { pivotLeft: RULES.pivotLeft, pivotRight: RULES.pivotRight });
   if (!res) return null;
   const last = bars[bars.length - 1];
   const price = res.price;
-  const touched = (z) => last.low <= z.top && last.high >= z.bottom;
 
-  // among the zones this bar actually touched, take the one nearest to price
-  const nearestTouched = (zones) => {
+  // touch = the bar's range overlaps the zone; inside = the bar CLOSED in it.
+  // insideOnly promotes the stricter of the two; RULES decides which applies.
+  const touched = (z) => last.low <= z.top && last.high >= z.bottom;
+  const closedInside = (z) => last.close <= z.top && last.close >= z.bottom;
+  const hitTest = RULES.insideOnly ? closedInside : touched;
+
+  // volume gate on the signal bar only (see scan-rules.json for the caveat)
+  if (RULES.minVolume > 0 && !(Number(last.volume) >= RULES.minVolume)) return null;
+
+  // among the zones this bar hit, take the one nearest to price
+  const nearestHit = (zones) => {
     let best = null, bestDist = Infinity;
     for (const z of (zones || [])) {
-      if (!touched(z)) continue;
+      if (!hitTest(z)) continue;
       const dist = Math.abs(price - (z.top + z.bottom) / 2);
       if (dist < bestDist) { bestDist = dist; best = z; }
     }
     return best;
   };
 
-  const demand = nearestTouched(res.demandZones);
-  const supply = nearestTouched(res.supplyZones);
-  const trendOkLong = !TREND_FILTER || res.trend === "UPTREND";
-  const trendOkShort = !TREND_FILTER || res.trend === "DOWNTREND";
+  const demand = nearestHit(res.demandZones);
+  const supply = nearestHit(res.supplyZones);
+  const trendOkLong = !RULES.trendFilter || res.trend === "UPTREND";
+  const trendOkShort = !RULES.trendFilter || res.trend === "DOWNTREND";
 
   if (demand && trendOkLong) return buildSignal(symbol, "LONG", demand, price, res.trend, last.date, tf);
   if (supply && trendOkShort) return buildSignal(symbol, "SHORT", supply, price, res.trend, last.date, tf);
@@ -189,11 +254,11 @@ function scanSymbol(symbol, bars, tf) {
 
 function buildSignal(symbol, action, zone, price, trend, date, tf) {
   const stop = action === "LONG"
-    ? zone.bottom * (1 - STOP_BUF_PCT / 100)
-    : zone.top * (1 + STOP_BUF_PCT / 100);
+    ? zone.bottom * (1 - RULES.stopBufPct / 100)
+    : zone.top * (1 + RULES.stopBufPct / 100);
   const risk = action === "LONG" ? price - stop : stop - price;
   if (!(risk > 0) || !(price > 0)) return null;
-  const target = action === "LONG" ? price + risk * RR_TARGET : price - risk * RR_TARGET;
+  const target = action === "LONG" ? price + risk * RULES.rrTarget : price - risk * RULES.rrTarget;
   const f = (n) => n.toFixed(2);
   return {
     symbol,
