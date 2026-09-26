@@ -8,3 +8,6 @@ __pycache__/
 *.pyc
 .DS_Store
 Thumbs.db
+
+# Supabase CLI link/state cache — machine-local, holds the project ref only
+supabase/.temp/
