@@ -77,6 +77,39 @@ Deno.serve(async (req: Request) => {
     Deno.env.get("SUPABASE_URL")!,
     Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,   // bypasses RLS; only inside the function
   );
+  // 2b) de-duplicate. The nightly EOD scan can re-find the same zone on consecutive
+  // days, and a re-fired TradingView alert repeats the same zone too. With a zone
+  // signature in the text we suppress repeats for a week; without one (free-form
+  // alert) we only suppress bursts of the same symbol+action inside two hours.
+  // Reads fail open: if the lookup errors we still insert, never lose a signal.
+  const zoneKey = (txt: string): string | null => {
+    const m = /zone\s+([\d.]+)\s*-\s*([\d.]+)/i.exec(String(txt || ""));
+    return m ? Number(m[1]).toFixed(2) + "-" + Number(m[2]).toFixed(2) : null;
+  };
+  const wanted = zoneKey(details);
+  const windowMs = wanted ? 7 * 24 * 3600 * 1000 : 2 * 3600 * 1000;
+  const since = new Date(Date.now() - windowMs).toISOString();
+  const { data: recent, error: readError } = await supabase
+    .from("signal_events")
+    .select("details")
+    .eq("symbol", symbol)
+    .eq("action", action)
+    .gte("created_at", since)
+    .limit(50);
+  if (!readError && recent) {
+    const duplicate = recent.some((r: any) => {
+      if (!wanted) return true;                 // no zone info: same symbol+action inside the short window
+      const have = zoneKey(r.details);
+      return have !== null && have === wanted;
+    });
+    if (duplicate) {
+      return new Response(
+        JSON.stringify({ ok: true, symbol, action, skipped: "duplicate" }),
+        { status: 200, headers: { "Content-Type": "application/json" } },
+      );
+    }
+  }
+
   const { error } = await supabase.from("signal_events").insert({
     symbol,
     action,

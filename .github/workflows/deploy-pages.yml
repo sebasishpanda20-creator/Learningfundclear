@@ -52,7 +52,7 @@ jobs:
 
       - name: Syntax-check every script
         run: |
-          for f in $(find funds/assets/js -name '*.js') auth-guard.js scanner-logic.js; do
+          for f in $(find funds/assets/js -name '*.js') auth-guard.js scanner-logic.js tools/*.js; do
             echo "checking $f"
             node --check "$f"
           done

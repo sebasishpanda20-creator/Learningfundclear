@@ -1,0 +1,66 @@
+# Nightly zone signal scan — LearningFundClear
+# =============================================
+# Runs tools/signal-scan.js after the Indian market closes. The script reuses
+# scanner-logic.js (the portal's own zone math), fetches Yahoo EOD bars, and
+# posts each fresh demand/supply touch to the tv-webhook function, which stores
+# it in signal_events for the Setups page.
+#
+# This replaces the need for a paid TradingView plan: no webhooks required.
+#
+# One-time setup: repository Settings -> Secrets and variables -> Actions ->
+# New repository secret:  TV_WEBHOOK_SECRET = <the same value set in Supabase>
+#
+# Manual runs: Actions -> "Nightly zone signal scan" -> Run workflow.
+# Leave "dry run" ticked to see what it finds without writing anything.
+
+name: Nightly zone signal scan
+
+on:
+  schedule:
+    # 12:30 UTC = 18:00 IST — after the 15:30 IST close, with EOD data settled.
+    - cron: '30 12 * * *'
+  workflow_dispatch:
+    inputs:
+      symbols:
+        description: 'Optional comma-separated symbols (default: tools/signal-watchlist.json)'
+        required: false
+      dry_run:
+        description: 'Dry run — find signals but write nothing'
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Syntax-check the scan script
+        run: |
+          node --check tools/signal-scan.js
+          node --check scanner-logic.js
+
+      - name: Check the webhook secret is configured
+        if: ${{ github.event.inputs.dry_run != 'true' }}
+        env:
+          TV_WEBHOOK_SECRET: ${{ secrets.TV_WEBHOOK_SECRET }}
+        run: |
+          if [ -z "$TV_WEBHOOK_SECRET" ]; then
+            echo "::error::Repository secret TV_WEBHOOK_SECRET is not set. Add it under Settings -> Secrets and variables -> Actions."
+            exit 1
+          fi
+
+      - name: Scan for zone signals
+        env:
+          TV_WEBHOOK_SECRET: ${{ secrets.TV_WEBHOOK_SECRET }}
+          WEBHOOK_URL: https://chbtjicvbezbiosuouwm.supabase.co/functions/v1/tv-webhook
+          SCAN_SYMBOLS: ${{ github.event.inputs.symbols }}
+          SCAN_DRY_RUN: ${{ github.event.inputs.dry_run }}
+        run: node tools/signal-scan.js
