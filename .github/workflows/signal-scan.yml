@@ -24,6 +24,9 @@ on:
       symbols:
         description: 'Optional comma-separated symbols (default: tools/signal-watchlist.json)'
         required: false
+      timeframes:
+        description: 'Timeframes to scan: d,w,m (default: all three)'
+        required: false
       dry_run:
         description: 'Dry run — find signals but write nothing'
         type: boolean
@@ -62,5 +65,6 @@ jobs:
           TV_WEBHOOK_SECRET: ${{ secrets.TV_WEBHOOK_SECRET }}
           WEBHOOK_URL: https://chbtjicvbezbiosuouwm.supabase.co/functions/v1/tv-webhook
           SCAN_SYMBOLS: ${{ github.event.inputs.symbols }}
+          SCAN_TIMEFRAMES: ${{ github.event.inputs.timeframes }}
           SCAN_DRY_RUN: ${{ github.event.inputs.dry_run }}
         run: node tools/signal-scan.js

@@ -81,10 +81,16 @@ Deno.serve(async (req: Request) => {
   // days, and a re-fired TradingView alert repeats the same zone too. With a zone
   // signature in the text we suppress repeats for a week; without one (free-form
   // alert) we only suppress bursts of the same symbol+action inside two hours.
+  // The timeframe is part of the identity: a Weekly zone that happens to share a
+  // Daily zone's range is still a different setup and must not be suppressed.
   // Reads fail open: if the lookup errors we still insert, never lose a signal.
   const zoneKey = (txt: string): string | null => {
-    const m = /zone\s+([\d.]+)\s*-\s*([\d.]+)/i.exec(String(txt || ""));
-    return m ? Number(m[1]).toFixed(2) + "-" + Number(m[2]).toFixed(2) : null;
+    const s = String(txt || "");
+    const m = /zone\s+([\d.]+)\s*-\s*([\d.]+)/i.exec(s);
+    if (!m) return null;
+    const tf = /^\s*(daily|weekly|monthly|hourly|15m|1h)\b/i.exec(s);
+    return (tf ? tf[1].toLowerCase() : "any") + "|" +
+      Number(m[1]).toFixed(2) + "-" + Number(m[2]).toFixed(2);
   };
   const wanted = zoneKey(details);
   const windowMs = wanted ? 7 * 24 * 3600 * 1000 : 2 * 3600 * 1000;
