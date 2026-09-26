@@ -75,6 +75,19 @@
 </div>
 
 <div class="card">
+  <h3>Nightly scan list</h3>
+  <p class="mut" style="margin-top:0">What the 18:00 IST GitHub Actions scan checks (daily, weekly and monthly zones). Uncheck a symbol to pause it — the list is saved to Supabase and tonight's run picks up the change.</p>
+  <div class="row" style="margin-bottom:10px">
+    <input id="scanAdd" placeholder="Add symbol, e.g. IRCTC or GC=F" style="width:220px">
+    <button class="ghost" id="scanAddBtn">Add</button>
+    <span class="mut" id="scanCount"></span>
+  </div>
+  <div id="scanList" style="display:flex;flex-wrap:wrap;gap:6px"></div>
+  <p class="msg" id="scanMsg"></p>
+  <p class="mut" style="margin-bottom:0"><b>Yahoo symbol shapes:</b> NSE equity <code>RELIANCE.NS</code> · BSE <code>500325.BO</code> · commodity futures <code>GC=F</code> (gold), <code>CL=F</code> (crude) — MCX tracks these global contracts; MCX codes themselves are not on Yahoo.</p>
+</div>
+
+<div class="card">
   <h3>Log a setup manually</h3>
   <div class="row">
     <div><label>Symbol</label><input id="mSym" placeholder="COALINDIA" style="width:120px"></div>
@@ -338,6 +351,106 @@ function renderLedger() {
   };
 }
 
+// ---------- nightly scan list (Supabase scan_symbols) ----------
+let scanSymbols = [];
+
+const SCAN_HINTS = {
+  "GC=F": "gold", "SI=F": "silver", "CL=F": "crude WTI", "BZ=F": "Brent",
+  "NG=F": "natgas", "HG=F": "copper", "ALI=F": "aluminium", "ZNC=F": "zinc", "PL=F": "platinum",
+};
+
+function normaliseScanSymbol(raw) {
+  const s = String(raw || "").trim().toUpperCase().replace(/["']/g, "");
+  if (!s || s === "SYMBOL") return null;
+  if (s.length < 2 || s.length > 20) return null;
+  if (!/^[A-Z0-9&\-\.=]+$/.test(s)) return null;
+  if (/=F$/.test(s)) return s;                       // futures contract, e.g. GC=F
+  if (/\.(NS|BO|MCX)$/i.test(s)) return s.replace(/\.(NS|BO|MCX)$/i, (m) => m.toUpperCase());
+  return s + ".NS";                                  // bare word assumes NSE
+}
+
+async function loadScanList() {
+  try {
+    const { data, error } = await sb.from("scan_symbols").select("*").order("position", { ascending: true });
+    if (error) throw error;
+    scanSymbols = (data || []).map((r) => ({ symbol: r.symbol, enabled: r.enabled, onServer: true }));
+  } catch (e) {
+    // migration not run yet (or offline): show what tonight's scan would use
+    // from the committed JSON — the editor renders read-only until the table exists
+    try {
+      const res = await fetch("tools/signal-watchlist.json");
+      const j = await res.json();
+      scanSymbols = (j.symbols || []).map((s) => ({ symbol: s, enabled: true, onServer: false }));
+    } catch (e2) { scanSymbols = []; }
+    if (!scanSymbols.length) {
+      $("scanMsg").textContent = "Scan list unavailable (has scan-symbols-migration.sql been run in Supabase?).";
+    } else {
+      $("scanMsg").textContent = "Read-only preview — run scan-symbols-migration.sql in Supabase to enable editing.";
+    }
+  }
+  renderScanList();
+}
+
+function renderScanList() {
+  const wrap = $("scanList");
+  wrap.innerHTML = "";
+  const enabled = scanSymbols.filter((s) => s.enabled).length;
+  $("scanCount").textContent = scanSymbols.length ? `${enabled} of ${scanSymbols.length} enabled` : "";
+  scanSymbols.forEach((s, i) => {
+    const chip = document.createElement("span");
+    chip.style.cssText = "display:inline-flex;align-items:center;gap:5px;padding:3px 9px;border:1px solid var(--line,#ccc);border-radius:999px;font-size:12px" + (s.enabled ? "" : ";opacity:.45");
+    const hint = SCAN_HINTS[s.symbol] ? ` <i style="opacity:.6;font-style:normal">${SCAN_HINTS[s.symbol]}</i>` : "";
+    chip.innerHTML =
+      `<label style="margin:0;display:flex;align-items:center;gap:4px;cursor:pointer">` +
+      `<input type="checkbox" data-scan-toggle="${i}" ${s.enabled ? "checked" : ""}>` +
+      `<b style="font-weight:600">${esc(s.symbol)}</b>${hint}</label>` +
+      (s.onServer ? ` <button class="ghost danger" data-scan-del="${i}" title="Remove from the scan" style="padding:0 4px;border:none;background:none;cursor:pointer">✕</button>` : "");
+    wrap.appendChild(chip);
+  });
+}
+
+  // handler lives on the container, so it survives re-renders
+  $("scanList").onclick = async (ev) => {
+    const tog = ev.target.closest("[data-scan-toggle]");
+    const del = ev.target.closest("[data-scan-del]");
+    if (!tog && !del) return;
+    const i = parseInt((tog || del).getAttribute(tog ? "data-scan-toggle" : "data-scan-del"), 10);
+    const row = scanSymbols[i];
+    if (!row) return;
+    try {
+      if (tog) {
+        const { error } = await sb.from("scan_symbols").update({ enabled: !row.enabled, updated_at: new Date().toISOString() }).eq("symbol", row.symbol);
+        if (error) throw error;
+        row.enabled = !row.enabled;
+        $("scanMsg").textContent = row.symbol + (row.enabled ? " back in tonight's scan." : " paused — the scan will skip it.");
+      } else {
+        const { error } = await sb.from("scan_symbols").delete().eq("symbol", row.symbol);
+        if (error) throw error;
+        scanSymbols.splice(i, 1);
+        $("scanMsg").textContent = row.symbol + " removed from the scan list.";
+      }
+    } catch (e) {
+      $("scanMsg").textContent = "Save failed: " + (e.message || e) + " — sign in as the admin and check the migration ran.";
+    }
+    renderScanList();
+  };
+
+$("scanAddBtn").onclick = async () => {
+  const sym = normaliseScanSymbol($("scanAdd").value);
+  if (!sym) { $("scanMsg").textContent = "That does not look like a Yahoo symbol (examples: IRCTC, RELIANCE.NS, GC=F)."; return; }
+  if (scanSymbols.some((s) => s.symbol === sym)) { $("scanMsg").textContent = sym + " is already on the list."; return; }
+  try {
+    const { error } = await sb.from("scan_symbols").insert({ symbol: sym, enabled: true, position: 1000 + scanSymbols.length });
+    if (error) throw error;
+    scanSymbols.push({ symbol: sym, enabled: true, onServer: true });
+    $("scanMsg").textContent = sym + " added — tonight's scan will include it.";
+    $("scanAdd").value = "";
+  } catch (e) {
+    $("scanMsg").textContent = "Save failed: " + (e.message || e) + " — sign in as the admin and check the migration ran.";
+  }
+  renderScanList();
+};
+
 // ---------- boot ----------
 $("refreshSigs").onclick = loadSignals;
 (function boot() {
@@ -347,6 +460,7 @@ $("refreshSigs").onclick = loadSignals;
   }
   loadSignals();
   renderLedger();
+  loadScanList();
 })();
 </script>
 </body>

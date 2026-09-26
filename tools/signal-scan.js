@@ -248,6 +248,39 @@ function loadWatchlist() {
   return (parsed.symbols || []).filter(Boolean);
 }
 
+// ── watchlist source: Supabase first, JSON file as fallback ────────────────
+// The editable list lives in the scan_symbols table and is changed from the
+// Setups page. Reads use the public anon key on purpose: the symbol list is
+// not secret and the Actions runner has no Supabase session. If the table or
+// network is unavailable, the committed JSON keeps the nightly run alive.
+const SUPABASE_URL = "https://chbtjicvbezbiosuouwm.supabase.co";
+const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNoYnRqaWN2YmV6Ymlvc3VvdXdtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODkzODc2NjAsImV4cCI6MjEwNDk2MzY2MH0.jlTyYWnf1TnvmwCa4NCc-hJ4wZgjWTuSc94DqvMTdNQ";
+
+async function loadWatchlistFromSupabase() {
+  const url = SUPABASE_URL + "/rest/v1/scan_symbols?select=symbol&enabled=eq.true&order=position.asc&limit=500";
+  const res = await fetch(url, {
+    headers: { apikey: SUPABASE_ANON_KEY, Accept: "application/json" },
+    signal: AbortSignal.timeout(15000),
+  });
+  if (!res.ok) throw new Error("scan_symbols HTTP " + res.status);
+  const rows = await res.json();
+  const symbols = [...new Set(rows.map((r) => String(r.symbol || "").trim()).filter(Boolean))];
+  if (!symbols.length) throw new Error("scan_symbols is empty");
+  return symbols;
+}
+
+async function loadWatchlistResilient() {
+  try {
+    const symbols = await loadWatchlistFromSupabase();
+    console.log(`watchlist: ${symbols.length} enabled symbol(s) from Supabase scan_symbols`);
+    return symbols;
+  } catch (e) {
+    const fallback = loadWatchlist();
+    console.log(`watchlist: Supabase unavailable (${e.message}) — using the committed JSON (${fallback.length} symbols)`);
+    return fallback;
+  }
+}
+
 // ── job summary ───────────────────────────────────────────────────────────
 // GitHub renders this markdown on the workflow run page. Locally the env var
 // is absent, so the same content simply stays in the console output.
@@ -356,7 +389,7 @@ function buildDigest(ctx) {
 async function main() {
   let symbols = SYMBOL_OVERRIDE
     ? SYMBOL_OVERRIDE.split(",").map((s) => s.trim()).filter(Boolean)
-    : loadWatchlist();
+    : await loadWatchlistResilient();
   if (LIMIT > 0) symbols = symbols.slice(0, LIMIT);
 
   const timeframes = selectedTimeframes();
