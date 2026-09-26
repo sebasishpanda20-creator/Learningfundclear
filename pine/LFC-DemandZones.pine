@@ -1,0 +1,222 @@
+//@version=5
+// ============================================================================
+//  LearningFundClear — Demand/Supply Zone Alerts (Pine v5)
+// ============================================================================
+//  Mirror of the portal scanner's zone math (scanner-logic.js):
+//    * A confirmed pivot low (lowest low of left+right+1 bars) creates a DEMAND
+//      zone spanning [candle low, candle body top] of the pivot candle.
+//    * A confirmed pivot high creates a SUPPLY zone [body bottom, candle high].
+//    * A zone dies the moment price CLOSES through it.
+//    * Trend = EMA 10/20/50 stack.
+//
+//  Alerts carry zone/stop/target into the portal Setups page:
+//    details: "zone <bottom>-<top> stop <s> target <t>"
+//    The Setups page parses stop/target out of that text for risk sizing.
+//
+//  ── SETUP (once) ──────────────────────────────────────────────────────────
+//  1. Add this indicator to an NSE chart (Daily for EOD zones, 15m for MIS).
+//  2. Indicator settings → paste the SAME value you stored in Supabase as
+//     TV_WEBHOOK_SECRET (Desktop\TV-SETUP.md, step 2b).
+//  3. Create alert → Condition: "LFC Demand/Supply Zone Alerts" →
+//     choose **"Any alert() function call"** → Notifications tab → tick
+//     Webhook URL → paste
+//     https://chbtjicvbezbiosuouwm.supabase.co/functions/v1/tv-webhook
+//  4. The message box is ignored in that mode — the script supplies the JSON.
+//
+//  Stop rule:  LONG stop  = zone bottom − buffer% · SHORT stop = zone top + buffer%
+//  Target rule: entry (close) ± risk × Target R:R.  Adjust in settings.
+// ============================================================================
+
+indicator("LFC Demand/Supply Zone Alerts", "LFC Zones", overlay = true, max_boxes_count = 60, max_labels_count = 60)
+
+// ── inputs ──────────────────────────────────────────────────────────────────
+leftBars      = input.int(3,  "Pivot left bars",  minval = 1, maxval = 10)
+rightBars     = input.int(3,  "Pivot right bars", minval = 1, maxval = 10)
+maxZones      = input.int(8,  "Zones kept per side", minval = 1, maxval = 20)
+alertTouch    = input.bool(true, "Alert on zone touch (not just close inside)")
+useTrend      = input.bool(false, "Require EMA 10/20/50 trend alignment")
+stopBufPct    = input.float(0.5, "Stop buffer beyond zone (%)", minval = 0, step = 0.1)
+rrTarget      = input.float(2.0, "Target R:R", minval = 0.5, step = 0.25)
+webhookSecret = input.string("", "Webhook secret (must equal TV_WEBHOOK_SECRET)")
+showBoxes     = input.bool(true, "Draw zones")
+showEMAs      = input.bool(true, "Show EMA 10/20/50")
+
+// ── trend (same stack the scanner uses) ────────────────────────────────────
+ema10 = ta.ema(close, 10)
+ema20 = ta.ema(close, 20)
+ema50 = ta.ema(close, 50)
+bullish = ema10 > ema20 and ema20 > ema50
+bearish = ema10 < ema20 and ema20 < ema50
+trendOkLong  = not useTrend or bullish
+trendOkShort = not useTrend or bearish
+
+plot(showEMAs ? ema10 : na, "EMA 10", color.new(#f3d179, 30))
+plot(showEMAs ? ema20 : na, "EMA 20", color.new(#e4c47c, 30))
+plot(showEMAs ? ema50 : na, "EMA 50", color.new(#c98a2b, 30))
+
+// ── zone storage (newest first, like the scanner) ──────────────────────────
+var dTop = array.new<float>()   // demand zone tops    (body top)
+var dBot = array.new<float>()   // demand zone bottoms (candle low)
+var dLft = array.new<int>()     // pivot bar index, for the box's left edge
+var dBox = array.new<box>()
+var sTop = array.new<float>()   // supply zone tops    (candle high)
+var sBot = array.new<float>()   // supply zone bottoms (body bottom)
+var sLft = array.new<int>()
+var sBox = array.new<box>()
+
+// ── zone creation: pivots confirmed rightBars after the extreme ────────────
+pl = ta.pivotlow(low, leftBars, rightBars)
+if barstate.isconfirmed and not na(pl)
+    zt = math.max(open[rightBars], close[rightBars])   // body top of pivot candle
+    zb = low[rightBars]                                // candle low
+    array.unshift(dTop, zt)
+    array.unshift(dBot, zb)
+    array.unshift(dLft, bar_index - rightBars)
+    array.unshift(dBox, box(na))
+
+ph = ta.pivothigh(high, leftBars, rightBars)
+if barstate.isconfirmed and not na(ph)
+    zt2 = high[rightBars]                              // candle high
+    zb2 = math.min(open[rightBars], close[rightBars])  // body bottom
+    array.unshift(sTop, zt2)
+    array.unshift(sBot, zb2)
+    array.unshift(sLft, bar_index - rightBars)
+    array.unshift(sBox, box(na))
+
+// ── invalidation: a CLOSE through a zone kills it (scanner rule) ───────────
+if barstate.isconfirmed
+    if array.size(dBot) > 0
+        for i = array.size(dBot) - 1 to 0
+            if close < array.get(dBot, i)
+                if not na(array.get(dBox, i))
+                    box.delete(array.get(dBox, i))
+                array.remove(dBot, i)
+                array.remove(dTop, i)
+                array.remove(dLft, i)
+                array.remove(dBox, i)
+    if array.size(sTop) > 0
+        for i = array.size(sTop) - 1 to 0
+            if close > array.get(sTop, i)
+                if not na(array.get(sBox, i))
+                    box.delete(array.get(sBox, i))
+                array.remove(sBot, i)
+                array.remove(sTop, i)
+                array.remove(sLft, i)
+                array.remove(sBox, i)
+    // cap the count per side
+    while array.size(dBot) > maxZones
+        if not na(array.get(dBox, array.size(dBox) - 1))
+            box.delete(array.get(dBox, array.size(dBox) - 1))
+        array.pop(dBot)
+        array.pop(dTop)
+        array.pop(dLft)
+        array.pop(dBox)
+    while array.size(sTop) > maxZones
+        if not na(array.get(sBox, array.size(sBox) - 1))
+            box.delete(array.get(sBox, array.size(sBox) - 1))
+        array.pop(sBot)
+        array.pop(sTop)
+        array.pop(sLft)
+        array.pop(sBox)
+
+// ── render zones ────────────────────────────────────────────────────────────
+if barstate.isconfirmed and showBoxes
+    if array.size(dTop) > 0
+        for i = 0 to array.size(dTop) - 1
+            b = array.get(dBox, i)
+            if na(b)
+                b := box.new(array.get(dLft, i), array.get(dTop, i), bar_index, array.get(dBot, i),
+                     border_color = color.new(color.green, 45), border_width = 1,
+                     bgcolor = color.new(color.green, 84),
+                     text = str.tostring(array.get(dBot, i), format.mintick) + " – " + str.tostring(array.get(dTop, i), format.mintick),
+                     text_size = size.tiny, text_color = color.new(color.green, 25), text_halign = text.align_left)
+                array.set(dBox, i, b)
+            else
+                box.set_right(b, bar_index)
+    if array.size(sTop) > 0
+        for i = 0 to array.size(sTop) - 1
+            b2 = array.get(sBox, i)
+            if na(b2)
+                b2 := box.new(array.get(sLft, i), array.get(sTop, i), bar_index, array.get(sBot, i),
+                     border_color = color.new(color.red, 45), border_width = 1,
+                     bgcolor = color.new(color.red, 84),
+                     text = str.tostring(array.get(sBot, i), format.mintick) + " – " + str.tostring(array.get(sTop, i), format.mintick),
+                     text_size = size.tiny, text_color = color.new(color.red, 25), text_halign = text.align_left)
+                array.set(sBox, i, b2)
+            else
+                box.set_right(b2, bar_index)
+
+// ── signal detection: rising edge into a zone ───────────────────────────────
+var bool wasLong  = false
+var bool wasShort = false
+bool longNow  = false
+bool shortNow = false
+float lzTop = na
+float lzBot = na
+float szTop = na
+float szBot = na
+
+if barstate.isconfirmed
+    // demand: close inside the zone, or the bar's range touched it
+    if array.size(dTop) > 0
+        for i = 0 to array.size(dTop) - 1
+            t = array.get(dTop, i)
+            b = array.get(dBot, i)
+            inside = close >= b and close <= t
+            touch  = alertTouch and low <= t and high >= b
+            if (inside or touch) and trendOkLong
+                longNow := true
+                lzTop := t
+                lzBot := b
+                break
+    // supply: mirrored
+    if array.size(sTop) > 0
+        for i = 0 to array.size(sTop) - 1
+            t2 = array.get(sTop, i)
+            b2 = array.get(sBot, i)
+            inside2 = close >= b2 and close <= t2
+            touch2  = alertTouch and high >= b2 and low <= t2
+            if (inside2 or touch2) and trendOkShort
+                shortNow := true
+                szTop := t2
+                szBot := b2
+                break
+
+longSignal  = barstate.isconfirmed and longNow  and not wasLong
+shortSignal = barstate.isconfirmed and shortNow and not wasShort
+
+// ── alert payloads: the exact JSON the tv-webhook function expects ──────────
+if longSignal
+    stopL  = lzBot * (1 - stopBufPct / 100)
+    riskL  = close - stopL
+    tgtL   = close + riskL * rrTarget
+    detL   = "zone " + str.tostring(lzBot, format.mintick) + "-" + str.tostring(lzTop, format.mintick) +
+             " stop " + str.tostring(stopL, format.mintick) + " target " + str.tostring(tgtL, format.mintick)
+    msgL   = '{"secret":"' + webhookSecret + '","symbol":"' + syminfo.ticker +
+             '","action":"LONG","price":' + str.tostring(close, format.mintick) +
+             ',"details":"' + detL + '"}'
+    alert(msgL, alert.freq_once_per_bar_close)
+
+if shortSignal
+    stopS  = szTop * (1 + stopBufPct / 100)
+    riskS  = stopS - close
+    tgtS   = close - riskS * rrTarget
+    detS   = "zone " + str.tostring(szBot, format.mintick) + "-" + str.tostring(szTop, format.mintick) +
+             " stop " + str.tostring(stopS, format.mintick) + " target " + str.tostring(tgtS, format.mintick)
+    msgS   = '{"secret":"' + webhookSecret + '","symbol":"' + syminfo.ticker +
+             '","action":"SHORT","price":' + str.tostring(close, format.mintick) +
+             ',"details":"' + detS + '"}'
+    alert(msgS, alert.freq_once_per_bar_close)
+
+// ── classic alertconditions (fallback; cannot carry computed zone levels) ───
+alertcondition(longNow,  "LFC demand zone hit (LONG)",  "LFC LONG {{ticker}} @ {{close}} — open the Setups page to size it")
+alertcondition(shortNow, "LFC supply zone hit (SHORT)", "LFC SHORT {{ticker}} @ {{close}} — open the Setups page to size it")
+
+// ── visuals ─────────────────────────────────────────────────────────────────
+plotshape(longSignal,  "LONG signal",  shape.triangleup,   location.belowbar, color.new(color.green, 0), size = size.tiny)
+plotshape(shortSignal, "SHORT signal", shape.triangledown, location.abovebar, color.new(color.red, 0),   size = size.tiny)
+
+// state update last, so the rising edge is measured per closed bar
+if barstate.isconfirmed
+    wasLong  := longNow
+    wasShort := shortNow
