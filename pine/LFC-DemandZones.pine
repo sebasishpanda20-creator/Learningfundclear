@@ -16,7 +16,12 @@
 //  ── SETUP (once) ──────────────────────────────────────────────────────────
 //  1. Add this indicator to an NSE chart (Daily for EOD zones, 15m for MIS).
 //  2. Indicator settings → paste the SAME value you stored in Supabase as
-//     TV_WEBHOOK_SECRET (Desktop\TV-SETUP.md, step 2b).
+//     TV_CHART_SECRET (Desktop\TV-SETUP.md). This is deliberately NOT the
+//     nightly scanner's TV_WEBHOOK_SECRET — the chart prints its inputs in the
+//     status line and settings dialogs, so anything pasted here must be assumed
+//     screenshot-exposed. The chart secret can only post chart alerts; leaking
+//     it can never touch the scan or its credentials.
+//     (If the field is empty, alerts silently fail with 401 — nothing posts.)
 //  3. Create alert → Condition: "LFC Demand/Supply Zone Alerts" →
 //     choose **"Any alert() function call"** → Notifications tab → tick
 //     Webhook URL → paste
@@ -41,7 +46,7 @@ alertTouch    = input.bool(true, "Alert on zone touch (not just close inside)")
 useTrend      = input.bool(false, "Require EMA 10/20/50 trend alignment")
 stopBufPct    = input.float(0.5, "Stop buffer beyond zone (%)", minval = 0, step = 0.1)
 rrTarget      = input.float(2.0, "Target R:R", minval = 0.5, step = 0.25)
-webhookSecret = input.string("", "Webhook secret (must equal TV_WEBHOOK_SECRET)")
+webhookSecret = input.string("", "Webhook secret (must equal TV_CHART_SECRET)")
 showBoxes     = input.bool(true, "Draw zones")
 showEMAs      = input.bool(true, "Show EMA 10/20/50")
 
@@ -198,7 +203,7 @@ if longSignal
              " stop " + str.tostring(stopL, format.mintick) + " target " + str.tostring(tgtL, format.mintick)
     msgL   = '{"secret":"' + webhookSecret + '","symbol":"' + syminfo.ticker +
              '","action":"LONG","price":' + str.tostring(close, format.mintick) +
-             ',"details":"' + detL + '"}'
+             ',"source":"chart","details":"' + detL + '"}'
     alert(msgL, alert.freq_once_per_bar_close)
 
 if shortSignal
@@ -209,7 +214,7 @@ if shortSignal
              " stop " + str.tostring(stopS, format.mintick) + " target " + str.tostring(tgtS, format.mintick)
     msgS   = '{"secret":"' + webhookSecret + '","symbol":"' + syminfo.ticker +
              '","action":"SHORT","price":' + str.tostring(close, format.mintick) +
-             ',"details":"' + detS + '"}'
+             ',"source":"chart","details":"' + detS + '"}'
     alert(msgS, alert.freq_once_per_bar_close)
 
 // ── classic alertconditions (fallback; cannot carry computed zone levels) ───

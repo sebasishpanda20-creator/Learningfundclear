@@ -12,6 +12,11 @@
 //   }
 // If your alert is plain text, the function tries to read "SYMBOL ACTION @ PRICE" from it.
 //
+// Two secrets, each single-purpose (see the constants above the handler):
+//   TV_WEBHOOK_SECRET — GitHub Actions nightly scan (high-value, never on screen)
+//   TV_CHART_SECRET   — TradingView Pine indicator (low-value, screenshot-exposed)
+// Both deploy the same way: supabase secrets set NAME=value, then redeploy.
+//
 // Deploy once (needs your Supabase login):
 //   supabase functions deploy tv-webhook --project-ref chbtjicvbezbiosuouwm
 //
@@ -22,14 +27,23 @@
 // @ts-ignore
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
-const SECRET = Deno.env.get("TV_WEBHOOK_SECRET") ?? "";
+// Two independent secrets, so a leaked screenshot of a TradingView chart can
+// never touch the nightly scanner's credentials:
+//   TV_WEBHOOK_SECRET — sent by tools/signal-scan.js from GitHub Actions.
+//     Compromise would let an attacker write fake signals at will.
+//   TV_CHART_SECRET   — pasted into the Pine indicator's inputs, which renders
+//     in the chart status line and settings dialogs that end up in screenshots.
+//     Accepted for chart alerts only; revoking it never affects the scan.
+const SCAN_SECRET = Deno.env.get("TV_WEBHOOK_SECRET") ?? "";
+const CHART_SECRET = Deno.env.get("TV_CHART_SECRET") ?? "";
 
 Deno.serve(async (req: Request) => {
   if (req.method !== "POST") {
     return new Response("POST only", { status: 405 });
   }
 
-  // 1) authenticate: shared secret in header or body
+  // 1) authenticate: shared secret in header or body — scan secret first, then
+  //    the lower-value chart secret
   let body: any = null;
   try {
     body = await req.json();
@@ -39,7 +53,10 @@ Deno.serve(async (req: Request) => {
   }
 
   const given = req.headers.get("x-tv-secret") || body?.secret || "";
-  if (!SECRET || given !== SECRET) {
+  let source: "scan" | "chart" | null = null;
+  if (SCAN_SECRET && given === SCAN_SECRET) source = "scan";
+  else if (CHART_SECRET && given === CHART_SECRET) source = "chart";
+  if (!source) {
     return new Response(JSON.stringify({ error: "unauthorized" }), {
       status: 401,
       headers: { "Content-Type": "application/json" },
@@ -129,7 +146,7 @@ Deno.serve(async (req: Request) => {
     });
   }
 
-  return new Response(JSON.stringify({ ok: true, symbol, action }), {
+  return new Response(JSON.stringify({ ok: true, symbol, action, source }), {
     status: 200,
     headers: { "Content-Type": "application/json" },
   });
