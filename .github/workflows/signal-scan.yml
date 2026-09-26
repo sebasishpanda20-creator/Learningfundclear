@@ -67,4 +67,10 @@ jobs:
           SCAN_SYMBOLS: ${{ github.event.inputs.symbols }}
           SCAN_TIMEFRAMES: ${{ github.event.inputs.timeframes }}
           SCAN_DRY_RUN: ${{ github.event.inputs.dry_run }}
-        run: node tools/signal-scan.js
+        run: |
+          node tools/signal-scan.js
+          # The digest is what the run page shows. Echoing it here as well keeps the
+          # same information available in the raw log, and proves it was written.
+          echo ""
+          echo "----- job summary ($(wc -l < "$GITHUB_STEP_SUMMARY") lines) -----"
+          cat "$GITHUB_STEP_SUMMARY"
