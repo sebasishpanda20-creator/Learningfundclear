@@ -264,9 +264,6 @@ function writeSummary(markdown) {
   }
 }
 
-// Trend-aligned first, then the tightest stop relative to price: a zone touch
-// in the direction of the EMA stack with a near invalidation is the setup worth
-// reading before the other thirty.
 // The run page already prints a UTC timestamp; every reader of this portal is on
 // IST, so the digest repeats it in the timezone the signals were acted on.
 function istStamp(d) {
@@ -274,8 +271,14 @@ function istStamp(d) {
   return t.toISOString().slice(0, 16).replace("T", " ") + " IST";
 }
 
-function rankSignals(signals) {
+// Freshly recorded signals first, then trend-aligned ones, then the tightest stop
+// relative to price: on a quiet night a zone logged last week must not push
+// today's new setups off the digest.
+function rankSignals(signals, freshKey) {
   return signals.slice().sort((a, b) => {
+    const an = a.outcome === freshKey ? 0 : 1;
+    const bn = b.outcome === freshKey ? 0 : 1;
+    if (an !== bn) return an - bn;
     const at = a.trend === TREND_FOR[a.action] ? 0 : 1;
     const bt = b.trend === TREND_FOR[b.action] ? 0 : 1;
     if (at !== bt) return at - bt;
@@ -315,10 +318,14 @@ function buildDigest(ctx) {
     }
     L.push("");
 
-    const top = rankSignals(signals).slice(0, TOP_SIGNALS);
-    L.push(`### Top ${top.length} of ${signals.length}`);
+    const freshKey = dryRun ? "found" : "saved";
+    const fresh = signals.filter((s) => s.outcome === freshKey).length;
+    const top = rankSignals(signals, freshKey).slice(0, TOP_SIGNALS);
+    L.push(fresh
+      ? `### ${dryRun ? "Found" : "New"} this run — ${plural(fresh, "setup")}`
+      : `### No new setups — top ${top.length} of ${plural(signals.length, "signal")}, all already recorded`);
     L.push("");
-    L.push("Trend-aligned setups first, then the tightest stop. The full list is on the Setups page.");
+    L.push("Newest first, then trend-aligned, then the tightest stop. The full list is on the Setups page.");
     L.push("");
     L.push("| # | Symbol | TF | Side | Price | Zone | Stop | Target | Trend |");
     L.push("|---|---|---|---|---|---|---|---|---|");
