@@ -22,6 +22,10 @@
 //     Webhook URL → paste
 //     https://chbtjicvbezbiosuouwm.supabase.co/functions/v1/tv-webhook
 //  4. The message box is ignored in that mode — the script supplies the JSON.
+//  5. HIDE THE SECRET FROM THE CHART: right-click the chart → Chart Settings →
+//     Status Line → untick "Indicator arguments" / "Indicator values". Without
+//     that, the secret prints in the chart legend and leaks in every screenshot.
+//     (TradingView has no per-input hide setting — this chart option is the fix.)
 //
 //  Stop rule:  LONG stop  = zone bottom − buffer% · SHORT stop = zone top + buffer%
 //  Target rule: entry (close) ± risk × Target R:R.  Adjust in settings.
