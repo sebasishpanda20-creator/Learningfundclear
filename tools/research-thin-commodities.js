@@ -18,8 +18,11 @@
  * signal-scan.js has at run time), and a signal fires on day i only if none
  * fired for the same zone in the previous 7 days (mirroring webhook dedup).
  *
- * Usage: node tools/research-thin-commodities.js
- * Read-only: fetches Yahoo, writes nothing, posts nothing.
+ * Usage: node tools/research-thin-commodities.js [symbols...] [--save]
+ *   --save  writes each symbol's hit rate (only if >= 5 signals) into
+ *           tools/scan-quality.json, which the nightly digest reads for its
+ *           "Commodities (90d signals · backtest hit %)" line.
+ * Read-only on market data: fetches Yahoo, posts nothing.
  */
 "use strict";
 
@@ -132,6 +135,11 @@ async function runSymbol(symbol) {
 }
 
 (async () => {
+  const SAVE = process.argv.includes("--save");
+  const cachePath = path.join(__dirname, "scan-quality.json");
+  const cache = SAVE
+    ? (() => { try { return JSON.parse(require("fs").readFileSync(cachePath, "utf8")); } catch { return {}; } })()
+    : null;
   for (const sym of SYMBOLS) {
     try {
       const r = await runSymbol(sym);
@@ -140,8 +148,21 @@ async function runSymbol(symbol) {
         (r.signals.length ? `  (hit rate ${Math.round(100 * r.t / r.signals.length)}%)` : ""));
       r.signals.forEach((x) => console.log(
         `  ${x.date}  ${x.side.padEnd(5)} @${x.price.padStart(9)}  zone ${x.zone.padStart(14)}  stop ${x.stop.padStart(9)}  tgt ${x.target.padStart(9)}  → ${x.outcome}`));
+      if (SAVE && r.signals.length >= 5) {
+        cache[sym] = {
+          hitRate: Math.round(100 * r.t / r.signals.length),
+          signals: r.signals.length,
+          target: r.t, stop: r.s, timeout: r.to,
+          lastDate: r.lastDate,
+          measuredAt: new Date().toISOString().slice(0, 10),
+        };
+      }
     } catch (e) {
       console.log(`\n=== ${sym} — FAILED: ${e.message} ===`);
     }
+  }
+  if (SAVE) {
+    require("fs").writeFileSync(cachePath, JSON.stringify(cache, null, 2) + "\n");
+    console.log(`\nsaved ${Object.keys(cache).length} entr(ies) → tools/scan-quality.json`);
   }
 })();

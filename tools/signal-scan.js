@@ -373,6 +373,50 @@ async function loadWatchlistResilient() {
   }
 }
 
+// ── rolling quality tracker ───────────────────────────────────────────────
+// The digest's commodity quality line is honest about what it can know:
+// live outcomes need future price walks, so the line reports two cheap facts
+// per commodity instead — 90-day signal counts (fetched from signal_events)
+// and the measured hit rate from the research backtest, cached in
+// tools/scan-quality.json by running
+//   node tools/research-thin-commodities.js GC=F SI=F ... --save
+// Both inputs fail open: no cache or a Supabase hiccup just drops the line.
+const COMMODITIES = ["GC=F", "SI=F", "CL=F", "BZ=F", "NG=F", "HG=F", "ALI=F", "ZNC=F", "PL=F"];
+
+function loadQualityCache() {
+  try {
+    return JSON.parse(fs.readFileSync(path.join(__dirname, "scan-quality.json"), "utf8"));
+  } catch {
+    return {};                      // no cache yet — digest just omits the line
+  }
+}
+
+async function fetchRecentCounts() {
+  const since = new Date(Date.now() - 90 * 24 * 3600 * 1000).toISOString();
+  const url = SUPABASE_URL + "/rest/v1/signal_events?select=symbol,action,created_at&created_at=gte." + since + "&limit=1000";
+  const res = await fetch(url, { headers: { apikey: SUPABASE_ANON_KEY, Accept: "application/json" }, signal: AbortSignal.timeout(15000) });
+  if (!res.ok) throw new Error("signal_events HTTP " + res.status);
+  const rows = await res.json();
+  const counts = {};
+  for (const r of rows) {
+    const sym = String(r.symbol || "").toUpperCase();
+    if (COMMODITIES.includes(sym)) counts[sym] = (counts[sym] || 0) + 1;
+  }
+  return counts;
+}
+
+// e.g. "Commodities (90d signals · backtest hit %): GC=F 12 · 51% · CL=F 30 · 44%"
+async function qualityLine() {
+  const cache = loadQualityCache();
+  let counts = {};
+  try { counts = await fetchRecentCounts(); } catch { /* offline is fine */ }
+  const parts = COMMODITIES
+    .filter((s) => cache[s] && typeof cache[s].hitRate === "number")
+    .map((s) => `${s} ${counts[s] ?? 0}·${cache[s].hitRate}%`);
+  if (!parts.length) return "";
+  return `Commodities (90d signals · backtest hit %): ${parts.join(" · ")}`;
+}
+
 // ── job summary ───────────────────────────────────────────────────────────
 // GitHub renders this markdown on the workflow run page. Locally the env var
 // is absent, so the same content simply stays in the console output.
@@ -442,6 +486,7 @@ function telegramDigest(ctx) {
   if (failures.length) {
     L.push(`\n⚠️ unavailable: ${failures.slice(0, 8).join(" · ")}${failures.length > 8 ? ` +${failures.length - 8} more` : ""}`);
   }
+  if (ctx.qualityLine) L.push(ctx.qualityLine);
   L.push("\nSetups: https://sebasishpanda20-creator.github.io/Learningfundclear/setups.html");
   L.push("Research heuristics from EOD bars — verify every level on your broker platform. Not advice.");
   return L.join("\n");
@@ -449,6 +494,7 @@ function telegramDigest(ctx) {
 
 // One call per run: write the job summary, then push the Telegram copy.
 async function pushDigest(ctx) {
+  ctx.qualityLine = await qualityLine();
   writeSummary(buildDigest(ctx));
   try {
     await sendTelegram(telegramDigest(ctx));
@@ -531,6 +577,12 @@ function buildDigest(ctx) {
     if (failures.length > 40) L.push(`- …and ${failures.length - 40} more`);
     L.push("");
     L.push("</details>");
+    L.push("");
+  }
+
+  const quality = ctx.qualityLine;
+  if (quality) {
+    L.push(`**${quality}**`);
     L.push("");
   }
 

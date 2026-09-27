@@ -1,0 +1,83 @@
+{
+  "GC=F": {
+    "hitRate": 51,
+    "signals": 45,
+    "target": 23,
+    "stop": 22,
+    "timeout": 0,
+    "lastDate": "2026-09-25",
+    "measuredAt": "2026-09-27"
+  },
+  "CL=F": {
+    "hitRate": 44,
+    "signals": 68,
+    "target": 30,
+    "stop": 36,
+    "timeout": 2,
+    "lastDate": "2026-09-25",
+    "measuredAt": "2026-09-27"
+  },
+  "BZ=F": {
+    "hitRate": 44,
+    "signals": 63,
+    "target": 28,
+    "stop": 35,
+    "timeout": 0,
+    "lastDate": "2026-09-25",
+    "measuredAt": "2026-09-27"
+  },
+  "HG=F": {
+    "hitRate": 42,
+    "signals": 45,
+    "target": 19,
+    "stop": 26,
+    "timeout": 0,
+    "lastDate": "2026-09-25",
+    "measuredAt": "2026-09-27"
+  },
+  "NG=F": {
+    "hitRate": 33,
+    "signals": 52,
+    "target": 17,
+    "stop": 32,
+    "timeout": 3,
+    "lastDate": "2026-09-25",
+    "measuredAt": "2026-09-27"
+  },
+  "SI=F": {
+    "hitRate": 32,
+    "signals": 37,
+    "target": 12,
+    "stop": 21,
+    "timeout": 4,
+    "lastDate": "2026-09-25",
+    "measuredAt": "2026-09-27"
+  },
+  "ALI=F": {
+    "hitRate": 20,
+    "signals": 10,
+    "target": 2,
+    "stop": 8,
+    "timeout": 0,
+    "lastDate": "2026-09-25",
+    "measuredAt": "2026-09-27"
+  },
+  "ZNC=F": {
+    "hitRate": 67,
+    "signals": 6,
+    "target": 4,
+    "stop": 0,
+    "timeout": 2,
+    "lastDate": "2026-09-25",
+    "measuredAt": "2026-09-27"
+  },
+  "PL=F": {
+    "hitRate": 33,
+    "signals": 15,
+    "target": 5,
+    "stop": 10,
+    "timeout": 0,
+    "lastDate": "2026-09-25",
+    "measuredAt": "2026-09-27"
+  }
+}
