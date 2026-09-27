@@ -18,10 +18,12 @@
  * signal-scan.js has at run time), and a signal fires on day i only if none
  * fired for the same zone in the previous 7 days (mirroring webhook dedup).
  *
- * Usage: node tools/research-thin-commodities.js [symbols...] [--save]
+ * Usage: node tools/research-thin-commodities.js [symbols...] [--save] [--stop=X]
  *   --save  writes each symbol's hit rate (only if >= 5 signals) into
  *           tools/scan-quality.json, which the nightly digest reads for its
  *           "Commodities (90d signals · backtest hit %)" line.
+ *   --stop=X  override the stop buffer % (default 0.5) — e.g. --stop=1.0 to
+ *           test whether a wider stop rescues a marginal market's expectancy.
  * Read-only on market data: fetches Yahoo, posts nothing.
  */
 "use strict";
@@ -32,8 +34,11 @@ require(path.join(__dirname, "..", "scanner-logic.js"));
 const computeZones = global.LfcScanner.computeZones;
 
 const UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36";
-const SYMBOLS = process.argv.slice(2).length ? process.argv.slice(2) : ["ZNC=F", "ALI=F", "PL=F", "GC=F", "CL=F"];
-const PIVOT = 3, STOP_BUF = 0.5, RR = 2.0, MAX_HOLD = 60, DEDUP_DAYS = 7;
+const PIVOT = 3, RR = 2.0, MAX_HOLD = 60, DEDUP_DAYS = 7;
+// args: [symbols...] [--save] [--stop=X]  — X in % (default 0.5)
+const stopArg = process.argv.find((a) => a.startsWith("--stop="));
+const STOP_BUF = stopArg ? parseFloat(stopArg.slice(7)) : 0.5;
+const SYMBOLS = process.argv.slice(2).filter((a) => !a.startsWith("--"));
 
 function parseYahoo(json) {
   const r = json && json.chart && json.chart.result && json.chart.result[0];
