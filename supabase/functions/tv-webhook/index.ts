@@ -17,6 +17,13 @@
 //   TV_CHART_SECRET   — TradingView Pine indicator (low-value, screenshot-exposed)
 // Both deploy the same way: supabase secrets set NAME=value, then redeploy.
 //
+// Optional Telegram push: set TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID function
+// secrets and every NEW (non-duplicate) chart-source signal is pushed to that
+// chat — so a paid-plan TradingView alert reaches your phone in seconds, the
+// same way the nightly scan's digest does. Never fatal: a Telegram failure
+// must not make the webhook return an error (TradingView would mark the
+// delivery failed and may retry/dedupe oddly).
+//
 // Deploy once (needs your Supabase login):
 //   supabase functions deploy tv-webhook --project-ref chbtjicvbezbiosuouwm
 //
@@ -36,6 +43,33 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 //     Accepted for chart alerts only; revoking it never affects the scan.
 const SCAN_SECRET = Deno.env.get("TV_WEBHOOK_SECRET") ?? "";
 const CHART_SECRET = Deno.env.get("TV_CHART_SECRET") ?? "";
+
+// Push a short text message to the configured Telegram chat. Fire-and-forget
+// from the request path: awaited with a timeout but failures never bubble up.
+async function telegramPush(text: string): Promise<void> {
+  const token = Deno.env.get("TELEGRAM_BOT_TOKEN") ?? "";
+  const chatId = Deno.env.get("TELEGRAM_CHAT_ID") ?? "";
+  if (!token || !chatId) return; // not configured — stay silent
+  try {
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), 8000);
+    await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        chat_id: chatId,
+        text: text.length > 3900 ? text.slice(0, 3900) + "\n… truncated" : text,
+        disable_web_page_preview: true,
+      }),
+      signal: ctrl.signal,
+    });
+    clearTimeout(timer);
+    // Intentionally ignore non-OK responses: Telegram being down/rate-limited
+    // must not fail the webhook. The row is already safely stored.
+  } catch {
+    // same: swallow — the signal is stored regardless
+  }
+}
 
 Deno.serve(async (req: Request) => {
   if (req.method !== "POST") {
@@ -144,6 +178,24 @@ Deno.serve(async (req: Request) => {
       status: 500,
       headers: { "Content-Type": "application/json" },
     });
+  }
+
+  // 4) Telegram push for chart-source signals only. The nightly scan already
+  //    pushes its own digest, so a scan row here would double-send. Chart rows
+  //    are the realtime events nobody should have to open GitHub to see.
+  if (source === "chart") {
+    const side = action === "LONG" ? "🟢 LONG" : "🔴 SHORT";
+    const src = /zone\s+[\d.]+\s*-\s*[\d.]+/i.test(details) ? "LFC zone (chart)" : "chart alert";
+    const lines = [
+      `⚡ ${side} ${symbol}${price ? " @" + price : ""}`,
+      details ? `   ${details.slice(0, 300)}` : "",
+      "",
+      `Source: ${src} · ${new Date().toISOString().slice(0, 16).replace("T", " ")} UTC`,
+      "Setups: https://sebasishpanda20-creator.github.io/Learningfundclear/setups.html",
+      "Research heuristic — verify on your broker platform. Not advice.",
+    ].filter((l) => l !== "");
+    // Await but never block the response on failure — see telegramPush.
+    await telegramPush(lines.join("\n"));
   }
 
   return new Response(JSON.stringify({ ok: true, symbol, action, source }), {
