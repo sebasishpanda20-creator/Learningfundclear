@@ -80,13 +80,9 @@ Never displayed anywhere in the portal, never printed in any log, never in a
 screenshot. The only copies that exist outside those two stores are in this machine's
 environment during rotation, and in chat transcripts *if* you paste a value into a
 conversation — which is exactly why its rotation history is: `my8sl…` → `aO50…`
-(screenshot leak) → **rotation to the two-secret scheme: PENDING** (see below).
-
-> ⚠️ **Pending rotation (as of 27 Sep 2026):** the live value is still `aO50…`, which
-> appeared in a chart screenshot — treat it as compromised. The replacement is
-> generated but not yet set, because setting it needs a Supabase access token and the
-> redeploy. Until the steps in the *two-secret split* section of `TV-SETUP.md` are
-> done: expect leaks of this value to keep working, and rotate urgently.
+(screenshot leak) → `nLEs…` (rotated 27 Sep 2026 as part of the two-secret split;
+`aO50…` retired the same day — it had appeared in a chart screenshot, and was the last
+single secret shared by scan and chart paths).
 
 **Rotation steps (both stores in one sitting — partial rotation breaks the scan):**
 
@@ -284,17 +280,17 @@ curl -s -H "Authorization: token $(printf 'protocol=https\nhost=github.com\n\n' 
 #    select tablename, policyname, cmd from pg_policies where schemaname='public';
 
 # 5. Old webhook secrets are dead — expect HTTP 401 from each.
-#    NOTE: until the PENDING two-secret rotation (section 2) is finished, the
-#    old value returns 200 because it is still live. Run this only after the
-#    rotation, and update the value below to the newest dead one each time.
-curl -s -o /dev/null -w "dead secret check: %{http_code} (expect 401)\n" -X POST \
+curl -s -o /dev/null -w "dead my8sl…: %{http_code} (expect 401)\n" -X POST \
   https://chbtjicvbezbiosuouwm.supabase.co/functions/v1/tv-webhook \
   -H "Content-Type: application/json" -d '{"secret":"my8sl-pSk-Ulf6LuDGwdalOm-HD-LIaX4wSmeeXNf7Q","symbol":"X","action":"LONG"}'
+curl -s -o /dev/null -w "dead aO50…: %{http_code} (expect 401)\n" -X POST \
+  https://chbtjicvbezbiosuouwm.supabase.co/functions/v1/tv-webhook \
+  -H "Content-Type: application/json" -d '{"secret":"aO50-9airBjO6_HLlnIkzSOXJGKpWiRGjEERd91bsHc","symbol":"X","action":"LONG"}'
 ```
 
-> Note: check #5 hardcodes one historical **dead** value (`my8sl…`, dead since the
-> first rotation). Never put a live value in this file — after each rotation, replace
-> the check with the newly-dead value so it stays meaningful.
+> Note: check #5 hardcodes historical **dead** values only (`my8sl…` dead since the
+> first rotation; `aO50…` dead since the two-secret split on 27 Sep 2026). Never put
+> a live value in this file — after each rotation, add the newly-dead value here.
 
 ---
 
