@@ -91,6 +91,7 @@ function loadRules() {
       : typeof v === "number" && Number.isFinite(v);
     if (!ok) {
       console.error(`FATAL: scan-rules.json key "${key}" must be a ${def.type}, got ${JSON.stringify(v)}. Refusing to scan.`);
+      process.exit(1);
     }
     rules[key] = v;
   }
