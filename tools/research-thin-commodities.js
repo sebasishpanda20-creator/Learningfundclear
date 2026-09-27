@@ -24,6 +24,8 @@
  *           "Commodities (90d signals · backtest hit %)" line.
  *   --stop=X  override the stop buffer % (default 0.5) — e.g. --stop=1.0 to
  *           test whether a wider stop rescues a marginal market's expectancy.
+ * Output always includes a per-year breakdown so you can see whether an edge
+ * is stable across regimes or concentrated in one year.
  * Read-only on market data: fetches Yahoo, posts nothing.
  */
 "use strict";
@@ -136,7 +138,16 @@ async function runSymbol(symbol) {
   const t = signals.filter((s) => s.outcome === "TARGET").length;
   const s = signals.filter((x) => x.outcome === "STOP").length;
   const to = signals.filter((x) => x.outcome === "TIMEOUT").length;
-  return { symbol, bars: bars.length, lastDate: bars[bars.length - 1].date, signals, t, s, to };
+  // yearly segmentation: regime-stability view (resolved outcomes only —
+  // a TIMEOUT at year end may resolve in the next year, so it is excluded
+  // from per-year hit rates and EV but noted)
+  const years = {};
+  for (const sig of signals) {
+    const y = sig.date.slice(0, 4);
+    years[y] = years[y] || { t: 0, s: 0, to: 0 };
+    years[y][sig.outcome === "TARGET" ? "t" : sig.outcome === "STOP" ? "s" : "to"]++;
+  }
+  return { symbol, bars: bars.length, lastDate: bars[bars.length - 1].date, signals, t, s, to, years };
 }
 
 (async () => {
@@ -151,6 +162,15 @@ async function runSymbol(symbol) {
       console.log(`\n=== ${sym} — ${r.bars} bars to ${r.lastDate} ===`);
       console.log(`signals (deduped, trend-filtered): ${r.signals.length}  |  TARGET ${r.t} · STOP ${r.s} · TIMEOUT ${r.to}` +
         (r.signals.length ? `  (hit rate ${Math.round(100 * r.t / r.signals.length)}%)` : ""));
+      const ys = Object.keys(r.years).sort();
+      for (const y of ys) {
+        const { t: yt, s: yst, to: yto } = r.years[y];
+        const resolved = yt + yst;
+        const hit = resolved ? Math.round(100 * yt / resolved) : null;
+        const ev = resolved ? ((yt * 2 - yst) / resolved).toFixed(2) : null;
+        console.log(`  ${y}: ${String(yt + yst + yto).padStart(3)} signals (${String(yt).padStart(2)}T/${String(yst).padStart(2)}S/${yto}TO)` +
+          `  hit ${hit == null ? "  —" : hit + "%"}  EV ${ev == null ? " — " : (ev > 0 ? "+" : "") + ev + "R"}`);
+      }
       r.signals.forEach((x) => console.log(
         `  ${x.date}  ${x.side.padEnd(5)} @${x.price.padStart(9)}  zone ${x.zone.padStart(14)}  stop ${x.stop.padStart(9)}  tgt ${x.target.padStart(9)}  → ${x.outcome}`));
       if (SAVE && r.signals.length >= 5) {
