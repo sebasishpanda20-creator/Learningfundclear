@@ -99,8 +99,20 @@ function loadRules() {
     console.error(`FATAL: scan-rules.json has unknown key(s): ${unknown.join(", ")}. Recognised: ${Object.keys(RULES_DEFAULTS).join(", ")}. (A typo here would silently disable a filter.)`);
     process.exit(1);
   }
-  if (rules.pivotLeft < 1 || rules.pivotRight < 1) {
-    console.error("FATAL: pivotLeft/pivotRight must be >= 1.");
+  if (rules.pivotLeft < 1 || rules.pivotLeft > 10 || rules.pivotRight < 1 || rules.pivotRight > 10) {
+    console.error("FATAL: pivotLeft/pivotRight must be between 1 and 10.");
+    process.exit(1);
+  }
+  if (rules.stopBufPct < 0 || rules.stopBufPct > 5) {
+    console.error("FATAL: stopBufPct must be between 0 and 5 (%).");
+    process.exit(1);
+  }
+  if (rules.rrTarget < 0.5 || rules.rrTarget > 10) {
+    console.error("FATAL: rrTarget must be between 0.5 and 10.");
+    process.exit(1);
+  }
+  if (rules.minVolume < 0) {
+    console.error("FATAL: minVolume must be >= 0.");
     process.exit(1);
   }
   return rules;
@@ -150,10 +162,16 @@ function parseYahoo(json) {
     const o = q.open && q.open[i], h = q.high && q.high[i];
     const l = q.low && q.low[i], c = q.close && q.close[i];
     if (o == null || h == null || l == null || c == null) continue;
+    // sheet-derived guard: reject bars with non-finite, non-positive, or
+    // internally inconsistent OHLC before they can poison zone math
+    const v = [o, h, l, c];
+    if (!v.every((x) => Number.isFinite(x) && x > 0)) continue;
+    if (h < Math.max(o, c, l) || l > Math.min(o, c, h)) continue;
+    const vol = q.volume && q.volume[i];
     bars.push({
       date: new Date(r.timestamp[i] * 1000).toISOString().slice(0, 10),
       open: o, high: h, low: l, close: c,
-      volume: (q.volume && q.volume[i]) || 0,
+      volume: Number.isFinite(vol) && vol >= 0 ? vol : 0,
     });
   }
   return bars.length ? bars : null;
@@ -278,16 +296,24 @@ function buildSignal(symbol, action, zone, price, trend, date, tf) {
 
 // ── posting ───────────────────────────────────────────────────────────────
 async function post(signal) {
+  // sheet-derived guard: never let NaN/Infinity into the JSON body — JSON.stringify
+  // silently converts them to null, which would poison the webhook's dedup keys
+  // (null ranges would compare equal) and store unparseable prices.
+  const num = (x) => (Number.isFinite(x) ? x : 0);
+  const payload = {
+    secret: SECRET,
+    symbol: String(signal.symbol),
+    action: String(signal.action),
+    price: num(signal.price),
+    details: String(signal.details || "").slice(0, 500),
+  };
+  if (!payload.symbol || !/^(LONG|SHORT)$/.test(payload.action) || payload.price <= 0) {
+    return { status: 0, body: "invalid signal payload — not posted" };
+  }
   const res = await fetch(WEBHOOK_URL, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      secret: SECRET,
-      symbol: signal.symbol,
-      action: signal.action,
-      price: signal.price,
-      details: signal.details,
-    }),
+    body: JSON.stringify(payload),
     signal: AbortSignal.timeout(20000),
   });
   return { status: res.status, body: (await res.text()).slice(0, 200) };
@@ -448,6 +474,8 @@ function buildDigest(ctx) {
   L.push(dryRun
     ? "_Dry run — nothing was posted to the portal._"
     : "Signals are on the [Setups page](https://sebasishpanda20-creator.github.io/Learningfundclear/setups.html) — open it and hit Refresh.");
+  L.push("");
+  L.push("_Zone levels are research heuristics from EOD bars — no fees, slippage, taxes or gaps are modelled, and nothing is backtested. Verify every level on your broker platform before acting._");
   return L.join("\n");
 }
 
