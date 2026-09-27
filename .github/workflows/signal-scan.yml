@@ -10,6 +10,9 @@
 # One-time setup: repository Settings -> Secrets and variables -> Actions ->
 # New repository secret:  TV_WEBHOOK_SECRET = <the same value set in Supabase>
 #
+# Optional Telegram push: set TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID as repo
+# secrets and the digest is sent to that chat after every run (never fatal).
+#
 # Manual runs: Actions -> "Nightly zone signal scan" -> Run workflow.
 # Leave "dry run" ticked to see what it finds without writing anything.
 
@@ -67,6 +70,8 @@ jobs:
           SCAN_SYMBOLS: ${{ github.event.inputs.symbols }}
           SCAN_TIMEFRAMES: ${{ github.event.inputs.timeframes }}
           SCAN_DRY_RUN: ${{ github.event.inputs.dry_run }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
         run: |
           node tools/signal-scan.js
           # The digest is what the run page shows. Echoing it here as well keeps the

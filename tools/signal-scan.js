@@ -396,6 +396,68 @@ function istStamp(d) {
   return t.toISOString().slice(0, 16).replace("T", " ") + " IST";
 }
 
+// ── Telegram push (optional) ──────────────────────────────────────────────
+// When TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID are set (repository secrets),
+// the digest is pushed to that chat so nobody has to open the Actions run page.
+// Plain text, no parse_mode: nothing needs escaping and emoji render as-is.
+// Never fatal — a Telegram outage must not fail the scan or hide the summary.
+async function sendTelegram(text) {
+  const token = process.env.TELEGRAM_BOT_TOKEN;
+  const chatId = process.env.TELEGRAM_CHAT_ID;
+  if (!token || !chatId) return;                 // not configured — stay silent
+  const body = text.length > 3900
+    ? text.slice(0, 3900) + "\n… truncated — full digest on the Actions run page"
+    : text;
+  const res = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ chat_id: chatId, text: body, disable_web_page_preview: true }),
+    signal: AbortSignal.timeout(15000),
+  });
+  if (!res.ok) throw new Error("HTTP " + res.status + " " + (await res.text()).slice(0, 120));
+}
+
+// Compact plain-text cousin of buildDigest for the 4096-char Telegram limit.
+function telegramDigest(ctx) {
+  const signals = ctx.signals, failures = ctx.failures, dryRun = ctx.dryRun;
+  const freshKey = dryRun ? "found" : "saved";
+  const fresh = signals.filter((s) => s.outcome === freshKey);
+  const L = [];
+  L.push(`${dryRun ? "🧪 Dry run" : "🌙"} LFC zone scan — ${istStamp(new Date())}`);
+  L.push(`${ctx.symbols} symbols × ${ctx.timeframes.length} TFs = ${ctx.tasks} tasks`);
+  if (!signals.length) {
+    L.push("\nNo zone touches today.");
+  } else {
+    const perTf = ctx.timeframes.map((t) => `${t.label[0]}:${signals.filter((s) => s.tfId === t.id).length}`).join("  ");
+    L.push(`signals ${perTf}`);
+    L.push(fresh.length
+      ? `\n🆕 New this run: ${fresh.length}`
+      : `\nNo new setups — ${signals.length} signal(s), all already recorded.`);
+    rankSignals(signals, freshKey).slice(0, TOP_SIGNALS).forEach((s, i) => {
+      const side = s.action === "LONG" ? "🟢" : "🔴";
+      const aligned = s.trend === TREND_FOR[s.action] ? "✅" : "⚠️";
+      L.push(`${i + 1}. ${side} ${s.symbol} ${s.tf} @${s.price} · zone ${s.zoneBottom}-${s.zoneTop} · stop ${s.stop} · tgt ${s.target} ${aligned}`);
+    });
+  }
+  if (failures.length) {
+    L.push(`\n⚠️ unavailable: ${failures.slice(0, 8).join(" · ")}${failures.length > 8 ? ` +${failures.length - 8} more` : ""}`);
+  }
+  L.push("\nSetups: https://sebasishpanda20-creator.github.io/Learningfundclear/setups.html");
+  L.push("Research heuristics from EOD bars — verify every level on your broker platform. Not advice.");
+  return L.join("\n");
+}
+
+// One call per run: write the job summary, then push the Telegram copy.
+async function pushDigest(ctx) {
+  writeSummary(buildDigest(ctx));
+  try {
+    await sendTelegram(telegramDigest(ctx));
+    if (process.env.TELEGRAM_BOT_TOKEN && process.env.TELEGRAM_CHAT_ID) console.log("telegram: digest pushed");
+  } catch (e) {
+    console.log("telegram push failed (non-fatal):", e.message);
+  }
+}
+
 // Freshly recorded signals first, then trend-aligned ones, then the tightest stop
 // relative to price: on a quiet night a zone logged last week must not push
 // today's new setups off the digest.
@@ -537,9 +599,9 @@ async function main() {
 
   if (DRY_RUN) {
     signals.forEach((s) => { s.outcome = "found"; });
-    writeSummary(buildDigest({
+    await pushDigest({
       symbols: symbols.length, timeframes, tasks: tasks.length, signals, failures, dryRun: true,
-    }));
+    });
     console.log("\ndry run — nothing posted.");
     if (!signals.length && failures.length === tasks.length) process.exit(1);
     return;
@@ -570,9 +632,9 @@ async function main() {
   }
   console.log(`\ndone — ${posted} saved, ${duplicates} duplicate(s) skipped, ${errors} error(s)`);
 
-  writeSummary(buildDigest({
+  await pushDigest({
     symbols: symbols.length, timeframes, tasks: tasks.length, signals, failures, dryRun: false,
-  }));
+  });
 
   // a total data outage is worth a red run so it gets noticed
   if (!signals.length && failures.length === tasks.length) process.exit(1);
