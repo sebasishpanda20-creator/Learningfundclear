@@ -406,11 +406,15 @@ async function fetchRecentCounts() {
 }
 
 // e.g. "Commodities (90d signals · backtest hit %): GC=F 12 · 51% · CL=F 30 · 44%"
-async function qualityLine() {
+// Only commodities actually on this run's watchlist are shown — a symbol
+// dropped from scan_symbols must not keep appearing in the digest forever.
+async function qualityLine(activeSymbols) {
   const cache = loadQualityCache();
+  const active = new Set((activeSymbols || []).map((s) => String(s).toUpperCase()));
   let counts = {};
   try { counts = await fetchRecentCounts(); } catch { /* offline is fine */ }
   const parts = COMMODITIES
+    .filter((s) => active.has(s))
     .filter((s) => cache[s] && typeof cache[s].hitRate === "number")
     .map((s) => `${s} ${counts[s] ?? 0}·${cache[s].hitRate}%`);
   if (!parts.length) return "";
@@ -494,7 +498,7 @@ function telegramDigest(ctx) {
 
 // One call per run: write the job summary, then push the Telegram copy.
 async function pushDigest(ctx) {
-  ctx.qualityLine = await qualityLine();
+  ctx.qualityLine = await qualityLine(ctx.symbolList);
   writeSummary(buildDigest(ctx));
   try {
     await sendTelegram(telegramDigest(ctx));
@@ -652,7 +656,7 @@ async function main() {
   if (DRY_RUN) {
     signals.forEach((s) => { s.outcome = "found"; });
     await pushDigest({
-      symbols: symbols.length, timeframes, tasks: tasks.length, signals, failures, dryRun: true,
+      symbols: symbols.length, symbolList: symbols, timeframes, tasks: tasks.length, signals, failures, dryRun: true,
     });
     console.log("\ndry run — nothing posted.");
     if (!signals.length && failures.length === tasks.length) process.exit(1);
@@ -685,7 +689,7 @@ async function main() {
   console.log(`\ndone — ${posted} saved, ${duplicates} duplicate(s) skipped, ${errors} error(s)`);
 
   await pushDigest({
-    symbols: symbols.length, timeframes, tasks: tasks.length, signals, failures, dryRun: false,
+    symbols: symbols.length, symbolList: symbols, timeframes, tasks: tasks.length, signals, failures, dryRun: false,
   });
 
   // a total data outage is worth a red run so it gets noticed
