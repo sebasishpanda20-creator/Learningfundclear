@@ -349,7 +349,7 @@ const SUPABASE_URL = "https://chbtjicvbezbiosuouwm.supabase.co";
 const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNoYnRqaWN2YmV6Ymlvc3VvdXdtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODkzODc2NjAsImV4cCI6MjEwNDk2MzY2MH0.jlTyYWnf1TnvmwCa4NCc-hJ4wZgjWTuSc94DqvMTdNQ";
 
 async function loadWatchlistFromSupabase() {
-  const url = SUPABASE_URL + "/rest/v1/scan_symbols?select=symbol&enabled=eq.true&order=position.asc&limit=500";
+  const url = SUPABASE_URL + "/rest/v1/scan_symbols?select=symbol&enabled=eq.true&order=position.asc&limit=1000";
   const res = await fetch(url, {
     headers: { apikey: SUPABASE_ANON_KEY, Accept: "application/json" },
     signal: AbortSignal.timeout(15000),
