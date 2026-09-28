@@ -18,7 +18,7 @@
  * signal-scan.js has at run time), and a signal fires on day i only if none
  * fired for the same zone in the previous 7 days (mirroring webhook dedup).
  *
- * Usage: node tools/research-thin-commodities.js [symbols...] [--save] [--stop=X] [--htf]
+ * Usage: node tools/research-thin-commodities.js [symbols...] [--save] [--stop=X] [--htf] [--regime=30] [--regime-min=3]
  *   --save  writes each symbol's hit rate (only if >= 5 signals) into
  *           tools/scan-quality.json, which the nightly digest reads for its
  *           "Commodities (90d signals · backtest hit %)" line.
@@ -28,8 +28,38 @@
  *           the WEEKLY EMA stack up, a Daily SHORT needs it down. Only fully
  *           completed weekly bars are used (no look-ahead); the weekly 50-EMA
  *           needs ~60 weekly bars of history before the gate engages.
+ *   --regime=X  trailing-regime gate: pause a symbol's NEW signals while its
+ *           own trailing hit rate (default 90-day window, --regime-window=N to
+ *           widen) sits below X%. The trailing window
+ *           holds only signals this gate already let through (a paused signal
+ *           is never stored, so it never feeds the trailer — same as live),
+ *           and only counts an outcome once it is resolved BEFORE the new
+ *           signal's date (still-open trades are ignored, as in the digest
+ *           line). Activates only with >= --regime-min resolved trades in the
+ *           window (default 3) — below that it fails open and lets the signal
+ *           through. Reports what it paused and whether those were winners.
  * Output always includes a per-year breakdown so you can see whether an edge
  * is stable across regimes or concentrated in one year.
+ *
+ * MEASURED VERDICT for --regime (Sep 2026, 6 commodities GC=F CL=F HG=F BZ=F
+ * SI=F NG=F, 312 baseline signals, board 42% hit / +0.27R EV). No setting
+ * beats taking every signal; board EV after the gate, paused-signal quality:
+ *   baseline         312 sig · 42% · +0.27R
+ *   30% min1 90d     162 sig · 40% · +0.19R  (-0.08R) · 150 paused, 44% would-be hit
+ *   30% min2 90d     227 sig · 43% · +0.28R  (+0.01R) ·  85 paused, 40%
+ *   30% min3 90d     245 sig · 38% · +0.14R  (-0.14R) ·  67 paused, 57%
+ *   30% min5 90d     290 sig · 41% · +0.22R  (-0.05R) ·  22 paused, 64%
+ *   20% min3 90d     270 sig · 41% · +0.24R  (-0.03R) ·  42 paused, 48%
+ *   50% min3 90d     237 sig · 40% · +0.21R  (-0.07R) ·  75 paused, 48%
+ *   30% min3 180d    224 sig · 43% · +0.28R  (+0.00R) ·  88 paused, 40%
+ * Two reasons it fails. (1) Sample: the trailing window holds a median of
+ * 2-5 resolved trades, so the "hit rate" it reacts to is mostly noise. (2) The
+ * premise is inverted here: the more confident the sample (min5, median 5),
+ * the BETTER the paused signals did (64% would-be hit vs 42% board) — losing
+ * streaks cluster in the choppy stretches that precede this system's recovery
+ * runs, so pausing after them removes winners. Same failure mode as the
+ * weekly HTF gate (--htf), which also hurt by blocking the 2026 recovery.
+ * Kept as a research knob; deliberately NOT wired into the live scanner.
  * Read-only on market data: fetches Yahoo, posts nothing.
  */
 "use strict";
@@ -45,6 +75,27 @@ const PIVOT = 3, RR = 2.0, MAX_HOLD = 60, DEDUP_DAYS = 7;
 const stopArg = process.argv.find((a) => a.startsWith("--stop="));
 const STOP_BUF = stopArg ? parseFloat(stopArg.slice(7)) : 0.5;
 const HTF = process.argv.includes("--htf"); // weekly trend gate (Major-vs-Minor)
+const regimeArg = process.argv.find((a) => a.startsWith("--regime="));
+const REGIME_THRESHOLD = regimeArg ? parseFloat(regimeArg.slice(9)) : null; // null = off
+const regimeMinArg = process.argv.find((a) => a.startsWith("--regime-min="));
+const REGIME_MIN = regimeMinArg ? parseInt(regimeMinArg.slice(13), 10) : 3;
+const regimeWinArg = process.argv.find((a) => a.startsWith("--regime-window="));
+const REGIME_WINDOW_DAYS = regimeWinArg ? parseInt(regimeWinArg.slice(16), 10) : 90;
+if (regimeArg && !Number.isFinite(REGIME_THRESHOLD)) {
+  console.error(`--regime expects a percentage, e.g. --regime=30 (got "${regimeArg.slice(9)}")`);
+  process.exit(2);
+}
+if (regimeMinArg && !Number.isFinite(REGIME_MIN)) {
+  console.error(`--regime-min expects a whole number, e.g. --regime-min=3 (got "${regimeMinArg.slice(13)}")`);
+  process.exit(2);
+}
+
+// ISO date N days before dateStr — the trailing window's left edge.
+function isoDaysBefore(dateStr, days) {
+  return new Date(new Date(dateStr + "T00:00:00Z").getTime() - days * 86400000).toISOString().slice(0, 10);
+}
+
+function fmtEv(ev) { return ev == null ? " — " : (ev > 0 ? "+" : "") + ev.toFixed(2) + "R"; }
 const SYMBOLS = process.argv.slice(2).filter((a) => !a.startsWith("--"));
 
 function parseYahoo(json) {
@@ -89,18 +140,25 @@ function emaSeries(bars, n) {
 
 // Walk forward from the bar AFTER the signal bar. First close beyond stop or
 // target decides. (EOD approximation: intrabar touch order unknowable here.)
-function outcome(bars, from, side, entry, stop, target) {
+function outcomeDetailed(bars, from, side, entry, stop, target) {
   for (let i = from; i < Math.min(bars.length, from + MAX_HOLD); i++) {
     const c = bars[i].close;
     if (side === "LONG") {
-      if (c <= stop) return "STOP";
-      if (c >= target) return "TARGET";
+      if (c <= stop) return { oc: "STOP", i };
+      if (c >= target) return { oc: "TARGET", i };
     } else {
-      if (c >= stop) return "STOP";
-      if (c <= target) return "TARGET";
+      if (c >= stop) return { oc: "STOP", i };
+      if (c <= target) return { oc: "TARGET", i };
     }
   }
-  return "TIMEOUT";
+  // TIMEOUT resolves on the last bar we could see — clamp so a signal on the
+  // final bar (from === bars.length) still maps to a real bar, not undefined.
+  const lastIdx = bars.length - 1;
+  return { oc: "TIMEOUT", i: Math.max(0, Math.min(lastIdx, from + MAX_HOLD - 1)) };
+}
+
+function outcome(bars, from, side, entry, stop, target) {
+  return outcomeDetailed(bars, from, side, entry, stop, target).oc;
 }
 
 async function runSymbol(symbol) {
@@ -117,7 +175,12 @@ async function runSymbol(symbol) {
     } catch { console.log(`  (${symbol}: weekly fetch failed — running ungated)`); }
   }
   // Need >=100 bars before computeZones works, so scanning starts there.
-  const signals = [];
+  const signals = [];    // signals the gate let through (all of them when the gate is off)
+  const allSignals = []; // pre-gate baseline, kept only for the side-by-side report
+  const paused = [];     // signals the regime gate blocked (with their would-be outcome)
+  const trades = [];     // kept signals that resolved — the trailing window's memory
+  let gateEngaged = 0;   // signals where the trailer had enough sample to judge
+  const windowSizes = []; // trailing-window sample size at each engagement
   let lastZoneFire = new Map(); // zoneKey -> bar index of last fire
   let wIdx = -1;                // last weekly bar fully closed before the daily date
 
@@ -163,27 +226,78 @@ async function runSymbol(symbol) {
       const stop = side === "LONG" ? best.bottom * (1 - STOP_BUF / 100) : best.top * (1 + STOP_BUF / 100);
       const target = side === "LONG" ? price + (price - stop) * RR : price - (stop - price) * RR;
       if (!(target > 0)) return;
-      const oc = outcome(bars, i + 1, side, price, stop, target);
-      signals.push({ date: last.date, side, price: price.toFixed(2), zone: `${best.bottom.toFixed(2)}-${best.top.toFixed(2)}`, stop: stop.toFixed(2), target: target.toFixed(2), outcome: oc, barsHeld: oc === "TIMEOUT" ? MAX_HOLD : undefined });
+      const oc = outcomeDetailed(bars, i + 1, side, price, stop, target);
+      const rec = { date: last.date, side, price: price.toFixed(2), zone: `${best.bottom.toFixed(2)}-${best.top.toFixed(2)}`, stop: stop.toFixed(2), target: target.toFixed(2), outcome: oc.oc, barsHeld: oc.oc === "TIMEOUT" ? MAX_HOLD : undefined };
+      allSignals.push(rec);
+
+      // Trailing-regime gate. The window sees exactly what the live digest
+      // line sees: signals THIS gate stored in the last 90 days whose outcome
+      // was already decided before today's signal (open trades are ignored).
+      if (REGIME_THRESHOLD != null) {
+        const cutoff = isoDaysBefore(last.date, REGIME_WINDOW_DAYS);
+        const win = trades.filter((t) => t.date >= cutoff && t.resolvedDate <= last.date);
+        if (win.length >= REGIME_MIN) {
+          gateEngaged++;
+          windowSizes.push(win.length);
+          const hits = win.filter((t) => t.oc === "TARGET").length;
+          if (100 * hits / win.length < REGIME_THRESHOLD) { paused.push(rec); return; }
+        }
+      }
+
+      trades.push({ date: last.date, resolvedDate: bars[oc.i].date, oc: oc.oc });
+      signals.push(rec);
     };
 
     consider(res.demandZones, "LONG", up && (!HTF || !wb || wUp));
     consider(res.supplyZones, "SHORT", down && (!HTF || !wb || wDn));
   }
 
-  const t = signals.filter((s) => s.outcome === "TARGET").length;
-  const s = signals.filter((x) => x.outcome === "STOP").length;
-  const to = signals.filter((x) => x.outcome === "TIMEOUT").length;
   // yearly segmentation: regime-stability view (resolved outcomes only —
   // a TIMEOUT at year end may resolve in the next year, so it is excluded
   // from per-year hit rates and EV but noted)
+  return {
+    symbol, bars: bars.length, lastDate: bars[bars.length - 1].date,
+    signals, allSignals, paused, gateEngaged, windowSizes,
+    stats: statsOf(signals), baseStats: statsOf(allSignals),
+    years: yearsOf(signals), baseYears: yearsOf(allSignals),
+  };
+}
+
+function statsOf(sigs) {
+  const t = sigs.filter((s) => s.outcome === "TARGET").length;
+  const s = sigs.filter((x) => x.outcome === "STOP").length;
+  const to = sigs.filter((x) => x.outcome === "TIMEOUT").length;
+  const resolved = t + s;
+  return {
+    n: sigs.length, t, s, to, resolved,
+    hit: resolved ? Math.round(100 * t / resolved) : null,
+    ev: resolved ? (t * RR - s) / resolved : null,
+  };
+}
+
+// statsOf reads {outcome} records; the per-year views are {t,s,to} counters.
+function decorate(counts) {
+  return [
+    ...Array(counts.t).fill({ outcome: "TARGET" }),
+    ...Array(counts.s).fill({ outcome: "STOP" }),
+    ...Array(counts.to).fill({ outcome: "TIMEOUT" }),
+  ];
+}
+
+function median(xs) {
+  if (!xs.length) return 0;
+  const s = [...xs].sort((a, b) => a - b);
+  return s[Math.floor(s.length / 2)];
+}
+
+function yearsOf(sigs) {
   const years = {};
-  for (const sig of signals) {
+  for (const sig of sigs) {
     const y = sig.date.slice(0, 4);
     years[y] = years[y] || { t: 0, s: 0, to: 0 };
     years[y][sig.outcome === "TARGET" ? "t" : sig.outcome === "STOP" ? "s" : "to"]++;
   }
-  return { symbol, bars: bars.length, lastDate: bars[bars.length - 1].date, signals, t, s, to, years };
+  return years;
 }
 
 (async () => {
@@ -192,28 +306,46 @@ async function runSymbol(symbol) {
   const cache = SAVE
     ? (() => { try { return JSON.parse(require("fs").readFileSync(cachePath, "utf8")); } catch { return {}; } })()
     : null;
+  const GATE = REGIME_THRESHOLD != null;
+  const gateLabel = GATE ? ` + trailing-90d regime gate <${REGIME_THRESHOLD}% (min ${REGIME_MIN} resolved)` : "";
+  const rows = [];
+  const statLine = (st, label = "") =>
+    `${label}${String(st.n).padStart(3)} signals (${String(st.t).padStart(2)}T/${String(st.s).padStart(2)}S/${st.to}TO)` +
+    `  hit ${st.hit == null ? "  —" : String(st.hit).padStart(3) + "%"}  EV ${fmtEv(st.ev)}`;
+
   for (const sym of SYMBOLS) {
     try {
       const r = await runSymbol(sym);
+      rows.push(r);
       console.log(`\n=== ${sym} — ${r.bars} bars to ${r.lastDate} ===`);
-      console.log(`signals (deduped, trend-filtered${HTF ? " + weekly HTF gate" : ""}): ${r.signals.length}  |  TARGET ${r.t} · STOP ${r.s} · TIMEOUT ${r.to}` +
-        (r.signals.length ? `  (hit rate ${Math.round(100 * r.t / r.signals.length)}%)` : ""));
-      const ys = Object.keys(r.years).sort();
+      console.log(`${GATE ? "kept    " : "signals "}(deduped, trend-filtered${HTF ? " + weekly HTF gate" : ""}${gateLabel}): ${statLine(r.stats)}`);
+      if (GATE) {
+        console.log(`  no-gate: ${statLine(r.baseStats)}`);
+        const pt = r.paused.filter((p) => p.outcome === "TARGET").length;
+        const ps = r.paused.filter((p) => p.outcome === "STOP").length;
+        const pto = r.paused.length - pt - ps;
+        const med = median(r.windowSizes);
+        console.log(`  gate paused ${r.paused.length} signal(s) (${pt}T/${ps}S/${pto}TO would-be) · engaged on ${r.gateEngaged}/${r.baseStats.n} signals` +
+          (med ? ` · trailing sample at engagement: median ${med}, max ${Math.max(...r.windowSizes)} resolved` : ""));
+      }
+      const ys = [...new Set([...Object.keys(r.years), ...Object.keys(r.baseYears)])].sort();
       for (const y of ys) {
-        const { t: yt, s: yst, to: yto } = r.years[y];
-        const resolved = yt + yst;
-        const hit = resolved ? Math.round(100 * yt / resolved) : null;
-        const ev = resolved ? ((yt * 2 - yst) / resolved).toFixed(2) : null;
-        console.log(`  ${y}: ${String(yt + yst + yto).padStart(3)} signals (${String(yt).padStart(2)}T/${String(yst).padStart(2)}S/${yto}TO)` +
-          `  hit ${hit == null ? "  —" : hit + "%"}  EV ${ev == null ? " — " : (ev > 0 ? "+" : "") + ev + "R"}`);
+        const kept = r.years[y] || { t: 0, s: 0, to: 0 };
+        console.log(`  ${y}: ` + statLine(statsOf(decorate(kept)), GATE ? "kept    " : ""));
+        if (GATE && r.baseYears[y]) console.log(`        ` + statLine(statsOf(decorate(r.baseYears[y])), "no-gate "));
       }
       r.signals.forEach((x) => console.log(
         `  ${x.date}  ${x.side.padEnd(5)} @${x.price.padStart(9)}  zone ${x.zone.padStart(14)}  stop ${x.stop.padStart(9)}  tgt ${x.target.padStart(9)}  → ${x.outcome}`));
+      if (GATE && r.paused.length) {
+        console.log(`  -- paused --`);
+        r.paused.forEach((x) => console.log(
+          `  ${x.date}  ${x.side.padEnd(5)} @${x.price.padStart(9)}  zone ${x.zone.padStart(14)}  stop ${x.stop.padStart(9)}  tgt ${x.target.padStart(9)}  → ${x.outcome}`));
+      }
       if (SAVE && r.signals.length >= 5) {
         cache[sym] = {
-          hitRate: Math.round(100 * r.t / r.signals.length),
-          signals: r.signals.length,
-          target: r.t, stop: r.s, timeout: r.to,
+          hitRate: r.stats.hit,
+          signals: r.stats.n,
+          target: r.stats.t, stop: r.stats.s, timeout: r.stats.to,
           lastDate: r.lastDate,
           measuredAt: new Date().toISOString().slice(0, 10),
         };
@@ -222,8 +354,35 @@ async function runSymbol(symbol) {
       console.log(`\n=== ${sym} — FAILED: ${e.message} ===`);
     }
   }
+
+  // Board view: the honest bottom line for the gate — did pausing low-regime
+  // stretches leave a better board than taking every signal?
+  if (GATE && rows.length) {
+    const sum = (key) => rows.map((r) => r[key]).reduce((a, st) => ({
+      n: a.n + st.n, t: a.t + st.t, s: a.s + st.s, to: a.to + st.to,
+      resolved: a.resolved + st.resolved,
+    }), { n: 0, t: 0, s: 0, to: 0, resolved: 0 });
+    const board = (st) => ({
+      ...st, hit: st.resolved ? Math.round(100 * st.t / st.resolved) : null,
+      ev: st.resolved ? (st.t * RR - st.s) / st.resolved : null,
+    });
+    const kept = board(sum("stats")), base = board(sum("baseStats"));
+    const pt = rows.reduce((a, r) => a + r.paused.filter((p) => p.outcome === "TARGET").length, 0);
+    const ps = rows.reduce((a, r) => a + r.paused.filter((p) => p.outcome === "STOP").length, 0);
+    console.log(`\n=== BOARD (${rows.length} symbols, 90d trailing regime gate <${REGIME_THRESHOLD}%, min ${REGIME_MIN}) ===`);
+    console.log(`  no-gate: ${statLine(base)}`);
+    console.log(`  gated  : ${statLine(kept)}   → EV ${(kept.ev - base.ev >= 0 ? "+" : "")}${(kept.ev - base.ev).toFixed(2)}R vs baseline`);
+    console.log(`  gate paused ${base.n - kept.n} signal(s) — of those ${pt} hit TARGET / ${ps} stopped (${base.n - kept.n ? Math.round(100 * pt / (base.n - kept.n)) + "% would-be hit rate" : "n/a"})`);
+    const med = median(rows.flatMap((r) => r.windowSizes));
+    console.log(`  trailing-window sample when the gate engaged: median ${med} resolved trades (every window < ${REGIME_MIN} fails open)`);
+  }
+
   if (SAVE) {
-    require("fs").writeFileSync(cachePath, JSON.stringify(cache, null, 2) + "\n");
-    console.log(`\nsaved ${Object.keys(cache).length} entr(ies) → tools/scan-quality.json`);
+    if (GATE) {
+      console.log("\n--save skipped: the regime gate changes which signals exist, so saving would overwrite the ungated digest baseline. Re-run without --regime to refresh it.");
+    } else {
+      require("fs").writeFileSync(cachePath, JSON.stringify(cache, null, 2) + "\n");
+      console.log(`\nsaved ${Object.keys(cache).length} entr(ies) → tools/scan-quality.json`);
+    }
   }
 })();
