@@ -359,6 +359,15 @@ const SCAN_HINTS = {
   "NG=F": "natgas", "HG=F": "copper", "ALI=F": "aluminium", "ZNC=F": "zinc", "PL=F": "platinum",
 };
 
+// True when the Supabase client currently holds a session — used by save
+// error messages so a signed-out visitor gets told the actual problem.
+function sbAuthUser() {
+  try {
+    const v = JSON.parse(localStorage.getItem("sb-chbtjicvbezbiosuouwm-auth-token") || "null");
+    return !!(v && (v.currentSession?.access_token || v.access_token));
+  } catch { return false; }
+}
+
 function normaliseScanSymbol(raw) {
   const s = String(raw || "").trim().toUpperCase().replace(/["']/g, "");
   if (!s || s === "SYMBOL") return null;
@@ -421,16 +430,28 @@ function renderScanList() {
       if (tog) {
         const { error } = await sb.from("scan_symbols").update({ enabled: !row.enabled, updated_at: new Date().toISOString() }).eq("symbol", row.symbol);
         if (error) throw error;
+        // supabase-js reports success even when the filter matched 0 rows —
+        // verify the write actually landed before trusting it.
+        const { data: chk } = await sb.from("scan_symbols").select("enabled").eq("symbol", row.symbol).maybeSingle();
+        if (!chk || chk.enabled !== !row.enabled) throw new Error("the update matched 0 rows — are you signed in as the admin user? (stale/absent session gets silently dropped by RLS)");
         row.enabled = !row.enabled;
         $("scanMsg").textContent = row.symbol + (row.enabled ? " back in tonight's scan." : " paused — the scan will skip it.");
       } else {
         const { error } = await sb.from("scan_symbols").delete().eq("symbol", row.symbol);
         if (error) throw error;
+        // verify: a 0-row delete is a silent no-op (this bit commodity symbols
+        // like ZNC=F for days — the filter must match exactly one row)
+        const { data: gone } = await sb.from("scan_symbols").select("symbol").eq("symbol", row.symbol).maybeSingle();
+        if (gone) throw new Error("the delete matched 0 rows — are you signed in as the admin user? (stale/absent session gets silently dropped by RLS)");
         scanSymbols.splice(i, 1);
         $("scanMsg").textContent = row.symbol + " removed from the scan list.";
       }
     } catch (e) {
-      $("scanMsg").textContent = "Save failed: " + (e.message || e) + " — sign in as the admin and check the migration ran.";
+      $("scanMsg").textContent = "Save failed: " + (e.message || e)
+        + (e.details ? " [" + e.details + "]" : "")
+        + (e.hint ? " (hint: " + e.hint + ")" : "")
+        + (sbAuthUser() ? "" : " — you are NOT signed in; sign in via the journal page first.")
+        + " If it keeps failing, run scan-symbols-migration.sql in Supabase.";
     }
     renderScanList();
   };
@@ -440,13 +461,18 @@ $("scanAddBtn").onclick = async () => {
   if (!sym) { $("scanMsg").textContent = "That does not look like a Yahoo symbol (examples: IRCTC, RELIANCE.NS, GC=F)."; return; }
   if (scanSymbols.some((s) => s.symbol === sym)) { $("scanMsg").textContent = sym + " is already on the list."; return; }
   try {
-    const { error } = await sb.from("scan_symbols").insert({ symbol: sym, enabled: true, position: 1000 + scanSymbols.length });
+    const { data, error } = await sb.from("scan_symbols").insert({ symbol: sym, enabled: true, position: 1000 + scanSymbols.length });
     if (error) throw error;
+    if (!data || !data.length) throw new Error("the insert returned no rows — write may not have landed; refresh and check");
     scanSymbols.push({ symbol: sym, enabled: true, onServer: true });
     $("scanMsg").textContent = sym + " added — tonight's scan will include it.";
     $("scanAdd").value = "";
   } catch (e) {
-    $("scanMsg").textContent = "Save failed: " + (e.message || e) + " — sign in as the admin and check the migration ran.";
+    $("scanMsg").textContent = "Save failed: " + (e.message || e)
+      + (e.details ? " [" + e.details + "]" : "")
+      + (e.hint ? " (hint: " + e.hint + ")" : "")
+      + (sbAuthUser() ? "" : " — you are NOT signed in; sign in via the journal page first.")
+      + " If it keeps failing, run scan-symbols-migration.sql in Supabase.";
   }
   renderScanList();
 };
