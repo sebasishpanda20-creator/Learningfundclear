@@ -18,12 +18,16 @@
  * signal-scan.js has at run time), and a signal fires on day i only if none
  * fired for the same zone in the previous 7 days (mirroring webhook dedup).
  *
- * Usage: node tools/research-thin-commodities.js [symbols...] [--save] [--stop=X]
+ * Usage: node tools/research-thin-commodities.js [symbols...] [--save] [--stop=X] [--htf]
  *   --save  writes each symbol's hit rate (only if >= 5 signals) into
  *           tools/scan-quality.json, which the nightly digest reads for its
  *           "Commodities (90d signals · backtest hit %)" line.
  *   --stop=X  override the stop buffer % (default 0.5) — e.g. --stop=1.0 to
  *           test whether a wider stop rescues a marginal market's expectancy.
+ *   --htf   higher-timeframe trend gate (Major-vs-Minor): a Daily LONG needs
+ *           the WEEKLY EMA stack up, a Daily SHORT needs it down. Only fully
+ *           completed weekly bars are used (no look-ahead); the weekly 50-EMA
+ *           needs ~60 weekly bars of history before the gate engages.
  * Output always includes a per-year breakdown so you can see whether an edge
  * is stable across regimes or concentrated in one year.
  * Read-only on market data: fetches Yahoo, posts nothing.
@@ -37,9 +41,10 @@ const computeZones = global.LfcScanner.computeZones;
 
 const UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36";
 const PIVOT = 3, RR = 2.0, MAX_HOLD = 60, DEDUP_DAYS = 7;
-// args: [symbols...] [--save] [--stop=X]  — X in % (default 0.5)
+// args: [symbols...] [--save] [--stop=X] [--htf]  — X in % (default 0.5)
 const stopArg = process.argv.find((a) => a.startsWith("--stop="));
 const STOP_BUF = stopArg ? parseFloat(stopArg.slice(7)) : 0.5;
+const HTF = process.argv.includes("--htf"); // weekly trend gate (Major-vs-Minor)
 const SYMBOLS = process.argv.slice(2).filter((a) => !a.startsWith("--"));
 
 function parseYahoo(json) {
@@ -63,13 +68,23 @@ function parseYahoo(json) {
   return bars.length ? bars : null;
 }
 
-async function getBars(symbol) {
-  const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?range=1095d&interval=1d`;
+async function getBars(symbol, interval = "1d", range = "1095d") {
+  const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?range=${range}&interval=${interval}`;
   const res = await fetch(url, { headers: { "User-Agent": UA, "Accept": "application/json" }, signal: AbortSignal.timeout(20000) });
   const json = await res.json().catch(() => null);
   const bars = json && parseYahoo(json);
   if (!bars) throw new Error("no bars");
   return bars;
+}
+
+// Full EMA series (index i = EMA as of bar i, seeded from the first close —
+// same warm-up behavior as the daily ema() proxy below).
+function emaSeries(bars, n) {
+  const k = 2 / (n + 1), out = [];
+  let e = bars[0].close;
+  out.push(e);
+  for (let j = 1; j < bars.length; j++) { e = bars[j].close * k + e * (1 - k); out.push(e); }
+  return out;
 }
 
 // Walk forward from the bar AFTER the signal bar. First close beyond stop or
@@ -90,9 +105,21 @@ function outcome(bars, from, side, entry, stop, target) {
 
 async function runSymbol(symbol) {
   const bars = await getBars(symbol);
+  // HTF gate data: 5y of weekly bars so the daily window (3y) starts with
+  // >100 completed weekly bars behind it — the weekly 50-EMA is meaningful
+  // from the first daily signal onward.
+  let wb = null, wE10 = null, wE20 = null, wE50 = null;
+  if (HTF) {
+    try {
+      wb = await getBars(symbol, "1wk", "1825d");
+      if (wb.length < 60) { console.log(`  (${symbol}: only ${wb.length} weekly bars — HTF gate cannot engage, running ungated)`); wb = null; }
+      else { wE10 = emaSeries(wb, 10); wE20 = emaSeries(wb, 20); wE50 = emaSeries(wb, 50); }
+    } catch { console.log(`  (${symbol}: weekly fetch failed — running ungated)`); }
+  }
   // Need >=100 bars before computeZones works, so scanning starts there.
   const signals = [];
   let lastZoneFire = new Map(); // zoneKey -> bar index of last fire
+  let wIdx = -1;                // last weekly bar fully closed before the daily date
 
   for (let i = 100; i < bars.length; i++) {
     const view = bars.slice(0, i + 1);          // no look-ahead
@@ -110,6 +137,15 @@ async function runSymbol(symbol) {
     };
     const up = ema(10) > ema(20) && ema(20) > ema(50);
     const down = ema(10) < ema(20) && ema(20) < ema(50);
+
+    // advance the weekly pointer: a weekly bar stamped w covers ~w..w+4,
+    // so it is fully closed once the daily date d > w+4 (no look-ahead)
+    if (wb) {
+      const d = new Date(last.date + "T00:00:00Z").getTime();
+      while (wIdx + 1 < wb.length && new Date(wb[wIdx + 1].date + "T00:00:00Z").getTime() + 4 * 86400000 < d) wIdx++;
+    }
+    const wUp = !!wb && wIdx >= 0 && wE10[wIdx] > wE20[wIdx] && wE20[wIdx] > wE50[wIdx];
+    const wDn = !!wb && wIdx >= 0 && wE10[wIdx] < wE20[wIdx] && wE20[wIdx] < wE50[wIdx];
 
     const consider = (zones, side, trendOk) => {
       if (!trendOk) return;
@@ -131,8 +167,8 @@ async function runSymbol(symbol) {
       signals.push({ date: last.date, side, price: price.toFixed(2), zone: `${best.bottom.toFixed(2)}-${best.top.toFixed(2)}`, stop: stop.toFixed(2), target: target.toFixed(2), outcome: oc, barsHeld: oc === "TIMEOUT" ? MAX_HOLD : undefined });
     };
 
-    consider(res.demandZones, "LONG", up);
-    consider(res.supplyZones, "SHORT", down);
+    consider(res.demandZones, "LONG", up && (!HTF || !wb || wUp));
+    consider(res.supplyZones, "SHORT", down && (!HTF || !wb || wDn));
   }
 
   const t = signals.filter((s) => s.outcome === "TARGET").length;
@@ -160,7 +196,7 @@ async function runSymbol(symbol) {
     try {
       const r = await runSymbol(sym);
       console.log(`\n=== ${sym} — ${r.bars} bars to ${r.lastDate} ===`);
-      console.log(`signals (deduped, trend-filtered): ${r.signals.length}  |  TARGET ${r.t} · STOP ${r.s} · TIMEOUT ${r.to}` +
+      console.log(`signals (deduped, trend-filtered${HTF ? " + weekly HTF gate" : ""}): ${r.signals.length}  |  TARGET ${r.t} · STOP ${r.s} · TIMEOUT ${r.to}` +
         (r.signals.length ? `  (hit rate ${Math.round(100 * r.t / r.signals.length)}%)` : ""));
       const ys = Object.keys(r.years).sort();
       for (const y of ys) {
