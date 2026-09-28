@@ -646,7 +646,7 @@ professional before making an investment decision.</p>
     drawChart(rows[0]);
   }
 
-  // ---------- minimal canvas chart: close line, EMA20, demand zones ----------
+  // ---------- minimal canvas chart: candlesticks, EMA20/50, zones ----------
   function drawChart(row) {
     if (!row) return;
     var bars = row.bars, res = row.res;
@@ -665,7 +665,10 @@ professional before making an investment decision.</p>
     var pad = (max - min) * 0.06;
     min -= pad; max += pad;
 
-    function X(i) { return (i / (show.length - 1)) * (W - 80) + 40; }
+    // candle spacing: leave a gap between wicks; X centers the i-th bar
+    var slot = (W - 80) / show.length;
+    var bodyW = Math.max(2, Math.min(14, slot * 0.62));
+    function X(i) { return 40 + slot * i + slot / 2; }
     function Y(p) { return H - 40 - ((p - min) / (max - min)) * (H - 70); }
 
     ctx.clearRect(0, 0, W, H);
@@ -686,13 +689,25 @@ professional before making an investment decision.</p>
     zones(res.demandZones, "#10b981");
     zones(res.supplyZones, "#ef4444");
 
-    // close line
+    // candlesticks: wick = high→low, body = open→close; green up, red down
+    show.forEach(function (b, i) {
+      var up = b.close >= b.open;
+      var col = up ? "#10b981" : "#ef4444";
+      var x = X(i);
+      ctx.strokeStyle = col; ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.moveTo(x, Y(b.high)); ctx.lineTo(x, Y(b.low)); ctx.stroke();
+      var yO = Y(b.open), yC = Y(b.close);
+      var top = Math.min(yO, yC), hgt = Math.max(1, Math.abs(yO - yC));
+      ctx.fillStyle = col;
+      ctx.fillRect(x - bodyW / 2, top, bodyW, hgt);
+    });
+
+    // EMAs on top of the candles
     function line(vals, color, width) {
       ctx.strokeStyle = color; ctx.lineWidth = width || 2; ctx.beginPath();
       vals.forEach(function (v, i) { i ? ctx.lineTo(X(i), Y(v)) : ctx.moveTo(X(i), Y(v)); });
       ctx.stroke();
     }
-    line(show.map(function (b) { return b.close; }), "#e8efe9", 2);
     line(res.ema20.slice(offset), "#7fc0ef", 1.5);
     line(res.ema50.slice(offset), "#d8c76a", 1.5);
 
@@ -711,7 +726,7 @@ professional before making an investment decision.</p>
       ctx.fillText(p.toFixed(0), 2, Y(p) + 4);
     });
 
-    $("chartTitle").textContent = row.sym + " · " + row.tf + " — close, EMA20 (blue), EMA50 (gold), demand zones shaded green";
+    $("chartTitle").textContent = row.sym + " · " + row.tf + " — candles (green up / red down), EMA20 (blue), EMA50 (gold), demand zones shaded green";
     $("chartNote").textContent = "Zones drawn from their pivot bar to the right edge. A zone disappears once a daily close trades through it.";
   }
 
