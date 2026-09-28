@@ -393,32 +393,99 @@ function loadQualityCache() {
 
 async function fetchRecentCounts() {
   const since = new Date(Date.now() - 90 * 24 * 3600 * 1000).toISOString();
-  const url = SUPABASE_URL + "/rest/v1/signal_events?select=symbol,action,created_at&created_at=gte." + since + "&limit=1000";
+  const url = SUPABASE_URL + "/rest/v1/signal_events?select=symbol,action,price,created_at,details&created_at=gte." + since + "&limit=1000";
   const res = await fetch(url, { headers: { apikey: SUPABASE_ANON_KEY, Accept: "application/json" }, signal: AbortSignal.timeout(15000) });
   if (!res.ok) throw new Error("signal_events HTTP " + res.status);
   const rows = await res.json();
   const counts = {};
   for (const r of rows) {
     const sym = String(r.symbol || "").toUpperCase();
-    if (COMMODITIES.includes(sym)) counts[sym] = (counts[sym] || 0) + 1;
+    if (COMMODITIES.includes(sym)) (counts[sym] = counts[sym] || []).push(r);
   }
   return counts;
 }
 
-// e.g. "Commodities (90d signals · backtest hit %): GC=F 12 · 51% · CL=F 30 · 44%"
-// Only commodities actually on this run's watchlist are shown — a symbol
-// dropped from scan_symbols must not keep appearing in the digest forever.
+// Live outcome for one stored signal: fetch the symbol's daily bars once and
+// walk closes forward from the day AFTER the stored signal date until close
+// crosses stop or target (mirrors the research script's walk-forward), max 60
+// bars, else still-open. EOD approximation: intrabar touch order unknowable.
+// stop/target are parsed from the details string the webhook stored:
+//   "... zone 1941.70-1973.30 stop 1931.99 target 2061.02 ..."
+const LIVE_MAX_HOLD = 60;
+async function resolveLiveOutcomes(rows) {
+  const parsed = rows.map((r) => {
+    const m = String(r.details || "").match(/zone ([\d.]+)-([\d.]+) stop ([\d.]+) target ([\d.]+)/);
+    const d = String(r.details || "").match(/EOD (\d{4}-\d{2}-\d{2})/);
+    if (!m || !d) return null;
+    const stop = parseFloat(m[3]), target = parseFloat(m[4]);
+    if (!(stop > 0) || !(target > 0)) return null;
+    return { sym: String(r.symbol).toUpperCase(), action: String(r.action), stop, target, date: d[1] };
+  }).filter(Boolean);
+  if (!parsed.length) return [];
+  const barCache = new Map(); // sym -> daily bars (shared across that symbol's signals)
+  const out = [];
+  for (const p of parsed) {
+    try {
+      let bars = barCache.get(p.sym);
+      if (!bars) { bars = await getBars(p.sym, { id: "d", label: "Daily", yrange: "1d" }); barCache.set(p.sym, bars); }
+      const from = bars.findIndex((b) => b.date > p.date);
+      let oc = "OPEN";
+      if (from > 0) {
+        for (let i = from; i < Math.min(bars.length, from + LIVE_MAX_HOLD); i++) {
+          const c = bars[i].close;
+          if (p.action === "LONG") { if (c <= p.stop) { oc = "STOP"; break; } if (c >= p.target) { oc = "TARGET"; break; } }
+          else { if (c >= p.stop) { oc = "STOP"; break; } if (c <= p.target) { oc = "TARGET"; break; } }
+        }
+      }
+      out.push({ ...p, outcome: oc });
+    } catch { /* symbol fetch failed — skip this signal, keep the rest */ }
+  }
+  return out;
+}
+
+// Trailing 90-day live hit rate per commodity: resolved TARGETs over resolved
+// (TARGET+STOP) signals stored in the last 90 days. Needs >= MIN_LIVE resolved
+// signals before it prints — below that, one win/loss would swing the % wildly.
+const MIN_LIVE = 3;
+function liveHitRates(liveRows) {
+  const bySym = {};
+  for (const r of liveRows) (bySym[r.sym] = bySym[r.sym] || []).push(r.outcome);
+  const rates = {};
+  for (const [sym, outs] of Object.entries(bySym)) {
+    const t = outs.filter((o) => o === "TARGET").length;
+    const s = outs.filter((o) => o === "STOP").length;
+    if (t + s >= MIN_LIVE) rates[sym] = { hit: Math.round(100 * t / (t + s)), resolved: t + s, open: outs.length - t - s };
+  }
+  return rates;
+}
+
+// e.g. "Commodities (90d live vs backtest): GC=F 4 sig · live 75% (3 resolved, 1 open) · backtest 51% · ..."
+// live = trailing 90d outcomes resolved from real price walks; backtest = the
+// research baseline for comparison. A live rate far below baseline = regime
+// decay warning. Only commodities on this run's watchlist are shown.
 async function qualityLine(activeSymbols) {
   const cache = loadQualityCache();
   const active = new Set((activeSymbols || []).map((s) => String(s).toUpperCase()));
   let counts = {};
-  try { counts = await fetchRecentCounts(); } catch { /* offline is fine */ }
+  let live = {};
+  try {
+    counts = await fetchRecentCounts();
+    live = liveHitRates(await resolveLiveOutcomes(Object.values(counts).flat()));
+  } catch { /* offline is fine — line just omits live rates */ }
   const parts = COMMODITIES
-    .filter((s) => active.has(s))
-    .filter((s) => cache[s] && typeof cache[s].hitRate === "number")
-    .map((s) => `${s} ${counts[s] ?? 0}·${cache[s].hitRate}%`);
+    .filter((s) => active.has(s) && (cache[s] || counts[s]))
+    .map((s) => {
+      const n = counts[s].length;
+      const bt = cache[s] && typeof cache[s].hitRate === "number" ? cache[s].hitRate : null;
+      const lv = live[s]
+        ? `live ${live[s].hit}% (${live[s].resolved} resolved${live[s].open ? ", " + live[s].open + " open" : ""})`
+        : null;
+      return `${s} ${n} sig` +
+        (lv ? ` · ${lv}` : " · (too few resolved for live %)") +
+        (bt != null ? ` · backtest ${bt}%` : "");
+    });
   if (!parts.length) return "";
-  return `Commodities (90d signals · backtest hit %): ${parts.join(" · ")}`;
+  return `Commodities (90d live vs backtest): ${parts.join(" · ")}`;
 }
 
 // ── job summary ───────────────────────────────────────────────────────────
