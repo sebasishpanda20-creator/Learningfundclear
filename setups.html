@@ -378,6 +378,29 @@ function normaliseScanSymbol(raw) {
   return s + ".NS";                                  // bare word assumes NSE
 }
 
+// Raw-REST fallback for writes that supabase-js reports as success but which
+// matched 0 rows. This bit commodity chips (ZNC=F etc.) for days: the builder
+// path can silently miss, while the encoded REST filter matches exactly one row.
+async function restWrite(method, symbol, body) {
+  const v = JSON.parse(localStorage.getItem("sb-chbtjicvbezbiosuouwm-auth-token") || "null");
+  const tok = v && (v.currentSession?.access_token || v.access_token);
+  if (!tok) throw new Error("no session — sign in via the journal page first");
+  const res = await fetch(SUPABASE_URL + "/rest/v1/scan_symbols?symbol=eq." + encodeURIComponent(symbol), {
+    method,
+    headers: { apikey: SUPABASE_ANON_KEY, Authorization: "Bearer " + tok, "Content-Type": "application/json" },
+    body: body ? JSON.stringify(body) : undefined,
+  });
+  if (!res.ok && res.status !== 204) {
+    const t = await res.text().catch(() => "");
+    throw new Error("REST " + method + " HTTP " + res.status + " " + t.slice(0, 200));
+  }
+  // confirm the effect server-side rather than trusting the status alone
+  const chk = await fetch(SUPABASE_URL + "/rest/v1/scan_symbols?select=*&symbol=eq." + encodeURIComponent(symbol), {
+    headers: { apikey: SUPABASE_ANON_KEY, Authorization: "Bearer " + tok },
+  });
+  return chk.json();
+}
+
 async function loadScanList() {
   try {
     const { data, error } = await sb.from("scan_symbols").select("*").order("position", { ascending: true });
@@ -431,18 +454,25 @@ function renderScanList() {
         const { error } = await sb.from("scan_symbols").update({ enabled: !row.enabled, updated_at: new Date().toISOString() }).eq("symbol", row.symbol);
         if (error) throw error;
         // supabase-js reports success even when the filter matched 0 rows —
-        // verify the write actually landed before trusting it.
+        // verify the write actually landed, retry via raw REST if not.
         const { data: chk } = await sb.from("scan_symbols").select("enabled").eq("symbol", row.symbol).maybeSingle();
-        if (!chk || chk.enabled !== !row.enabled) throw new Error("the update matched 0 rows — are you signed in as the admin user? (stale/absent session gets silently dropped by RLS)");
+        if (!chk || chk.enabled !== !row.enabled) {
+          const after = await restWrite("PATCH", row.symbol, { enabled: !row.enabled, updated_at: new Date().toISOString() });
+          if (!after.length || after[0].enabled !== !row.enabled) throw new Error("both write paths failed to flip enabled — are you signed in as the admin user?");
+        }
         row.enabled = !row.enabled;
         $("scanMsg").textContent = row.symbol + (row.enabled ? " back in tonight's scan." : " paused — the scan will skip it.");
       } else {
         const { error } = await sb.from("scan_symbols").delete().eq("symbol", row.symbol);
         if (error) throw error;
         // verify: a 0-row delete is a silent no-op (this bit commodity symbols
-        // like ZNC=F for days — the filter must match exactly one row)
+        // like ZNC=F for days — the filter must match exactly one row).
+        // Retry once via the raw REST path before giving up.
         const { data: gone } = await sb.from("scan_symbols").select("symbol").eq("symbol", row.symbol).maybeSingle();
-        if (gone) throw new Error("the delete matched 0 rows — are you signed in as the admin user? (stale/absent session gets silently dropped by RLS)");
+        if (gone) {
+          const after = await restWrite("DELETE", row.symbol);
+          if (after.length) throw new Error("both delete paths matched 0 rows — are you signed in as the admin user?");
+        }
         scanSymbols.splice(i, 1);
         $("scanMsg").textContent = row.symbol + " removed from the scan list.";
       }
