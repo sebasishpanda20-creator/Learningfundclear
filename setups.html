@@ -65,6 +65,13 @@
   <h3>Signals</h3>
   <div class="row" style="margin-bottom:10px">
     <label style="margin:0"><input type="checkbox" id="tvEnable" checked> Pull TradingView alerts from Supabase (needs webhook, see setup note below)</label>
+    <label style="margin:0;display:flex;align-items:center;gap:6px">Side
+      <select id="sideFilter" style="width:auto;min-height:0;padding:6px 8px">
+        <option value="ALL">All</option>
+        <option value="LONG">Long only</option>
+        <option value="SHORT">Short only</option>
+      </select>
+    </label>
     <button class="ghost" id="refreshSigs">Refresh</button>
   </div>
   <table id="sigTable">
@@ -180,8 +187,12 @@ async function loadSignals() {
 function renderSignals() {
   const b = $("sigBody");
   b.innerHTML = "";
-  $("sigEmpty").style.display = signals.length ? "none" : "";
-  signals.forEach((s, i) => {
+  const side = ($("sideFilter").value || "ALL").toUpperCase();
+  const shown = signals.filter(s => side === "ALL" || String(s.action).toUpperCase().includes(side));
+  $("sigEmpty").style.display = shown.length ? "none" : "";
+  if (!shown.length && signals.length) $("sigEmpty").textContent = `No ${side === "LONG" ? "LONG" : "SHORT"} signals in the current list — switch the side filter to All.`;
+  else if (!signals.length) $("sigEmpty").textContent = "No signals yet. TradingView alerts land here via a Supabase edge-function webhook; you can also log a setup manually below.";
+  shown.forEach((s, i) => {
     const tr = document.createElement("tr");
     tr.innerHTML =
       `<td>${esc(dt(s.ts))}</td>` +
@@ -194,7 +205,7 @@ function renderSignals() {
   });
   b.onclick = ev => {
     const btn = ev.target.closest("[data-size]");
-    if (btn) primeRisk(signals[parseInt(btn.getAttribute("data-size"), 10)]);
+    if (btn) primeRisk(shown[parseInt(btn.getAttribute("data-size"), 10)]);
   };
 }
 
@@ -509,6 +520,7 @@ $("scanAddBtn").onclick = async () => {
 
 // ---------- boot ----------
 $("refreshSigs").onclick = loadSignals;
+$("sideFilter").onchange = renderSignals;
 (function boot() {
   if (!window.LfcAuth || !window.LfcAuth.current()) {
     location.replace("signin.html?next=setups.html");
