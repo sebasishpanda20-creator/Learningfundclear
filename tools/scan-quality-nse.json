@@ -1,0 +1,494 @@
+{
+  "HDFCBANK.NS": {
+    "hitRate": 32,
+    "ev": 0.01,
+    "signals": 85,
+    "target": 27,
+    "stop": 54,
+    "timeout": 4,
+    "lastDate": "2026-09-28"
+  },
+  "ICICIBANK.NS": {
+    "hitRate": 36,
+    "ev": 0.14,
+    "signals": 69,
+    "target": 25,
+    "stop": 40,
+    "timeout": 4,
+    "lastDate": "2026-09-28"
+  },
+  "SBIN.NS": {
+    "hitRate": 26,
+    "ev": -0.06,
+    "signals": 87,
+    "target": 23,
+    "stop": 52,
+    "timeout": 12,
+    "lastDate": "2026-09-28"
+  },
+  "KOTAKBANK.NS": {
+    "hitRate": 27,
+    "ev": -0.18,
+    "signals": 78,
+    "target": 21,
+    "stop": 54,
+    "timeout": 3,
+    "lastDate": "2026-09-28"
+  },
+  "AXISBANK.NS": {
+    "hitRate": 31,
+    "ev": -0.02,
+    "signals": 84,
+    "target": 26,
+    "stop": 54,
+    "timeout": 4,
+    "lastDate": "2026-09-28"
+  },
+  "BAJFINANCE.NS": {
+    "hitRate": 35,
+    "ev": 0.08,
+    "signals": 71,
+    "target": 25,
+    "stop": 45,
+    "timeout": 1,
+    "lastDate": "2026-09-28"
+  },
+  "BAJAJFINSV.NS": {
+    "hitRate": 30,
+    "ev": -0.04,
+    "signals": 79,
+    "target": 24,
+    "stop": 52,
+    "timeout": 3,
+    "lastDate": "2026-09-28"
+  },
+  "INDUSINDBK.NS": {
+    "hitRate": 32,
+    "ev": 0.01,
+    "signals": 85,
+    "target": 27,
+    "stop": 54,
+    "timeout": 4,
+    "lastDate": "2026-09-28"
+  },
+  "BANKBARODA.NS": {
+    "hitRate": 41,
+    "ev": 0.33,
+    "signals": 68,
+    "target": 28,
+    "stop": 35,
+    "timeout": 5,
+    "lastDate": "2026-09-28"
+  },
+  "PNB.NS": {
+    "hitRate": 43,
+    "ev": 0.39,
+    "signals": 70,
+    "target": 30,
+    "stop": 35,
+    "timeout": 5,
+    "lastDate": "2026-09-28"
+  },
+  "TCS.NS": {
+    "hitRate": 35,
+    "ev": 0.11,
+    "signals": 65,
+    "target": 23,
+    "stop": 41,
+    "timeout": 1,
+    "lastDate": "2026-09-28"
+  },
+  "INFY.NS": {
+    "hitRate": 29,
+    "ev": -0.12,
+    "signals": 66,
+    "target": 19,
+    "stop": 45,
+    "timeout": 2,
+    "lastDate": "2026-09-28"
+  },
+  "WIPRO.NS": {
+    "hitRate": 41,
+    "ev": 0.31,
+    "signals": 59,
+    "target": 24,
+    "stop": 31,
+    "timeout": 4,
+    "lastDate": "2026-09-28"
+  },
+  "HCLTECH.NS": {
+    "hitRate": 41,
+    "ev": 0.28,
+    "signals": 66,
+    "target": 27,
+    "stop": 36,
+    "timeout": 3,
+    "lastDate": "2026-09-28"
+  },
+  "TECHM.NS": {
+    "hitRate": 30,
+    "ev": 0.01,
+    "signals": 70,
+    "target": 21,
+    "stop": 44,
+    "timeout": 5,
+    "lastDate": "2026-09-28"
+  },
+  "PERSISTENT.NS": {
+    "hitRate": 43,
+    "ev": 0.32,
+    "signals": 79,
+    "target": 34,
+    "stop": 41,
+    "timeout": 4,
+    "lastDate": "2026-09-28"
+  },
+  "RELIANCE.NS": {
+    "hitRate": 46,
+    "ev": 0.53,
+    "signals": 63,
+    "target": 29,
+    "stop": 27,
+    "timeout": 7,
+    "lastDate": "2026-09-28"
+  },
+  "ONGC.NS": {
+    "hitRate": 31,
+    "ev": 0.04,
+    "signals": 67,
+    "target": 21,
+    "stop": 37,
+    "timeout": 9,
+    "lastDate": "2026-09-28"
+  },
+  "NTPC.NS": {
+    "hitRate": 38,
+    "ev": 0.38,
+    "signals": 89,
+    "target": 34,
+    "stop": 40,
+    "timeout": 15,
+    "lastDate": "2026-09-28"
+  },
+  "POWERGRID.NS": {
+    "hitRate": 36,
+    "ev": 0.27,
+    "signals": 76,
+    "target": 27,
+    "stop": 40,
+    "timeout": 9,
+    "lastDate": "2026-09-28"
+  },
+  "TATAPOWER.NS": {
+    "hitRate": 38,
+    "ev": 0.35,
+    "signals": 79,
+    "target": 30,
+    "stop": 36,
+    "timeout": 13,
+    "lastDate": "2026-09-28"
+  },
+  "ADANIGREEN.NS": {
+    "hitRate": 38,
+    "ev": 0.34,
+    "signals": 87,
+    "target": 33,
+    "stop": 41,
+    "timeout": 13,
+    "lastDate": "2026-09-28"
+  },
+  "HINDUNILVR.NS": {
+    "hitRate": 31,
+    "ev": 0.04,
+    "signals": 74,
+    "target": 23,
+    "stop": 44,
+    "timeout": 7,
+    "lastDate": "2026-09-28"
+  },
+  "ITC.NS": {
+    "hitRate": 35,
+    "ev": 0.14,
+    "signals": 82,
+    "target": 29,
+    "stop": 47,
+    "timeout": 6,
+    "lastDate": "2026-09-28"
+  },
+  "NESTLEIND.NS": {
+    "hitRate": 25,
+    "ev": -0.23,
+    "signals": 80,
+    "target": 20,
+    "stop": 57,
+    "timeout": 3,
+    "lastDate": "2026-09-28"
+  },
+  "BRITANNIA.NS": {
+    "hitRate": 31,
+    "ev": -0.04,
+    "signals": 89,
+    "target": 28,
+    "stop": 58,
+    "timeout": 3,
+    "lastDate": "2026-09-28"
+  },
+  "DABUR.NS": {
+    "hitRate": 24,
+    "ev": -0.2,
+    "signals": 66,
+    "target": 16,
+    "stop": 46,
+    "timeout": 4,
+    "lastDate": "2026-09-28"
+  },
+  "TATACONSUM.NS": {
+    "hitRate": 41,
+    "ev": 0.29,
+    "signals": 85,
+    "target": 35,
+    "stop": 45,
+    "timeout": 5,
+    "lastDate": "2026-09-28"
+  },
+  "MARUTI.NS": {
+    "hitRate": 21,
+    "ev": -0.31,
+    "signals": 73,
+    "target": 15,
+    "stop": 52,
+    "timeout": 6,
+    "lastDate": "2026-09-28"
+  },
+  "TMPV.NS": {
+    "hitRate": 33,
+    "ev": 0.01,
+    "signals": 45,
+    "target": 15,
+    "stop": 29,
+    "timeout": 1,
+    "lastDate": "2026-09-28"
+  },
+  "M&M.NS": {
+    "hitRate": 35,
+    "ev": 0.1,
+    "signals": 69,
+    "target": 24,
+    "stop": 41,
+    "timeout": 4,
+    "lastDate": "2026-09-28"
+  },
+  "BAJAJ-AUTO.NS": {
+    "hitRate": 49,
+    "ev": 0.5,
+    "signals": 63,
+    "target": 31,
+    "stop": 31,
+    "timeout": 1,
+    "lastDate": "2026-09-28"
+  },
+  "EICHERMOT.NS": {
+    "hitRate": 22,
+    "ev": -0.27,
+    "signals": 74,
+    "target": 16,
+    "stop": 50,
+    "timeout": 8,
+    "lastDate": "2026-09-28"
+  },
+  "ASHOKLEY.NS": {
+    "hitRate": 28,
+    "ev": 0.02,
+    "signals": 79,
+    "target": 22,
+    "stop": 43,
+    "timeout": 14,
+    "lastDate": "2026-09-28"
+  },
+  "TATASTEEL.NS": {
+    "hitRate": 25,
+    "ev": -0.12,
+    "signals": 64,
+    "target": 16,
+    "stop": 39,
+    "timeout": 9,
+    "lastDate": "2026-09-28"
+  },
+  "JSWSTEEL.NS": {
+    "hitRate": 24,
+    "ev": -0.21,
+    "signals": 91,
+    "target": 22,
+    "stop": 57,
+    "timeout": 12,
+    "lastDate": "2026-09-28"
+  },
+  "HINDALCO.NS": {
+    "hitRate": 27,
+    "ev": -0.15,
+    "signals": 86,
+    "target": 23,
+    "stop": 55,
+    "timeout": 8,
+    "lastDate": "2026-09-28"
+  },
+  "COALINDIA.NS": {
+    "hitRate": 40,
+    "ev": 0.37,
+    "signals": 90,
+    "target": 36,
+    "stop": 44,
+    "timeout": 10,
+    "lastDate": "2026-09-28"
+  },
+  "VEDL.NS": {
+    "hitRate": 35,
+    "ev": 0.35,
+    "signals": 100,
+    "target": 35,
+    "stop": 46,
+    "timeout": 19,
+    "lastDate": "2026-09-28"
+  },
+  "JINDALSTEL.NS": {
+    "hitRate": 27,
+    "ev": -0.12,
+    "signals": 67,
+    "target": 18,
+    "stop": 44,
+    "timeout": 5,
+    "lastDate": "2026-09-28"
+  },
+  "SUNPHARMA.NS": {
+    "hitRate": 24,
+    "ev": -0.35,
+    "signals": 67,
+    "target": 16,
+    "stop": 49,
+    "timeout": 2,
+    "lastDate": "2026-09-28"
+  },
+  "DRREDDY.NS": {
+    "hitRate": 20,
+    "ev": -0.5,
+    "signals": 83,
+    "target": 17,
+    "stop": 63,
+    "timeout": 3,
+    "lastDate": "2026-09-28"
+  },
+  "CIPLA.NS": {
+    "hitRate": 39,
+    "ev": 0.21,
+    "signals": 74,
+    "target": 29,
+    "stop": 43,
+    "timeout": 2,
+    "lastDate": "2026-09-28"
+  },
+  "DIVISLAB.NS": {
+    "hitRate": 35,
+    "ev": 0.07,
+    "signals": 77,
+    "target": 27,
+    "stop": 48,
+    "timeout": 2,
+    "lastDate": "2026-09-28"
+  },
+  "LUPIN.NS": {
+    "hitRate": 44,
+    "ev": 0.36,
+    "signals": 62,
+    "target": 27,
+    "stop": 33,
+    "timeout": 2,
+    "lastDate": "2026-09-28"
+  },
+  "LT.NS": {
+    "hitRate": 31,
+    "ev": -0.04,
+    "signals": 67,
+    "target": 21,
+    "stop": 42,
+    "timeout": 4,
+    "lastDate": "2026-09-28"
+  },
+  "ULTRACEMCO.NS": {
+    "hitRate": 25,
+    "ev": -0.21,
+    "signals": 72,
+    "target": 18,
+    "stop": 51,
+    "timeout": 3,
+    "lastDate": "2026-09-28"
+  },
+  "GRASIM.NS": {
+    "hitRate": 41,
+    "ev": 0.27,
+    "signals": 88,
+    "target": 36,
+    "stop": 50,
+    "timeout": 2,
+    "lastDate": "2026-09-28"
+  },
+  "ADANIPORTS.NS": {
+    "hitRate": 32,
+    "ev": -0.02,
+    "signals": 85,
+    "target": 27,
+    "stop": 56,
+    "timeout": 2,
+    "lastDate": "2026-09-28"
+  },
+  "DMART.NS": {
+    "hitRate": 26,
+    "ev": -0.15,
+    "signals": 74,
+    "target": 19,
+    "stop": 46,
+    "timeout": 9,
+    "lastDate": "2026-09-28"
+  },
+  "TITAN.NS": {
+    "hitRate": 25,
+    "ev": -0.24,
+    "signals": 67,
+    "target": 17,
+    "stop": 50,
+    "timeout": 0,
+    "lastDate": "2026-09-28"
+  },
+  "BHARTIARTL.NS": {
+    "hitRate": 52,
+    "ev": 0.69,
+    "signals": 87,
+    "target": 45,
+    "stop": 36,
+    "timeout": 6,
+    "lastDate": "2026-09-28"
+  },
+  "HAL.NS": {
+    "hitRate": 29,
+    "ev": -0.15,
+    "signals": 70,
+    "target": 20,
+    "stop": 49,
+    "timeout": 1,
+    "lastDate": "2026-09-28"
+  },
+  "BEL.NS": {
+    "hitRate": 34,
+    "ev": 0.05,
+    "signals": 64,
+    "target": 22,
+    "stop": 41,
+    "timeout": 1,
+    "lastDate": "2026-09-28"
+  },
+  "board": {
+    "hitRate": 36,
+    "ev": 0.07,
+    "signals": 4056,
+    "symbols": 54
+  }
+}

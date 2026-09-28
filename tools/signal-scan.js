@@ -391,16 +391,27 @@ function loadQualityCache() {
   }
 }
 
+// Board baselines for the NSE side (hit rate + EV per symbol, plus a "board"
+// aggregate), written by the research script's backtest of all 54 equities.
+// Same fail-open contract as loadQualityCache.
+function loadNseQualityCache() {
+  try {
+    return JSON.parse(fs.readFileSync(path.join(__dirname, "scan-quality-nse.json"), "utf8"));
+  } catch {
+    return {};                      // no baseline yet — NSE line just omits itself
+  }
+}
+
 async function fetchRecentCounts() {
   const since = new Date(Date.now() - 90 * 24 * 3600 * 1000).toISOString();
-  const url = SUPABASE_URL + "/rest/v1/signal_events?select=symbol,action,price,created_at,details&created_at=gte." + since + "&limit=1000";
+  const url = SUPABASE_URL + "/rest/v1/signal_events?select=symbol,action,price,created_at,details&created_at=gte." + since + "&limit=2000";
   const res = await fetch(url, { headers: { apikey: SUPABASE_ANON_KEY, Accept: "application/json" }, signal: AbortSignal.timeout(15000) });
   if (!res.ok) throw new Error("signal_events HTTP " + res.status);
   const rows = await res.json();
   const counts = {};
   for (const r of rows) {
     const sym = String(r.symbol || "").toUpperCase();
-    if (COMMODITIES.includes(sym)) (counts[sym] = counts[sym] || []).push(r);
+    (counts[sym] = counts[sym] || []).push(r);
   }
   return counts;
 }
@@ -454,7 +465,7 @@ function liveHitRates(liveRows) {
   for (const [sym, outs] of Object.entries(bySym)) {
     const t = outs.filter((o) => o === "TARGET").length;
     const s = outs.filter((o) => o === "STOP").length;
-    if (t + s >= MIN_LIVE) rates[sym] = { hit: Math.round(100 * t / (t + s)), resolved: t + s, open: outs.length - t - s };
+    if (t + s >= MIN_LIVE) rates[sym] = { hit: Math.round(100 * t / (t + s)), resolved: t + s, open: outs.length - t - s, targets: t };
   }
   return rates;
 }
@@ -463,8 +474,15 @@ function liveHitRates(liveRows) {
 // live = trailing 90d outcomes resolved from real price walks; backtest = the
 // research baseline for comparison. A live rate far below baseline = regime
 // decay warning. Only commodities on this run's watchlist are shown.
+// A second line covers NSE equities as one aggregate (54 symbols would bloat
+// the digest), against the board baseline in tools/scan-quality-nse.json:
+//   "NSE (90d live vs backtest): 12 sig · live 40% (5 resolved) · EV +0.40R · board 36% hit · +0.07R EV"
+// Live EV credits +2R per TARGET and −1R per STOP (the 2R target / ~1R stop
+// the scanner writes), matching how the research script scores its backtest.
+const LIVE_RR = { TARGET: 2, STOP: -1 };
 async function qualityLine(activeSymbols) {
   const cache = loadQualityCache();
+  const nseCache = loadNseQualityCache();
   const active = new Set((activeSymbols || []).map((s) => String(s).toUpperCase()));
   let counts = {};
   let live = {};
@@ -475,7 +493,7 @@ async function qualityLine(activeSymbols) {
   const parts = COMMODITIES
     .filter((s) => active.has(s) && (cache[s] || counts[s]))
     .map((s) => {
-      const n = counts[s].length;
+      const n = counts[s] ? counts[s].length : 0;
       const bt = cache[s] && typeof cache[s].hitRate === "number" ? cache[s].hitRate : null;
       const lv = live[s]
         ? `live ${live[s].hit}% (${live[s].resolved} resolved${live[s].open ? ", " + live[s].open + " open" : ""})`
@@ -484,9 +502,37 @@ async function qualityLine(activeSymbols) {
         (lv ? ` · ${lv}` : " · (too few resolved for live %)") +
         (bt != null ? ` · backtest ${bt}%` : "");
     });
-  if (!parts.length) return "";
-  return `Commodities (90d live vs backtest): ${parts.join(" · ")}`;
+  const lines = [];
+  if (parts.length) lines.push(`Commodities (90d live vs backtest): ${parts.join(" · ")}`);
+
+  // NSE aggregate: one compact line for the whole equity board — 54 symbols
+  // would bloat the digest. Shown whenever any NSE symbol is active and the
+  // board baseline exists; with zero live data it still prints the baseline so
+  // the comparison is visible from night one. Live EV credits +2R per TARGET
+  // and −1R per STOP (LIVE_RR), mirroring how the research script scores EV.
+  const nseActive = [...active].filter((s) => s.endsWith(".NS"));
+  const board = nseCache && nseCache.board;
+  if (nseActive.length && board && typeof board.hitRate === "number") {
+    const agg = Object.entries(live)
+      .filter(([sym]) => sym.endsWith(".NS"))
+      .reduce((a, [, r]) => ({
+        targets: a.targets + r.targets,
+        resolved: a.resolved + r.resolved,
+        open: a.open + r.open,
+      }), { targets: 0, resolved: 0, open: 0 });
+    const nseSig = nseActive.reduce((a, s) => a + (counts[s] ? counts[s].length : 0), 0);
+    const liveEv = agg.targets * LIVE_RR.TARGET + (agg.resolved - agg.targets) * LIVE_RR.STOP;
+    const liveBit = agg.resolved >= MIN_LIVE
+      ? `live ${Math.round(100 * agg.targets / agg.resolved)}% (${agg.resolved} resolved${agg.open ? ", " + agg.open + " open" : ""}) · EV ${fmtR(liveEv / agg.resolved)}R`
+      : nseSig
+        ? `${nseSig} sig · too few resolved for live %`
+        : "no live signals yet";
+    lines.push(`NSE (90d live vs backtest): ${liveBit} · board ${board.hitRate}% hit · ${fmtR(board.ev)}R EV`);
+  }
+  return lines.join("\n");
 }
+
+function fmtR(x) { return (x >= 0 ? "+" : "") + Math.round(x * 100) / 100; }
 
 // ── job summary ───────────────────────────────────────────────────────────
 // GitHub renders this markdown on the workflow run page. Locally the env var
@@ -653,7 +699,8 @@ function buildDigest(ctx) {
 
   const quality = ctx.qualityLine;
   if (quality) {
-    L.push(`**${quality}**`);
+    // qualityLine can carry two lines (commodities + NSE) — bold each separately
+    for (const line of quality.split("\n")) L.push(`**${line}**`);
     L.push("");
   }
 
