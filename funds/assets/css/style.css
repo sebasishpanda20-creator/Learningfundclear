@@ -7,50 +7,30 @@
 
 /* 1. Tokens ---------------------------------------------------------- */
 :root {
-  --bg: #f7f8fa;
-  --surface: #ffffff;
-  --surface-2: #f1f3f7;
-  --line: #dfe3ea;
-  --line-soft: #eceff4;
-  --ink: #11202e;
-  --ink-strong: #000000;
-  --muted: #5c6b7d;
-  --muted-2: #7d8a99;
-  --brand: #0f6a4f;
-  --brand-ink: #0b513c;
-  --brand-soft: #e6f2ee;
-  --warn: #8a5a00;
-  --warn-soft: #fdf3e0;
-  --danger: #a12222;
-  --up: #0a7a4a;
-  --down: #b3261e;
+  /* Portal-dark palette — matches the journal/scanner/setups pages (index.html tokens) */
+  --bg: #080b09;
+  --surface: #101512;
+  --surface-2: #0d1310;
+  --line: #263229;
+  --line-soft: #1d2721;
+  --ink: #edf2ec;
+  --ink-strong: #ffffff;
+  --muted: #96a39b;
+  --muted-2: #84958a;
+  --brand: #4ade80;
+  --brand-ink: #6ee0b6;
+  --brand-soft: #122019;
+  --warn: #f0b429;
+  --warn-soft: #2e2617;
+  --danger: #ff8080;
+  --up: #4ade80;
+  --down: #f87171;
   --radius: 10px;
   --radius-sm: 7px;
   --maxw: 1080px;
-  --shadow: 0 1px 2px rgba(16, 32, 46, 0.06), 0 8px 24px rgba(16, 32, 46, 0.05);
+  --shadow: 0 1px 2px rgba(0, 0, 0, 0.4), 0 10px 28px rgba(0, 0, 0, 0.3);
   --sans: "Segoe UI", system-ui, -apple-system, "Helvetica Neue", Arial, sans-serif;
   --mono: ui-monospace, "Cascadia Mono", Menlo, Consolas, monospace;
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --bg: #0d1116;
-    --surface: #141a21;
-    --surface-2: #1a222b;
-    --line: #26313d;
-    --line-soft: #1e262f;
-    --ink: #e7edf4;
-    --ink-strong: #ffffff;
-    --muted: #98a6b5;
-    --muted-2: #7e8c9b;
-    --brand: #4fd3a4;
-    --brand-ink: #6ee0b6;
-    --brand-soft: #13322a;
-    --warn: #f0b429;
-    --warn-soft: #2e2617;
-    --danger: #ff8080;
-    --shadow: 0 1px 2px rgba(0, 0, 0, 0.4), 0 10px 28px rgba(0, 0, 0, 0.3);
-  }
 }
 
 /* 2. Reset & base ---------------------------------------------------- */
@@ -66,6 +46,7 @@ body {
   min-height: 100vh;
 }
 h1, h2, h3, h4 { color: var(--ink-strong); line-height: 1.28; margin: 0 0 8px; }
+.brand svg rect { fill: #e4c47c; }
 h1 { font-size: 24px; letter-spacing: -0.2px; }
 h2 { font-size: 19px; }
 h3 { font-size: 16px; }
@@ -98,10 +79,12 @@ main { flex: 1 0 auto; padding: 18px 0 44px; }
 .site-nav { display: flex; gap: 2px; margin-left: auto; overflow-x: auto; }
 .site-nav a { color: var(--muted); padding: 7px 9px; border-radius: var(--radius-sm); font-size: 14px; white-space: nowrap; text-decoration: none; }
 .site-nav a:hover { background: var(--surface-2); color: var(--ink); }
+.site-nav a.nav-portal { color: #f3d992; border: 1px solid rgba(228, 196, 124, 0.35); background: rgba(228, 196, 124, 0.08); font-weight: 600; }
+.site-nav a.nav-portal:hover { background: rgba(228, 196, 124, 0.16); color: #f8e3ae; }
 .site-nav a[aria-current="page"] { color: var(--ink-strong); background: var(--brand-soft); font-weight: 600; }
-.data-strip { background: var(--brand-soft); color: var(--ink); border-bottom: 1px solid var(--line); font-size: 12.5px; }
+.data-strip { background: rgba(228, 196, 124, 0.08); border-bottom: 1px solid var(--line); font-size: 12.5px; color: var(--gold-text, #e4c47c); }
+.data-strip strong { color: #f3d992; }
 .data-strip .wrap { display: flex; gap: 14px; flex-wrap: wrap; padding: 7px 14px; }
-.data-strip strong { color: var(--brand-ink); }
 
 /* 5. Hero ------------------------------------------------------------ */
 .hero { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 20px 16px; margin-bottom: 20px; box-shadow: var(--shadow); }
@@ -164,7 +147,7 @@ input[type="number"] { font-variant-numeric: tabular-nums; }
   border-radius: var(--radius-sm); padding: 8px 13px; font: inherit; font-size: 14px; text-decoration: none;
 }
 .btn:hover { border-color: var(--muted-2); text-decoration: none; }
-.btn-primary { background: var(--brand); border-color: var(--brand); color: #fff; font-weight: 600; }
+.btn-primary { background: var(--brand); border-color: var(--brand); color: #052e1c; font-weight: 600; }
 .btn-primary:hover { background: var(--brand-ink); }
 .btn-sm { padding: 5px 10px; font-size: 13px; }
 .btn[disabled] { opacity: 0.5; cursor: not-allowed; }
