@@ -150,6 +150,33 @@
       ? { lower: lowerWick / barRange, upper: upperWick / barRange }
       : { lower: 0, upper: 0 };
 
+    // ── SMC rulebook concepts (SMC_Trading_Rulebook.md) ────────────────────
+    //
+    // 1. MARKET STRUCTURE / BoS-CHoCH (book §1-2): swing highs/lows from the
+    //    same pivots that build our zones. A BODY CLOSE beyond the last swing
+    //    in the trend direction = BoS (continuation, book: "not a reversal");
+    //    a body close beyond it AGAINST the trend = CHoCH (character change).
+    //    Wick-only breaks are explicitly NOT structure ("fake BoS = inducement").
+    var swingHigh = null, swingLow = null;             // most recent confirmed pivots
+    for (var si = bars.length - 1 - pivotRight; si >= pivotLeft; si--) {
+      if (swingHigh === null && highs[si] === arrayMax(highs.slice(si - pivotLeft, si + pivotRight + 1))) swingHigh = bars[si].high;
+      if (swingLow === null && lows[si] === arrayMin(lows.slice(si - pivotLeft, si + pivotRight + 1))) swingLow = bars[si].low;
+      if (swingHigh !== null && swingLow !== null) break;
+    }
+    var structureEvent = "NONE";
+    if (swingHigh !== null && swingLow !== null) {
+      var bodyBreakUp = bodyTop > swingHigh;           // body close above last swing high
+      var bodyBreakDown = bodyBottom < swingLow;       // body close below last swing low
+      if (bodyBreakUp && bodyBreakDown) structureEvent = "WHIPSAW";
+      else if (bodyBreakUp) structureEvent = trend === "UPTREND" ? "BoS" : "CHoCH";
+      else if (bodyBreakDown) structureEvent = trend === "DOWNTREND" ? "BoS" : "CHoCH";
+    }
+
+    // 2. FVG / IMBALANCE (book §6): three consecutive candles where candle i's
+    //    body gaps past candle i-2's body — institutions moved too fast. The    //    most RECENT unmitigated gap (price hasn't closed back through it)    //    is the magnet the book says will be revisited.    var fvg = null;    for (var fi = bars.length - 1; fi >= 2; fi--) {      var c3 = bars[fi], c1 = bars[fi - 2];      var top3 = Math.max(c3.open, c3.close), bot3 = Math.min(c3.open, c3.close);      var top1 = Math.max(c1.open, c1.close), bot1 = Math.min(c1.open, c1.close);      if (bot3 > top1) {                               // bullish gap (price gapped up)        if (close < bot3) { fvg = { bottom: top1, top: bot3, dir: "BULL", date: bars[fi - 1].date }; break; }      } else if (top3 < bot1) {                        // bearish gap        if (close > top3) { fvg = { bottom: top3, top: bot1, dir: "BEAR", date: bars[fi - 1].date }; break; }      }    }
+    // 3. PREMIUM / DISCOUNT (book §7.8): where price sits in the recent range.    //    Uptrend → buy in discount; downtrend → sell in premium.    var lookback = bars.slice(-Math.min(bars.length, 60));    var rangeHigh = arrayMax(lookback.map(function (b) { return b.high; }));    var rangeLow = arrayMin(lookback.map(function (b) { return b.low; }));    var rangePos = rangeHigh > rangeLow ? (close - rangeLow) / (rangeHigh - rangeLow) : 0.5;    var rangeZone = rangePos >= 0.7 ? "PREMIUM" : rangePos <= 0.3 ? "DISCOUNT" : "EQUILIBRIUM";
+    // 4. EQUAL HIGHS / LOWS (book §7.9): stops pile above/below levels touched    //    twice at nearly the same price — liquidity the book says is a magnet.    var eqTol = close * 0.0015;                        // "same price" = within 0.15%    var eqHighs = 0, eqLows = 0;    for (var ei = 0; ei < bars.length - 1; ei++) {      for (var ej = ei + 1; ej < bars.length; ej++) {        if (Math.abs(bars[ei].high - bars[ej].high) <= eqTol) eqHighs++;        if (Math.abs(bars[ei].low - bars[ej].low) <= eqTol) eqLows++;      }    }
+
     // Distance from the latest close to the nearest active demand zone, as a
     // fraction of the close (0 = inside the zone). Null when no zone survives.
     var distDemand = null;
@@ -192,6 +219,15 @@
         return Math.abs(close - (a.top + a.bottom) / 2) <= Math.abs(close - (b.top + b.bottom) / 2) ? a : b;
       }) : null,
       rejectionWick: rejectionWick,
+      // SMC concepts:
+      structureEvent: structureEvent,   // BoS | CHoCH | WHIPSAW | NONE (body-close confirmed)
+      swingHigh: swingHigh,
+      swingLow: swingLow,
+      fvg: fvg,                         // unmitigated 3-candle imbalance or null
+      rangeZone: rangeZone,             // PREMIUM | DISCOUNT | EQUILIBRIUM (60-bar range)
+      rangePos: rangePos,               // 0 = range low, 1 = range high
+      eqHighs: eqHighs,                 // equal-high pairs nearby = buy-side liquidity
+      eqLows: eqLows,                   // equal-low pairs = sell-side liquidity
       avgVol20: avgVol,
       lastVol: last.volume
     };
@@ -212,14 +248,15 @@
   }
 
   /**
-   * SLM rulebook confluence score for one signal (0-4). Mirrors the tier
-   * ranking the book assigns its 29 setups: confluence = conviction.
-   *   +1 fresh zone          — ≤2 prior touches (Setup 4: zones decay with retests)
-   *   +1 EMA20 confluence    — demand at a rising / supply at a falling EMA20 (Setup 27, Tier 1)
-   *   +1 rejection wick      — signal bar's wick into the zone ≥30% of its range (Setup 12)
-   *   +1 trend alignment     — zone direction agrees with the EMA stack (already often
-   *                            enforced by trendFilter; scored so it survives when off)
-   * 3+ = Tier 1-2 ("play these"), 2 = Tier 3, ≤1 = Tier 4-5 (book says avoid).
+   * Confluence score for one signal, 0-6. PA-rulebook points (0-4):
+   *   +1 fresh zone (≤2 touches, Setup 4) · +1 EMA20 confluence (Setup 27)
+   *   +1 rejection wick ≥30% of bar range (Setup 12) · +1 trend alignment.
+   * SMC-rulebook points (book §10.3: "minimum acceptable: 3 confluences"):
+   *   +1 structure agree — BoS in the trade's direction, or no opposing CHoCH
+   *   +1 FVG confluence — an unmitigated gap sits behind the entry (institutional
+   *     footprint) in the trade's direction, or price is in the right half of the
+   *     range (LONG from DISCOUNT / SHORT from PREMIUM, book §7.8)
+   * 4+ = the book's "ideal"; 3 = minimum acceptable; ≤2 = stand aside.
    */
   function confluenceScore(result, action) {
     var zone = action === "LONG" ? result.nearestDemand : result.nearestSupply;
@@ -230,12 +267,25 @@
     if (wick >= 0.30) score++;
     if (action === "LONG" && result.trend === "UPTREND") score++;
     if (action === "SHORT" && result.trend === "DOWNTREND") score++;
+    // SMC: structure — a body-close BoS in our direction, or at least no fresh
+    // CHoCH against us. A WHIPSAW (both sides broken) earns nothing.
+    if (result.structureEvent === "BoS") score++;
+    else if (result.structureEvent !== "CHoCH") score += 0; // NONE/WHIPSAW neutral
+    // SMC: location + imbalance. LONG wants a bull FVG overhead-unmitigated below
+    // price (dip to fill it) or a discount read; SHORT mirrors it.
+    if (action === "LONG") {
+      if (result.fvg && result.fvg.dir === "BULL") score++;
+      else if (result.rangeZone === "DISCOUNT") score++;
+    } else {
+      if (result.fvg && result.fvg.dir === "BEAR") score++;
+      else if (result.rangeZone === "PREMIUM") score++;
+    }
     return score;
   }
 
-  /** Human-readable tag for the digest / scanner table. */
+  /** Human-readable tag: A+ = the book's "ideal" (4+), C = stand aside. */
   function confluenceTag(score) {
-    return score >= 3 ? "A+" : score === 2 ? "A" : score === 1 ? "B" : "C";
+    return score >= 4 ? "A+" : score === 3 ? "A" : score === 2 ? "B" : "C";
   }
 
   global.LfcScanner = {
