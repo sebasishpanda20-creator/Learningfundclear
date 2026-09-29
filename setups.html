@@ -73,6 +73,10 @@
         <option value="SHORT">Short only</option>
       </select>
     </label>
+    <label style="margin:0;display:flex;align-items:center;gap:6px">Symbol
+      <input id="sigSearch" type="search" placeholder="e.g. RELIANCE" autocomplete="off"
+             style="width:150px;min-height:0;padding:6px 8px">
+    </label>
     <button class="ghost" id="refreshSigs">Refresh</button>
   </div>
   <table id="sigTable">
@@ -189,9 +193,17 @@ function renderSignals() {
   const b = $("sigBody");
   b.innerHTML = "";
   const side = ($("sideFilter").value || "ALL").toUpperCase();
-  const shown = signals.filter(s => side === "ALL" || String(s.action).toUpperCase().includes(side));
+  const q = ($("sigSearch").value || "").trim().toUpperCase();
+  const shown = signals.filter(s =>
+    (side === "ALL" || String(s.action).toUpperCase().includes(side))
+    && (!q || String(s.symbol).toUpperCase().includes(q)));
   $("sigEmpty").style.display = shown.length ? "none" : "";
-  if (!shown.length && signals.length) $("sigEmpty").textContent = `No ${side === "LONG" ? "LONG" : "SHORT"} signals in the current list — switch the side filter to All.`;
+  if (!shown.length && signals.length) {
+    const sideMsg = side === "ALL" ? "" : ` — switch the side filter to All`;
+    $("sigEmpty").textContent = q
+      ? `No signals match “${q}”${side === "ALL" ? "" : " and the " + side + " filter"}. Clear the symbol search to see everything.`
+      : `No ${side === "LONG" ? "LONG" : "SHORT"} signals in the current list${sideMsg}.`;
+  }
   else if (!signals.length) $("sigEmpty").textContent = "No signals yet. TradingView alerts land here via a Supabase edge-function webhook; you can also log a setup manually below.";
   shown.forEach((s, i) => {
     const tr = document.createElement("tr");
@@ -522,6 +534,7 @@ $("scanAddBtn").onclick = async () => {
 // ---------- boot ----------
 $("refreshSigs").onclick = loadSignals;
 $("sideFilter").onchange = renderSignals;
+$("sigSearch").oninput = renderSignals;
 (function boot() {
   if (!window.LfcAuth || !window.LfcAuth.current()) {
     location.replace("signin.html?next=setups.html");
