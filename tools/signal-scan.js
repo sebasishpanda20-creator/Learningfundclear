@@ -430,7 +430,8 @@ async function resolveLiveOutcomes(rows) {
     if (!m || !d) return null;
     const stop = parseFloat(m[3]), target = parseFloat(m[4]);
     if (!(stop > 0) || !(target > 0)) return null;
-    return { sym: String(r.symbol).toUpperCase(), action: String(r.action), stop, target, date: d[1] };
+    // createdAt (stored row time) powers the weekly vs 90-day digest split.
+    return { sym: String(r.symbol).toUpperCase(), action: String(r.action), stop, target, date: d[1], createdAt: r.created_at };
   }).filter(Boolean);
   if (!parsed.length) return [];
   const barCache = new Map(); // sym -> daily bars (shared across that symbol's signals)
@@ -474,21 +475,48 @@ function liveHitRates(liveRows) {
 // live = trailing 90d outcomes resolved from real price walks; backtest = the
 // research baseline for comparison. A live rate far below baseline = regime
 // decay warning. Only commodities on this run's watchlist are shown.
-// A second line covers NSE equities as one aggregate (54 symbols would bloat
+// A second line covers NSE equities as one aggregate (500 symbols would bloat
 // the digest), against the board baseline in tools/scan-quality-nse.json:
 //   "NSE (90d live vs backtest): 12 sig · live 40% (5 resolved) · EV +0.40R · board 36% hit · +0.07R EV"
+// A third line zooms into the trailing 7 days — the week-by-week read on
+// whether the live hit rate is tracking the board baseline or decaying:
+//   "NSE weekly (7d live vs board): live 50% (2 resolved) · EV +0.50R · board 40% hit · +0.2R EV"
 // Live EV credits +2R per TARGET and −1R per STOP (the 2R target / ~1R stop
 // the scanner writes), matching how the research script scores its backtest.
 const LIVE_RR = { TARGET: 2, STOP: -1 };
+
+// Aggregate NSE outcomes stored within the last `sinceDays` days. Used for
+// both the 90-day line and the 7-day weekly line — same math, different
+// window. fetchRecentCounts already caps at 90 days, so 90 is a no-op guard.
+function nseAggregate(rows, sinceDays) {
+  const cutoff = Date.now() - sinceDays * 24 * 3600 * 1000;
+  const rowsIn = rows.filter(
+    (r) => r.sym.endsWith(".NS") && new Date(r.createdAt).getTime() >= cutoff,
+  );
+  const targets = rowsIn.filter((r) => r.outcome === "TARGET").length;
+  const stops = rowsIn.filter((r) => r.outcome === "STOP").length;
+  return { targets, resolved: targets + stops, open: rowsIn.length - targets - stops, total: rowsIn.length };
+}
+
+function liveBitOf(agg) {
+  const ev = agg.targets * LIVE_RR.TARGET + (agg.resolved - agg.targets) * LIVE_RR.STOP;
+  return agg.resolved >= MIN_LIVE
+    ? `live ${Math.round(100 * agg.targets / agg.resolved)}% (${agg.resolved} resolved${agg.open ? ", " + agg.open + " open" : ""}) · EV ${fmtR(ev / agg.resolved)}R`
+    : agg.total
+      ? `${agg.total} sig · too few resolved for live %`
+      : "no live signals yet";
+}
 async function qualityLine(activeSymbols) {
   const cache = loadQualityCache();
   const nseCache = loadNseQualityCache();
   const active = new Set((activeSymbols || []).map((s) => String(s).toUpperCase()));
   let counts = {};
   let live = {};
+  let liveRows = [];
   try {
     counts = await fetchRecentCounts();
-    live = liveHitRates(await resolveLiveOutcomes(Object.values(counts).flat()));
+    liveRows = await resolveLiveOutcomes(Object.values(counts).flat());
+    live = liveHitRates(liveRows);
   } catch { /* offline is fine — line just omits live rates */ }
   const parts = COMMODITIES
     .filter((s) => active.has(s) && (cache[s] || counts[s]))
@@ -505,29 +533,24 @@ async function qualityLine(activeSymbols) {
   const lines = [];
   if (parts.length) lines.push(`Commodities (90d live vs backtest): ${parts.join(" · ")}`);
 
-  // NSE aggregate: one compact line for the whole equity board — 54 symbols
+  // NSE aggregate: one compact line for the whole equity board — 500 symbols
   // would bloat the digest. Shown whenever any NSE symbol is active and the
   // board baseline exists; with zero live data it still prints the baseline so
   // the comparison is visible from night one. Live EV credits +2R per TARGET
   // and −1R per STOP (LIVE_RR), mirroring how the research script scores EV.
+  // The weekly line applies the same math to the trailing 7 days so a
+  // tracking-vs-decaying verdict can be read week by week.
   const nseActive = [...active].filter((s) => s.endsWith(".NS"));
   const board = nseCache && nseCache.board;
   if (nseActive.length && board && typeof board.hitRate === "number") {
-    const agg = Object.entries(live)
-      .filter(([sym]) => sym.endsWith(".NS"))
-      .reduce((a, [, r]) => ({
-        targets: a.targets + r.targets,
-        resolved: a.resolved + r.resolved,
-        open: a.open + r.open,
-      }), { targets: 0, resolved: 0, open: 0 });
     const nseSig = nseActive.reduce((a, s) => a + (counts[s] ? counts[s].length : 0), 0);
-    const liveEv = agg.targets * LIVE_RR.TARGET + (agg.resolved - agg.targets) * LIVE_RR.STOP;
-    const liveBit = agg.resolved >= MIN_LIVE
-      ? `live ${Math.round(100 * agg.targets / agg.resolved)}% (${agg.resolved} resolved${agg.open ? ", " + agg.open + " open" : ""}) · EV ${fmtR(liveEv / agg.resolved)}R`
-      : nseSig
-        ? `${nseSig} sig · too few resolved for live %`
-        : "no live signals yet";
-    lines.push(`NSE (90d live vs backtest): ${liveBit} · board ${board.hitRate}% hit · ${fmtR(board.ev)}R EV`);
+    const agg = nseAggregate(liveRows, 90);
+    if (!agg.total && nseSig) agg.total = nseSig; // unparsable rows still count as "sig"
+    lines.push(`NSE (90d live vs backtest): ${liveBitOf(agg)} · board ${board.hitRate}% hit · ${fmtR(board.ev)}R EV`);
+    const wk = nseAggregate(liveRows, 7);
+    if (wk.total) {
+      lines.push(`NSE weekly (7d live vs board): ${liveBitOf(wk)} · board ${board.hitRate}% hit · ${fmtR(board.ev)}R EV`);
+    }
   }
   return lines.join("\n");
 }
