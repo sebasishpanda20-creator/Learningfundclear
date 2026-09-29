@@ -402,12 +402,34 @@ function loadNseQualityCache() {
   }
 }
 
+// Recent signal_events rows, via the ANON key. RLS decides what anon can see:
+// until the "anon read signals" policy is run (supabase/signal-events-anon-read.sql)
+// every read returns 0 rows even when the table is full — which used to print
+// "no live signals yet" while the same run's webhook was skipping duplicates
+// against rows only IT could see. Distinguish the two states: RLS-blocked
+// responses are indistinguishable from empty by body alone ([] both ways), so
+// piggyback a known-readable table as a canary — if scan_symbols reads fine but
+// signal_events is empty, flag it so the digest says "blocked", not "empty".
 async function fetchRecentCounts() {
   const since = new Date(Date.now() - 90 * 24 * 3600 * 1000).toISOString();
   const url = SUPABASE_URL + "/rest/v1/signal_events?select=symbol,action,price,created_at,details&created_at=gte." + since + "&limit=2000";
   const res = await fetch(url, { headers: { apikey: SUPABASE_ANON_KEY, Accept: "application/json" }, signal: AbortSignal.timeout(15000) });
   if (!res.ok) throw new Error("signal_events HTTP " + res.status);
   const rows = await res.json();
+  if (Array.isArray(rows) && rows.length === 0) {
+    // canary: can anon read ANY Supabase table right now?
+    try {
+      const c = await fetch(SUPABASE_URL + "/rest/v1/scan_symbols?select=symbol&limit=1", { headers: { apikey: SUPABASE_ANON_KEY }, signal: AbortSignal.timeout(10000) });
+      if (c.ok) {
+        const arr = await c.json();
+        if (Array.isArray(arr) && arr.length > 0) {
+          const err = new Error("signal_events read 0 rows via anon — RLS has no anon-select policy (run supabase/signal-events-anon-read.sql)");
+          err.rlsBlocked = true;
+          throw err;
+        }
+      }
+    } catch (e) { if (e.rlsBlocked) throw e; /* canary failing is fine — stay silent */ }
+  }
   const counts = {};
   for (const r of rows) {
     const sym = String(r.symbol || "").toUpperCase();
@@ -517,7 +539,11 @@ async function qualityLine(activeSymbols) {
     counts = await fetchRecentCounts();
     liveRows = await resolveLiveOutcomes(Object.values(counts).flat());
     live = liveHitRates(liveRows);
-  } catch { /* offline is fine — line just omits live rates */ }
+  } catch (e) {
+    // offline is fine — but an RLS block is worth saying out loud, otherwise the
+    // digest prints "no live signals yet" while hundreds of rows exist.
+    if (e && e.rlsBlocked) console.log("quality tracker: " + e.message);
+  }
   const parts = COMMODITIES
     .filter((s) => active.has(s) && (cache[s] || counts[s]))
     .map((s) => {
