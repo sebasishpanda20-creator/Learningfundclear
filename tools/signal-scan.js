@@ -35,6 +35,7 @@ const path = require("path");
 global.window = global;
 require(path.join(__dirname, "..", "scanner-logic.js"));
 const computeZones = global.LfcScanner.computeZones;
+const LfcScanner = global.LfcScanner;
 
 // ── timeframes (interval/range mirror the scanner's selectedTFs) ───────────
 // minBars is 100 for every timeframe: computeZones() itself refuses fewer than
@@ -61,6 +62,7 @@ const RULES_DEFAULTS = {
   rrTarget: { type: "number", value: 2.0 },         // target R:R
   pivotLeft: { type: "integer", value: 3 },         // pivot strength left
   pivotRight: { type: "integer", value: 3 },        // pivot strength right
+  minConfluence: { type: "integer", value: 0 },     // SLM tier gate: 0 off, 2 = Tier 3+, 3 = Tier 1-2 only
 };
 
 function loadRules() {
@@ -266,12 +268,19 @@ function scanSymbol(symbol, bars, tf) {
   const trendOkLong = !RULES.trendFilter || res.trend === "UPTREND";
   const trendOkShort = !RULES.trendFilter || res.trend === "DOWNTREND";
 
-  if (demand && trendOkLong) return buildSignal(symbol, "LONG", demand, price, res.trend, last.date, tf);
-  if (supply && trendOkShort) return buildSignal(symbol, "SHORT", supply, price, res.trend, last.date, tf);
+  // SLM confluence gate (see scan-rules.json minConfluence): zones scoring
+  // below the tier bar are skipped — the rulebook's Tier 4-5 = "avoid".
+  const minConf = RULES.minConfluence || 0;
+  if (demand && trendOkLong && LfcScanner.confluenceScore(res, "LONG") >= minConf) {
+    return buildSignal(symbol, "LONG", demand, price, res.trend, last.date, tf, res);
+  }
+  if (supply && trendOkShort && LfcScanner.confluenceScore(res, "SHORT") >= minConf) {
+    return buildSignal(symbol, "SHORT", supply, price, res.trend, last.date, tf, res);
+  }
   return null;
 }
 
-function buildSignal(symbol, action, zone, price, trend, date, tf) {
+function buildSignal(symbol, action, zone, price, trend, date, tf, res) {
   const stop = action === "LONG"
     ? zone.bottom * (1 - RULES.stopBufPct / 100)
     : zone.top * (1 + RULES.stopBufPct / 100);
@@ -279,6 +288,7 @@ function buildSignal(symbol, action, zone, price, trend, date, tf) {
   if (!(risk > 0) || !(price > 0)) return null;
   const target = action === "LONG" ? price + risk * RULES.rrTarget : price - risk * RULES.rrTarget;
   const f = (n) => n.toFixed(2);
+  const conf = res ? LfcScanner.confluenceScore(res, action) : 0;
   return {
     symbol,
     action,
@@ -291,7 +301,9 @@ function buildSignal(symbol, action, zone, price, trend, date, tf) {
     target: Number(f(target)),
     trend,
     date,
-    details: `${tf.label} zone ${f(zone.bottom)}-${f(zone.top)} stop ${f(stop)} target ${f(target)} · ${trend} · EOD ${date}`,
+    confluence: conf,
+    tag: LfcScanner.confluenceTag(conf),
+    details: `${tf.label} zone ${f(zone.bottom)}-${f(zone.top)} stop ${f(stop)} target ${f(target)} · ${trend} · conf ${conf}/4 ${LfcScanner.confluenceTag(conf)} · EOD ${date}`,
   };
 }
 

@@ -99,6 +99,57 @@
 
     var latest = demand[0] || null;
 
+    // ── SLM rulebook confluence (Price Action 20260604.md) ─────────────────
+    // Three checks distilled from the setups that transfer to EOD bars:
+    //
+    // 1. FRESHNESS (Setup 4: "channel valid for first 2-3 touches, then
+    //    probability of breakout increases"). A zone the price has already
+    //    closed into since the pivot formed has been USED — its bounce odds
+    //    decay with every retest. Count touches: bars after the pivot whose
+    //    range overlaps the zone and which traded near/below it.
+    // 2. EMA20 CONFLUENCE (Setup 27: "Trend Pullback + 200 MA Bounce", Tier 1
+    //    ~80%). A demand zone that coincides with a rising EMA20 is a
+    //    trend-pullback confluence level, the rulebook's single highest-
+    //    confidence pattern; a supply zone under a falling EMA20 likewise.
+    // 3. WICK REJECTION (Setup 12: "rejection candles — thin body, large
+    //    wicks — prove traders are rejecting the level"). The latest bar's
+    //    shape at the zone matters: a long lower wick reaching into a demand
+    //    zone is the entry signal the book waits for.
+    function zoneTouches(zone, idx) {
+      var touches = 0;
+      for (var j = idx + 1; j < bars.length; j++) {
+        var b = bars[j];
+        if (b.low <= zone.top && b.high >= zone.bottom) touches++;
+      }
+      return touches;
+    }
+
+    function decorate(zone, isDemand) {
+      if (!zone) return zone;
+      var out = Object.assign({}, zone);
+      out.touches = zoneTouches(zone, zone.pivotIndex);
+      out.fresh = out.touches <= 2;                    // rulebook: first 2-3 touches hold
+      var e = ema20[ema20.length - 1], ePrev = ema20[ema20.length - 6];
+      var emaRising = e > ePrev;
+      out.emaConfluence = isDemand ? emaRising : !emaRising;
+      out.emaDist = Math.abs(close - e) / close;       // how far the EMA sits from price
+      return out;
+    }
+
+    demand = demand.map(function (z) { return decorate(z, true); });
+    supply = supply.map(function (z) { return decorate(z, false); });
+
+    // Rejection wick on the latest bar, measured against the nearest zone it
+    // reached: wick = how far below the body price probed and came back from.
+    var bodyTop = Math.max(last.open, last.close);
+    var bodyBottom = Math.min(last.open, last.close);
+    var lowerWick = bodyBottom - low;                  // >0 = buyers stepped in below the body
+    var upperWick = high - bodyTop;                    // >0 = sellers stepped in above the body
+    var barRange = high - low;
+    var rejectionWick = barRange > 0
+      ? { lower: lowerWick / barRange, upper: upperWick / barRange }
+      : { lower: 0, upper: 0 };
+
     // Distance from the latest close to the nearest active demand zone, as a
     // fraction of the close (0 = inside the zone). Null when no zone survives.
     var distDemand = null;
@@ -134,6 +185,13 @@
       demandBottom: latest ? latest.bottom : null,
       distDemand: distDemand,
       zoneCreated: latest ? latest.created : null,
+      nearestDemand: demand.length ? demand.reduce(function (a, b) {
+        return Math.abs(close - (a.top + a.bottom) / 2) <= Math.abs(close - (b.top + b.bottom) / 2) ? a : b;
+      }) : null,
+      nearestSupply: supply.length ? supply.reduce(function (a, b) {
+        return Math.abs(close - (a.top + a.bottom) / 2) <= Math.abs(close - (b.top + b.bottom) / 2) ? a : b;
+      }) : null,
+      rejectionWick: rejectionWick,
       avgVol20: avgVol,
       lastVol: last.volume
     };
@@ -153,9 +211,38 @@
     return include;
   }
 
+  /**
+   * SLM rulebook confluence score for one signal (0-4). Mirrors the tier
+   * ranking the book assigns its 29 setups: confluence = conviction.
+   *   +1 fresh zone          — ≤2 prior touches (Setup 4: zones decay with retests)
+   *   +1 EMA20 confluence    — demand at a rising / supply at a falling EMA20 (Setup 27, Tier 1)
+   *   +1 rejection wick      — signal bar's wick into the zone ≥30% of its range (Setup 12)
+   *   +1 trend alignment     — zone direction agrees with the EMA stack (already often
+   *                            enforced by trendFilter; scored so it survives when off)
+   * 3+ = Tier 1-2 ("play these"), 2 = Tier 3, ≤1 = Tier 4-5 (book says avoid).
+   */
+  function confluenceScore(result, action) {
+    var zone = action === "LONG" ? result.nearestDemand : result.nearestSupply;
+    var score = 0;
+    if (zone && zone.fresh) score++;
+    if (zone && zone.emaConfluence) score++;
+    var wick = action === "LONG" ? result.rejectionWick.lower : result.rejectionWick.upper;
+    if (wick >= 0.30) score++;
+    if (action === "LONG" && result.trend === "UPTREND") score++;
+    if (action === "SHORT" && result.trend === "DOWNTREND") score++;
+    return score;
+  }
+
+  /** Human-readable tag for the digest / scanner table. */
+  function confluenceTag(score) {
+    return score >= 3 ? "A+" : score === 2 ? "A" : score === 1 ? "B" : "C";
+  }
+
   global.LfcScanner = {
     computeZones: computeZones,
     includeRow: includeRow,
+    confluenceScore: confluenceScore,
+    confluenceTag: confluenceTag,
     ema: ema
   };
 })(window);

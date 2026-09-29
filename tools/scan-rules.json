@@ -22,6 +22,12 @@
     "  rrTarget     number  default 2.0 - target = entry +/- risk * rrTarget.",
     "  pivotLeft    int     default 3 - pivot strength to the left (zone sensitivity).",
     "  pivotRight   int     default 3 - pivot strength to the right (zone confirmation lag).",
+    "  minConfluence int    default 0 - SLM rulebook tier gate (scanner-logic.js).",
+    "                       Score 0-4 per signal: +1 fresh zone (<=2 touches), +1 EMA20",
+    "                       confluence, +1 rejection wick >=30% of bar range, +1 trend",
+    "                       alignment. 0 disables the gate. 2 keeps Tier 3+ (book: 50-60%+),",
+    "                       3 keeps only Tier 1-2 style setups (book: 65-80%+). Each step",
+    "                       cuts signal count roughly in half.",
     "",
     "NOTE: the browser scanner (scanner.html) has its own checkboxes for trend and touch",
     "rules and does not read this file - this governs the nightly GitHub Actions scan only."
@@ -32,5 +38,6 @@
   "stopBufPct": 0.5,
   "rrTarget": 2.0,
   "pivotLeft": 3,
-  "pivotRight": 3
+  "pivotRight": 3,
+  "minConfluence": 0
 }
