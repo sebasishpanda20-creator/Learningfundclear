@@ -174,8 +174,67 @@
 
     // 2. FVG / IMBALANCE (book §6): three consecutive candles where candle i's
     //    body gaps past candle i-2's body — institutions moved too fast. The    //    most RECENT unmitigated gap (price hasn't closed back through it)    //    is the magnet the book says will be revisited.    var fvg = null;    for (var fi = bars.length - 1; fi >= 2; fi--) {      var c3 = bars[fi], c1 = bars[fi - 2];      var top3 = Math.max(c3.open, c3.close), bot3 = Math.min(c3.open, c3.close);      var top1 = Math.max(c1.open, c1.close), bot1 = Math.min(c1.open, c1.close);      if (bot3 > top1) {                               // bullish gap (price gapped up)        if (close < bot3) { fvg = { bottom: top1, top: bot3, dir: "BULL", date: bars[fi - 1].date }; break; }      } else if (top3 < bot1) {                        // bearish gap        if (close > top3) { fvg = { bottom: top3, top: bot1, dir: "BEAR", date: bars[fi - 1].date }; break; }      }    }
-    // 3. PREMIUM / DISCOUNT (book §7.8): where price sits in the recent range.    //    Uptrend → buy in discount; downtrend → sell in premium.    var lookback = bars.slice(-Math.min(bars.length, 60));    var rangeHigh = arrayMax(lookback.map(function (b) { return b.high; }));    var rangeLow = arrayMin(lookback.map(function (b) { return b.low; }));    var rangePos = rangeHigh > rangeLow ? (close - rangeLow) / (rangeHigh - rangeLow) : 0.5;    var rangeZone = rangePos >= 0.7 ? "PREMIUM" : rangePos <= 0.3 ? "DISCOUNT" : "EQUILIBRIUM";
-    // 4. EQUAL HIGHS / LOWS (book §7.9): stops pile above/below levels touched    //    twice at nearly the same price — liquidity the book says is a magnet.    var eqTol = close * 0.0015;                        // "same price" = within 0.15%    var eqHighs = 0, eqLows = 0;    for (var ei = 0; ei < bars.length - 1; ei++) {      for (var ej = ei + 1; ej < bars.length; ej++) {        if (Math.abs(bars[ei].high - bars[ej].high) <= eqTol) eqHighs++;        if (Math.abs(bars[ei].low - bars[ej].low) <= eqTol) eqLows++;      }    }
+    // 3. PREMIUM / DISCOUNT (book §7.8): where price sits in the recent range.    //    Uptrend → buy in discount; downtrend → sell in premium.    var lookback = bars.slice(-Math.min(bars.length, 60));    var rangeHigh = arrayMax(lookback.map(function (b) { return b.high; }));    var rangeLow = arrayMin(lookback.map(function (b) { return b.low; }));    var rangePos = rangeHigh > rangeLow ? (close - rangeLow) / (rangeHigh - rangeLow) : 0.5;    var rangeZone = rangePos >= 0.7 ? "PREMIUM" : rangePos <= 0.3 ? "DISCOUNT" : "EQUILIBRIUM";    // 4. EQUAL HIGHS / LOWS (book §7.9): stops pile above/below levels touched
+    //    twice at nearly the same price — liquidity the book says is a magnet.
+    var eqTol = close * 0.0015;                        // "same price" = within 0.15%
+    var eqHighs = 0, eqLows = 0;
+    for (var ei = 0; ei < bars.length - 1; ei++) {
+      for (var ej = ei + 1; ej < bars.length; ej++) {
+        if (Math.abs(bars[ei].high - bars[ej].high) <= eqTol) eqHighs++;
+        if (Math.abs(bars[ei].low - bars[ej].low) <= eqTol) eqLows++;
+      }
+    }
+
+    // ── Time-based rulebook concepts (Time_Price_Action_Rulebook.md) ───────
+    // The intraday session-clock models (Judas/Asia/London root candles) don't
+    // apply to EOD bars — a daily bar has no 09:53. Three modules DO survive
+    // the timeframe change:
+    //
+    // A. OHLC BIAS (Module 34, Rules 300-305): read the last completed candle's
+    //    shape — higher close + big body + no rejection wick = bullish bias for
+    //    the next bar; mirrored for bearish; doji = neutral. Also the
+    //    institutional hint (Rule 305): one-sided large wick = rejection,
+    //    wicks both sides = retail chop, avoid.
+    var prev = bars[bars.length - 2];
+    var prev2 = bars[bars.length - 3];
+    var prevBody = Math.abs(prev.close - prev.open);
+    var prevRange = prev.high - prev.low;
+    var prevBodyPct = prevRange > 0 ? prevBody / prevRange : 0;
+    var prevBull = prev.close > prev.open;
+    var prevMid = (prev.high + prev.low) / 2;
+    var candleBias = "NEUTRAL";
+    if (prevBodyPct >= 0.5 && prevBull && prev.close > prev2.close) candleBias = "BULLISH";
+    else if (prevBodyPct >= 0.5 && !prevBull && prev.close < prev2.close) candleBias = "BEARISH";
+    var prevLowerWick = Math.min(prev.open, prev.close) - prev.low;
+    var prevUpperWick = prev.high - Math.max(prev.open, prev.close);
+    var twoSidedWick = prevRange > 0 && prevLowerWick / prevRange >= 0.3 && prevUpperWick / prevRange >= 0.3;
+
+    // B. OTE FIBONACCI ZONE (Module 7, Rule 021): after a structure shift, the
+    //    0.62-0.79 retracement band of the last impulse leg is the "optimal
+    //    trade entry" — where our demand/supply zones most often coincide.
+    var ote = null;
+    if (swingHigh !== null && swingLow !== null) {
+      var legUp = swingHigh - swingLow;
+      var fib = function (level) { return swingHigh - legUp * level; }; // retracement from the high
+      if (trend === "UPTREND") {
+        ote = { low: fib(0.79), high: fib(0.62), dir: "LONG" };   // deep pullback band
+      } else if (trend === "DOWNTREND") {
+        var legDown = swingHigh - swingLow;
+        ote = { low: swingLow + legDown * 0.62, high: swingLow + legDown * 0.79, dir: "SHORT" };
+      }
+    }
+    var inOte = ote ? (close >= ote.low && close <= ote.high) : false;
+
+    // C. ORDERBLOCKER (Module 5, Rule 013): 3+ consecutive candles with large
+    //    bodies and short wicks = institutional runway; its origin is the
+    //    opposite-side liquidity target the book sizes entries against.
+    var orderblocker = false;
+    for (var oi = bars.length - 4; oi < bars.length; oi++) {
+      if (oi < 1) continue;
+      var b = bars[oi], r = b.high - b.low;
+      var body = Math.abs(b.close - b.open);
+      if (r > 0 && body / r >= 0.65) { orderblocker = true; break; }
+    }
 
     // Distance from the latest close to the nearest active demand zone, as a
     // fraction of the close (0 = inside the zone). Null when no zone survives.
@@ -228,6 +287,12 @@
       rangePos: rangePos,               // 0 = range low, 1 = range high
       eqHighs: eqHighs,                 // equal-high pairs nearby = buy-side liquidity
       eqLows: eqLows,                   // equal-low pairs = sell-side liquidity
+      // Time-based concepts:
+      candleBias: candleBias,           // BULLISH | BEARISH | NEUTRAL (Module 34, last closed bar)
+      twoSidedWick: twoSidedWick,       // retail chop warning (Rule 305)
+      ote: ote,                         // optimal-trade-entry fib band or null
+      inOte: inOte,                     // price currently inside the OTE band
+      orderblocker: orderblocker,       // large-body candle in last 4 bars (Module 5)
       avgVol20: avgVol,
       lastVol: last.volume
     };
@@ -256,7 +321,10 @@
    *   +1 FVG confluence — an unmitigated gap sits behind the entry (institutional
    *     footprint) in the trade's direction, or price is in the right half of the
    *     range (LONG from DISCOUNT / SHORT from PREMIUM, book §7.8)
-   * 4+ = the book's "ideal"; 3 = minimum acceptable; ≤2 = stand aside.
+   * Time-based rulebook point (Module 34):
+   *   +1 candle bias agrees — the last CLOSED bar printed a clean one-sided body
+   *     in the trade's direction with no two-sided retail wick (Rule 300/301 + 305)
+   * 5+ = exceptional; 3 = minimum acceptable; ≤2 = stand aside.
    */
   function confluenceScore(result, action) {
     var zone = action === "LONG" ? result.nearestDemand : result.nearestSupply;
@@ -280,12 +348,16 @@
       if (result.fvg && result.fvg.dir === "BEAR") score++;
       else if (result.rangeZone === "PREMIUM") score++;
     }
+    // Time-based: the last closed candle's bias agrees, and it isn't the
+    // two-sided-wick retail chop the book says to avoid.
+    if (action === "LONG" && result.candleBias === "BULLISH" && !result.twoSidedWick) score++;
+    if (action === "SHORT" && result.candleBias === "BEARISH" && !result.twoSidedWick) score++;
     return score;
   }
 
-  /** Human-readable tag: A+ = the book's "ideal" (4+), C = stand aside. */
+  /** Human-readable tag: A+ = exceptional (5+), A = ideal, C = stand aside. */
   function confluenceTag(score) {
-    return score >= 4 ? "A+" : score === 3 ? "A" : score === 2 ? "B" : "C";
+    return score >= 5 ? "A+" : score >= 4 ? "A" : score === 3 ? "B" : "C";
   }
 
   global.LfcScanner = {

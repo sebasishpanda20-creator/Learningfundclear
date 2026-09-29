@@ -62,7 +62,7 @@ const RULES_DEFAULTS = {
   rrTarget: { type: "number", value: 2.0 },         // target R:R
   pivotLeft: { type: "integer", value: 3 },         // pivot strength left
   pivotRight: { type: "integer", value: 3 },        // pivot strength right
-  minConfluence: { type: "integer", value: 0 },     // SLM tier gate: 0 off, 2 = Tier 3+, 3 = Tier 1-2 only
+  minConfluence: { type: "integer", value: 0 },     // tier gate 0-7: 0 off, 3 = minimum acceptable, 5 = exceptional only
 };
 
 function loadRules() {
@@ -303,7 +303,7 @@ function buildSignal(symbol, action, zone, price, trend, date, tf, res) {
     date,
     confluence: conf,
     tag: LfcScanner.confluenceTag(conf),
-    details: `${tf.label} zone ${f(zone.bottom)}-${f(zone.top)} stop ${f(stop)} target ${f(target)} · ${trend} · conf ${conf}/6 ${LfcScanner.confluenceTag(conf)} · EOD ${date}`,
+    details: `${tf.label} zone ${f(zone.bottom)}-${f(zone.top)} stop ${f(stop)} target ${f(target)} · ${trend} · conf ${conf}/7 ${LfcScanner.confluenceTag(conf)} · EOD ${date}`,
   };
 }
 
