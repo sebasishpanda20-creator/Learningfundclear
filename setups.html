@@ -160,6 +160,8 @@ const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBh
 const $ = id => document.getElementById(id);
 const sb = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 const LS_TRADES = "lfc.papertrades";
+const LS_UI = "lfc.setups.ui";         // signals-card filter state (side / search / TV toggle)
+const LS_SCAN = "lfc.setups.scanlist"; // last known scan list — offline mirror of scan_symbols
 
 let signals = [];   // unified: {id, ts, symbol, action, price, details, source, used}
 
@@ -171,6 +173,22 @@ const dt = iso => { try { return new Date(iso).toLocaleString("en-IN", { dateSty
 function loadTrades() { try { return JSON.parse(localStorage.getItem(LS_TRADES) || "[]"); } catch (e) { return []; } }
 function saveTrades(t) { try { localStorage.setItem(LS_TRADES, JSON.stringify(t)); } catch (e) {} }
 let trades = loadTrades();
+
+// Filter controls survive a reload; the scan list keeps a local mirror so a
+// Supabase hiccup shows your real list instead of the committed fallback.
+function loadUi() { try { return JSON.parse(localStorage.getItem(LS_UI) || "{}"); } catch (e) { return {}; } }
+function saveUi() {
+  try {
+    localStorage.setItem(LS_UI, JSON.stringify({
+      side: $("sideFilter").value, search: $("sigSearch").value, tv: $("tvEnable").checked,
+    }));
+  } catch (e) {}
+}
+function saveScanCache() { try { localStorage.setItem(LS_SCAN, JSON.stringify(scanSymbols)); } catch (e) {} }
+function loadScanCache() {
+  try { const v = JSON.parse(localStorage.getItem(LS_SCAN) || "null"); return Array.isArray(v) ? v : null; }
+  catch (e) { return null; }
+}
 
 // ---------- signals: Supabase (TV webhook) + manual ----------
 async function loadSignals() {
@@ -430,18 +448,27 @@ async function loadScanList() {
     const { data, error } = await sb.from("scan_symbols").select("*").order("position", { ascending: true });
     if (error) throw error;
     scanSymbols = (data || []).map((r) => ({ symbol: r.symbol, enabled: r.enabled, onServer: true }));
+    saveScanCache();   // refresh the offline mirror on every successful read
   } catch (e) {
-    // migration not run yet (or offline): show what tonight's scan would use
-    // from the committed JSON — the editor renders read-only until the table exists
+    // Supabase unreachable (or migration missing): prefer the locally cached
+    // list from the last successful load so your view survives a reload;
+    // fall back to the committed JSON for a first-ever visit.
+    const cached = loadScanCache();
+    if (cached && cached.length) {
+      scanSymbols = cached;
+      $("scanMsg").textContent = "Showing your last known scan list (Supabase unreachable) — toggles here will not reach tonight's scan until it is back.";
+    } else {
     try {
       const res = await fetch("tools/signal-watchlist.json");
       const j = await res.json();
       scanSymbols = (j.symbols || []).map((s) => ({ symbol: s, enabled: true, onServer: false }));
+      saveScanCache();
     } catch (e2) { scanSymbols = []; }
     if (!scanSymbols.length) {
       $("scanMsg").textContent = "Scan list unavailable (has scan-symbols-migration.sql been run in Supabase?).";
     } else {
       $("scanMsg").textContent = "Read-only preview — run scan-symbols-migration.sql in Supabase to enable editing.";
+    }
     }
   }
   renderScanList();
@@ -485,6 +512,7 @@ function renderScanList() {
           if (!after.length || after[0].enabled !== !row.enabled) throw new Error("both write paths failed to flip enabled — are you signed in as the admin user?");
         }
         row.enabled = !row.enabled;
+        saveScanCache();
         $("scanMsg").textContent = row.symbol + (row.enabled ? " back in tonight's scan." : " paused — the scan will skip it.");
       } else {
         const { error } = await sb.from("scan_symbols").delete().eq("symbol", row.symbol);
@@ -498,6 +526,7 @@ function renderScanList() {
           if (after.length) throw new Error("both delete paths matched 0 rows — are you signed in as the admin user?");
         }
         scanSymbols.splice(i, 1);
+        saveScanCache();
         $("scanMsg").textContent = row.symbol + " removed from the scan list.";
       }
     } catch (e) {
@@ -519,6 +548,7 @@ $("scanAddBtn").onclick = async () => {
     if (error) throw error;
     if (!data || !data.length) throw new Error("the insert returned no rows — write may not have landed; refresh and check");
     scanSymbols.push({ symbol: sym, enabled: true, onServer: true });
+    saveScanCache();
     $("scanMsg").textContent = sym + " added — tonight's scan will include it.";
     $("scanAdd").value = "";
   } catch (e) {
@@ -533,8 +563,17 @@ $("scanAddBtn").onclick = async () => {
 
 // ---------- boot ----------
 $("refreshSigs").onclick = loadSignals;
-$("sideFilter").onchange = renderSignals;
-$("sigSearch").oninput = renderSignals;
+$("sideFilter").onchange = () => { saveUi(); renderSignals(); };
+$("sigSearch").oninput = () => { saveUi(); renderSignals(); };
+$("tvEnable").onchange = saveUi;
+
+// restore the saved filter state before the first render
+(function restoreUi() {
+  const u = loadUi();
+  if (u.side) $("sideFilter").value = u.side;
+  if (typeof u.search === "string") $("sigSearch").value = u.search;
+  if (typeof u.tv === "boolean") $("tvEnable").checked = u.tv;
+})();
 (function boot() {
   if (!window.LfcAuth || !window.LfcAuth.current()) {
     location.replace("signin.html?next=setups.html");
