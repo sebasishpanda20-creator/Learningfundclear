@@ -658,8 +658,10 @@ function telegramDigest(ctx) {
     rankSignals(signals, freshKey).slice(0, TOP_SIGNALS).forEach((s, i) => {
       const side = s.action === "LONG" ? "🟢" : "🔴";
       const aligned = s.trend === TREND_FOR[s.action] ? "✅" : "⚠️";
-      L.push(`${i + 1}. ${side} ${s.symbol} ${s.tf} @${s.price} · zone ${s.zoneBottom}-${s.zoneTop} · stop ${s.stop} · tgt ${s.target} ${aligned}`);
+      L.push(`${i + 1}. ${side} ${s.symbol} ${s.tf} @${s.price} · conf ${s.confluence != null ? s.confluence + "/6 " + s.tag : "—"} · zone ${s.zoneBottom}-${s.zoneTop} · stop ${s.stop} · tgt ${s.target} ${aligned}`);
     });
+    const confBuckets = [3, 4, 5].map((c) => signals.filter((s) => s.confluence === c).length);
+    L.push(`conf spread: 3·${confBuckets[0]} · 4·${confBuckets[1]} · 5-6·${confBuckets[2]} (4+ keeps ${confBuckets[1] + confBuckets[2]}/${signals.length})`);
   }
   if (failures.length) {
     L.push(`\n⚠️ unavailable: ${failures.slice(0, 8).join(" · ")}${failures.length > 8 ? ` +${failures.length - 8} more` : ""}`);
@@ -738,13 +740,21 @@ function buildDigest(ctx) {
     L.push("");
     L.push("Newest first, then trend-aligned, then the tightest stop. The full list is on the Setups page.");
     L.push("");
-    L.push("| # | Symbol | TF | Side | Price | Zone | Stop | Target | Trend |");
-    L.push("|---|---|---|---|---|---|---|---|---|");
+    L.push("| # | Symbol | TF | Side | Price | Zone | Stop | Target | Conf | Trend |");
+    L.push("|---|---|---|---|---|---|---|---|---|---|");
     top.forEach((s, i) => {
       const side = s.action === "LONG" ? "🟢 LONG" : "🔴 SHORT";
       const aligned = s.trend === TREND_FOR[s.action] ? "✅ " : "";
-      L.push(`| ${i + 1} | **${s.symbol}** | ${s.tf} | ${side} | ${s.price} | ${s.zoneBottom}-${s.zoneTop} | ${s.stop} | ${s.target} | ${aligned}${s.trend} |`);
+      L.push(`| ${i + 1} | **${s.symbol}** | ${s.tf} | ${side} | ${s.price} | ${s.zoneBottom}-${s.zoneTop} | ${s.stop} | ${s.target} | ${s.confluence != null ? s.confluence + "/6 " + s.tag : "—"} | ${aligned}${s.trend} |`);
     });
+    // Conf distribution across ALL of tonight's signals (not just the top
+    // rows): this is the 3-vs-4 judgement data. While minConfluence=3, the
+    // 4+/night count is the flow you would lose by raising the gate; the
+    // backtest says the 4+ slice is the one that held up out-of-sample.
+    const confBuckets = [3, 4, 5].map((c) => signals.filter((s) => s.confluence === c).length);
+    const c4plus = confBuckets[1] + confBuckets[2];
+    L.push("");
+    L.push(`_Conf spread tonight: 3·${confBuckets[0]} · 4·${confBuckets[1]} · 5-6·${confBuckets[2]} (4+ would keep ${c4plus}/${signals.length})_`);
     L.push("");
   }
 
