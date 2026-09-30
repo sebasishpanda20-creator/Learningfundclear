@@ -528,6 +528,37 @@ function yearsOf(sigs) {
     }
   }
 
+  // --dump: write every signal (conf, year, outcome) to $LFC_DUMP for
+  // out-of-sample studies: tune a gate on one slice, validate on another.
+  if (process.env.LFC_DUMP && rows.length) {
+    const dump = rows.flatMap((r) => r.allSignals.map((s) => ({
+      sym: r.symbol, date: s.date, year: s.date.slice(0, 4), side: s.side,
+      conf: s.conf, outcome: s.outcome,
+    })));
+    require("fs").writeFileSync(process.env.LFC_DUMP, JSON.stringify(dump));
+    console.log(`\ndumped ${dump.length} signal(s) → ${process.env.LFC_DUMP}`);
+  }
+
+  // Year × conf stability grid: an honest gate must help (or at least not
+  // hurt) in EVERY year, not just on the pooled average — a threshold tuned
+  // on the pooled data can be pure overfit, and this grid is the check.
+  if (rows.length && rows.reduce((a, r) => a + r.allSignals.length, 0) >= 50) {
+    const all = rows.flatMap((r) => r.allSignals);
+    const years = [...new Set(all.map((s) => s.date.slice(0, 4)))].sort();
+    const bands = [[0, 1], [2, 2], [3, 4], [5, 6]];
+    console.log(`\n=== YEAR × CONF GRID (hit% / EV / n) ===`);
+    console.log("  year   " + bands.map(([lo, hi]) => `conf${lo}-${hi}`.padStart(16)).join("") + "        board");
+    for (const y of years) {
+      const ys = all.filter((s) => s.date.startsWith(y));
+      const cells = bands.map(([lo, hi]) => {
+        const st = statsOf(ys.filter((s) => s.conf >= lo && s.conf <= hi));
+        return st.n ? `${st.hit}%/${fmtEv(st.ev)}/${st.n}`.padStart(16) : "—".padStart(16);
+      });
+      const bs = statsOf(ys);
+      console.log(`  ${y} ${cells.join("")}  ${bs.hit}%/${fmtEv(bs.ev)}/${bs.n}`.replace(/(\d)%\//, "$1% /"));
+    }
+  }
+
   // --conf board summary + NSE baseline rebuild. With --save-nse, writes
   // tools/scan-quality-nse.json from the CONF-GATED signals so the digest's
   // board line matches what a minConfluence-gated live scan actually stores.
