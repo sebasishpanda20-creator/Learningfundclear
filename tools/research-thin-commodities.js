@@ -18,7 +18,7 @@
  * signal-scan.js has at run time), and a signal fires on day i only if none
  * fired for the same zone in the previous 7 days (mirroring webhook dedup).
  *
- * Usage: node tools/research-thin-commodities.js [symbols...] [--save] [--stop=X] [--htf] [--regime=30] [--regime-min=3]
+ * Usage: node tools/research-thin-commodities.js [symbols...] [--save] [--stop=X] [--htf] [--regime=30] [--regime-min=3] [--conf=N]
  *   --save  writes each symbol's hit rate (only if >= 5 signals) into
  *           tools/scan-quality.json, which the nightly digest reads for its
  *           "Commodities (90d signals · backtest hit %)" line.
@@ -40,6 +40,15 @@
  *           through. Reports what it paused and whether those were winners.
  * Output always includes a per-year breakdown so you can see whether an edge
  * is stable across regimes or concentrated in one year.
+ *   --conf=N  keep only signals scoring >= N on the measured 0-6 confluence
+ *           scale (scanner-logic.js) — mirrors scan-rules.json minConfluence
+ *           live. Bucket/component/month tables still use ALL signals so the
+ *           evidence stays full-sample; kept/no-gate stat lines show the gate's
+ *           effect. Board summary prints gated vs ungated EV.
+ *   --save-nse (with --conf=N) rebuilds tools/scan-quality-nse.json from the
+ *           CONF-GATED NSE signals so the digest board baseline matches a
+ *           minConfluence-gated live scanner. Without --conf it would overwrite
+ *           the gated baseline with ungated numbers, so it requires --conf.
  *
  * MEASURED VERDICT for --regime (Sep 2026, 6 commodities GC=F CL=F HG=F BZ=F
  * SI=F NG=F, 312 baseline signals, board 42% hit / +0.27R EV). No setting
@@ -82,6 +91,21 @@ const regimeMinArg = process.argv.find((a) => a.startsWith("--regime-min="));
 const REGIME_MIN = regimeMinArg ? parseInt(regimeMinArg.slice(13), 10) : 3;
 const regimeWinArg = process.argv.find((a) => a.startsWith("--regime-window="));
 const REGIME_WINDOW_DAYS = regimeWinArg ? parseInt(regimeWinArg.slice(16), 10) : 90;
+// --conf=N: keep only signals scoring >= N on the measured 0-6 confluence
+// scale (scanner-logic.js) — exactly what the live scanner stores when
+// scan-rules.json sets minConfluence=N. allSignals keeps EVERY signal so the
+// bucket/component tables stay full-sample; only the kept/gated stat lines
+// and the conf board reflect the gate.
+const confArg = process.argv.find((a) => a.startsWith("--conf="));
+const CONF_THRESHOLD = confArg ? parseInt(confArg.slice(7), 10) : null;
+if (confArg && (!Number.isInteger(CONF_THRESHOLD) || CONF_THRESHOLD < 1 || CONF_THRESHOLD > 6)) {
+  console.error(`--conf expects a whole number 1-6, e.g. --conf=3 (got "${confArg.slice(7)}")`);
+  process.exit(2);
+}
+if (process.argv.includes("--save-nse") && CONF_THRESHOLD == null) {
+  console.error("--save-nse needs --conf=N: without the conf gate it would overwrite the gated NSE baseline with ungated numbers. Rebuild the UNGATED baseline with --save on a plain run instead.");
+  process.exit(2);
+}
 if (regimeArg && !Number.isFinite(REGIME_THRESHOLD)) {
   console.error(`--regime expects a percentage, e.g. --regime=30 (got "${regimeArg.slice(9)}")`);
   process.exit(2);
@@ -122,11 +146,24 @@ function parseYahoo(json) {
 
 async function getBars(symbol, interval = "1d", range = "1095d") {
   const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?range=${range}&interval=${interval}`;
-  const res = await fetch(url, { headers: { "User-Agent": UA, "Accept": "application/json" }, signal: AbortSignal.timeout(20000) });
-  const json = await res.json().catch(() => null);
-  const bars = json && parseYahoo(json);
-  if (!bars) throw new Error("no bars");
-  return bars;
+  // Yahoo rate-limits long symbol bursts with transient "fetch failed"/429s.
+  // Small backoff + retry turns a 487-failures board run into a clean one;
+  // sleeps happen BETWEEN retries (not before the first attempt), so short
+  // runs are no slower than before.
+  const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+  let lastErr;
+  for (let attempt = 0; attempt < 4; attempt++) {
+    if (attempt > 0) await sleep(1500 * attempt);
+    try {
+      const res = await fetch(url, { headers: { "User-Agent": UA, "Accept": "application/json" }, signal: AbortSignal.timeout(20000) });
+      const json = await res.json().catch(() => null);
+      const bars = json && parseYahoo(json);
+      if (bars) return bars;
+      lastErr = new Error("no bars");
+      if (json && json.chart && json.chart.error && /not found|delisted/i.test(JSON.stringify(json.chart.error))) break; // dead ticker — don't retry
+    } catch (e) { lastErr = e; }
+  }
+  throw lastErr || new Error("no bars");
 }
 
 // Full EMA series (index i = EMA as of bar i, seeded from the first close —
@@ -184,6 +221,7 @@ async function runSymbol(symbol) {
   const windowSizes = []; // trailing-window sample size at each engagement
   let lastZoneFire = new Map(); // zoneKey -> bar index of last fire
   let wIdx = -1;                // last weekly bar fully closed before the daily date
+  let confPaused = 0;           // signals the --conf gate removed
 
   for (let i = 100; i < bars.length; i++) {
     const view = bars.slice(0, i + 1);          // no look-ahead
@@ -258,6 +296,11 @@ async function runSymbol(symbol) {
       }, barsHeld: oc.oc === "TIMEOUT" ? MAX_HOLD : undefined };
       allSignals.push(rec);
 
+      // Confluence gate (--conf=N): mirrors scan-rules.json minConfluence —
+      // the live scanner never stores below the bar, so this gate sits before
+      // the regime trailer too (a blocked signal feeds no trailing window).
+      if (CONF_THRESHOLD != null && conf < CONF_THRESHOLD) { confPaused++; return; }
+
       // Trailing-regime gate. The window sees exactly what the live digest
       // line sees: signals THIS gate stored in the last 90 days whose outcome
       // was already decided before today's signal (open trades are ignored).
@@ -285,7 +328,8 @@ async function runSymbol(symbol) {
   // from per-year hit rates and EV but noted)
   return {
     symbol, bars: bars.length, lastDate: bars[bars.length - 1].date,
-    signals, allSignals, paused, gateEngaged, windowSizes,
+    signals, allSignals, paused, gateEngaged, windowSizes, confPaused,
+    statsGated: statsOf(allSignals.filter((s) => CONF_THRESHOLD == null || s.conf >= CONF_THRESHOLD)),
     stats: statsOf(signals), baseStats: statsOf(allSignals),
     years: yearsOf(signals), baseYears: yearsOf(allSignals),
   };
@@ -330,7 +374,9 @@ function yearsOf(sigs) {
 
 (async () => {
   const SAVE = process.argv.includes("--save");
+  const SAVE_NSE = process.argv.includes("--save-nse");
   const cachePath = path.join(__dirname, "scan-quality.json");
+  const nseCachePath = path.join(__dirname, "scan-quality-nse.json");
   const cache = SAVE
     ? (() => { try { return JSON.parse(require("fs").readFileSync(cachePath, "utf8")); } catch { return {}; } })()
     : null;
@@ -346,7 +392,8 @@ function yearsOf(sigs) {
       const r = await runSymbol(sym);
       rows.push(r);
       console.log(`\n=== ${sym} — ${r.bars} bars to ${r.lastDate} ===`);
-      console.log(`${GATE ? "kept    " : "signals "}(deduped, trend-filtered${HTF ? " + weekly HTF gate" : ""}${gateLabel}): ${statLine(r.stats)}`);
+      console.log(`${GATE ? "kept    " : "signals "}(deduped, trend-filtered${HTF ? " + weekly HTF gate" : ""}${CONF_THRESHOLD != null ? ` + conf>=${CONF_THRESHOLD}` : ""}${gateLabel}): ${statLine(r.stats)}`);
+      if (CONF_THRESHOLD != null && r.statsGated.n) console.log(`  no-conf-gate: ${statLine(r.statsGated)}`);
       if (GATE) {
         console.log(`  no-gate: ${statLine(r.baseStats)}`);
         const pt = r.paused.filter((p) => p.outcome === "TARGET").length;
@@ -478,6 +525,42 @@ function yearsOf(sigs) {
     } else {
       require("fs").writeFileSync(cachePath, JSON.stringify(cache, null, 2) + "\n");
       console.log(`\nsaved ${Object.keys(cache).length} entr(ies) → tools/scan-quality.json`);
+    }
+  }
+
+  // --conf board summary + NSE baseline rebuild. With --save-nse, writes
+  // tools/scan-quality-nse.json from the CONF-GATED signals so the digest's
+  // board line matches what a minConfluence-gated live scan actually stores.
+  if (CONF_THRESHOLD != null && rows.length) {
+    const gated = rows.flatMap((r) => r.allSignals.filter((s) => s.conf >= CONF_THRESHOLD));
+    const ungated = rows.flatMap((r) => r.allSignals);
+    const gs = statsOf(gated), us = statsOf(ungated);
+    console.log(`\n=== CONF BOARD (conf>=${CONF_THRESHOLD}, ${rows.length} symbols) ===`);
+    console.log(`  ungated: ${statLine(us)}`);
+    console.log(`  gated  : ${statLine(gs)}   → EV ${(gs.ev - us.ev >= 0 ? "+" : "")}${(gs.ev - us.ev).toFixed(2)}R vs ungated · kept ${gs.n}/${us.n} (${us.n ? Math.round(100 * gs.n / us.n) : 0}%)`);
+    if (SAVE_NSE) {
+      if (GATE) {
+        console.log("--save-nse skipped: regime gate active would distort the baseline. Re-run without --regime.");
+      } else {
+        const nseRows = rows.filter((r) => r.symbol.endsWith(".NS") && r.statsGated.hit != null);
+        const out = {};
+        for (const r of nseRows) {
+          const st = statsOf(r.allSignals.filter((s) => s.conf >= CONF_THRESHOLD));
+          out[r.symbol] = {
+            hitRate: st.hit, ev: st.ev == null ? null : Math.round(st.ev * 100) / 100,
+            signals: st.n, target: st.t, stop: st.s, timeout: st.to,
+            lastDate: r.lastDate,
+            measuredAt: new Date().toISOString().slice(0, 10),
+            minConf: CONF_THRESHOLD,
+          };
+        }
+        const agg = statsOf(gated.filter((s) => s.date && s.date.slice && true)); // all gated (commodities included only if scanned)
+        const nseGated = gated.filter((s) => rows.find((r) => r.symbol.endsWith(".NS") && r.allSignals.includes(s)));
+        const ns = statsOf(nseGated);
+        out.board = { hitRate: ns.hit, ev: ns.ev == null ? null : Math.round(ns.ev * 100) / 100, signals: ns.n, symbols: nseRows.length, minConf: CONF_THRESHOLD, measuredAt: new Date().toISOString().slice(0, 10) };
+        require("fs").writeFileSync(nseCachePath, JSON.stringify(out, null, 2) + "\n");
+        console.log(`\nsaved ${nseRows.length} NSE symbol(s) + board (conf>=${CONF_THRESHOLD}) → tools/scan-quality-nse.json`);
+      }
     }
   }
 })();

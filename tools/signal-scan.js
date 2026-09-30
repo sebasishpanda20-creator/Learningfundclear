@@ -62,7 +62,7 @@ const RULES_DEFAULTS = {
   rrTarget: { type: "number", value: 2.0 },         // target R:R
   pivotLeft: { type: "integer", value: 3 },         // pivot strength left
   pivotRight: { type: "integer", value: 3 },        // pivot strength right
-  minConfluence: { type: "integer", value: 0 },     // tier gate 0-7: 0 off, 3 = minimum acceptable, 5 = exceptional only
+  minConfluence: { type: "integer", value: 0 },     // tier gate 0-6: 0 off, 3 = minimum acceptable (A tier), 5 = exceptional only
 };
 
 function loadRules() {
