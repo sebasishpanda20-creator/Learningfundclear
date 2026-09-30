@@ -1,0 +1,133 @@
+# Missed-cron watchdog — LearningFundClear
+# ========================================
+# GitHub Actions schedules are best-effort: under load, cron runs can be
+# delayed by hours or skipped entirely (this repo has already lost two
+# nightly scans that way). The nightly scan is the only writer of
+# signal_events, so a skipped cron means the Setups page and the digest
+# tracker silently go stale.
+#
+# This watchdog runs twice each evening (21:30 IST and 23:00 IST):
+#   1. Check whether signal-scan.yml produced a run today after 12:00 UTC
+#      that is successful or still in progress.
+#   2. If none: dispatch a recovery run of the scan (real, not dry-run) and
+#      open/update a GitHub issue recording the miss - no extra secrets
+#      needed, the issue IS the alert. If TELEGRAM_BOT_TOKEN and
+#      TELEGRAM_CHAT_ID repository secrets hold real values, also push a
+#      Telegram note (best-effort, never fatal).
+#   3. If the scan ran fine: write a one-line summary and exit - cheap,
+#      quiet, no noise.
+#
+# Manual runs: Actions -> "Scan watchdog" -> Run workflow (handy to test;
+# it will just report OK if the scan already ran today).
+
+name: Scan watchdog
+
+on:
+  schedule:
+    # 16:00 UTC = 21:30 IST - 3.5h after the scan's 12:30 UTC slot, enough
+    # slack for GitHub's documented schedule delays to still count as "ran".
+    - cron: '0 16 * * *'
+    # 17:30 UTC = 23:00 IST - second safety net; also re-verifies that the
+    # first watchdog's recovery dispatch actually started.
+    - cron: '30 17 * * *'
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+  actions: write
+  issues: write
+
+concurrency:
+  group: scan-watchdog
+  cancel-in-progress: false
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Did the nightly scan run today?
+        id: check
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          since=$(date -u -d 'today 12:00' +%Y-%m-%dT%H:%M:%SZ)
+          echo "checking for signal-scan runs created since $since"
+          curl -sf -H "Authorization: Bearer $GH_TOKEN" \
+            "https://api.github.com/repos/${{ github.repository }}/actions/workflows/signal-scan.yml/runs?per_page=30" \
+            | jq -r --arg since "$since" \
+              '[.workflow_runs[] | select(.created_at >= $since and (.conclusion == "success" or .status == "in_progress" or .status == "queued"))] | length' \
+            > /tmp/ran
+          ran=$(cat /tmp/ran)
+          echo "runs today (success or in flight): $ran"
+          echo "ran=$ran" >> "$GITHUB_OUTPUT"
+          if [ "$ran" != "0" ]; then
+            echo "### Watchdog $(date -u '+%F %T')Z - scan ran today ($ran run(s) found). All good." >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: Recover - dispatch the missed scan
+        if: steps.check.outputs.ran == '0'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          code=$(curl -s -o /tmp/dispatch.out -w '%{http_code}' -X POST \
+            -H "Authorization: Bearer $GH_TOKEN" \
+            -H "Accept: application/vnd.github+json" \
+            "https://api.github.com/repos/${{ github.repository }}/actions/workflows/signal-scan.yml/dispatches" \
+            -d '{"ref":"main"}')
+          echo "dispatch HTTP $code"
+          [ "$code" = "204" ] || { cat /tmp/dispatch.out; exit 1; }
+
+      - name: Wait for the recovered run to start
+        if: steps.check.outputs.ran == '0'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          started_at=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+          for i in $(seq 1 10); do
+            sleep 60
+            n=$(curl -sf -H "Authorization: Bearer $GH_TOKEN" \
+              "https://api.github.com/repos/${{ github.repository }}/actions/workflows/signal-scan.yml/runs?per_page=10" \
+              | jq -r --arg since "$started_at" \
+                '[.workflow_runs[] | select(.created_at >= $since)] | length')
+            echo "attempt $i: $n new run(s) since dispatch"
+            if [ "$n" != "0" ]; then
+              echo "### Watchdog $(date -u '+%F %T')Z - nightly scan had NOT run; recovery run dispatched and started." >> "$GITHUB_STEP_SUMMARY"
+              exit 0
+            fi
+          done
+          echo "### FAIL: Watchdog dispatched a recovery run but it never appeared - check Actions permissions." >> "$GITHUB_STEP_SUMMARY"
+          exit 1
+
+      - name: File or update the watchdog issue
+        if: steps.check.outputs.ran == '0'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          title="watchdog: missed nightly scan $(date -u +%F)"
+          body="The scheduled \`signal-scan\` did not produce a successful run today (checked $(date -u '+%F %T') UTC).
+
+          The watchdog dispatched a recovery run - see [scan runs](https://github.com/${{ github.repository }}/actions/workflows/signal-scan.yml)."
+          n=$(gh issue list --state all --search "$title" --json number --jq 'length' || echo 0)
+          if [ "$n" = "0" ]; then
+            gh issue create --title "$title" --body "$body"
+            echo "issue created: $title"
+          else
+            num=$(gh issue list --state all --search "$title" --json number --jq '.[0].number')
+            gh issue comment "$num" --body "$body"
+            echo "commented on existing issue #$num"
+          fi
+
+      - name: Telegram note (optional, best-effort)
+        if: steps.check.outputs.ran == '0'
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: |
+          if [ -z "$TELEGRAM_BOT_TOKEN" ] || [ -z "$TELEGRAM_CHAT_ID" ]; then
+            echo "telegram secrets not set - skipping (the GitHub issue is the alert)"
+            exit 0
+          fi
+          curl -s -o /dev/null -X POST "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage" \
+            -d chat_id="$TELEGRAM_CHAT_ID" \
+            -d text="Watchdog: LFC nightly scan had not run by $(date -u '+%H:%M') UTC - recovery run dispatched. Details in the repo issues."
+          echo "telegram note sent"
