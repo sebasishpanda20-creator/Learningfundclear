@@ -68,6 +68,7 @@ const path = require("path");
 global.window = global;
 require(path.join(__dirname, "..", "scanner-logic.js"));
 const computeZones = global.LfcScanner.computeZones;
+const LfcScanner = global.LfcScanner;
 
 const UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36";
 const PIVOT = 3, RR = 2.0, MAX_HOLD = 60, DEDUP_DAYS = 7;
@@ -227,7 +228,34 @@ async function runSymbol(symbol) {
       const target = side === "LONG" ? price + (price - stop) * RR : price - (stop - price) * RR;
       if (!(target > 0)) return;
       const oc = outcomeDetailed(bars, i + 1, side, price, stop, target);
-      const rec = { date: last.date, side, price: price.toFixed(2), zone: `${best.bottom.toFixed(2)}-${best.top.toFixed(2)}`, stop: stop.toFixed(2), target: target.toFixed(2), outcome: oc.oc, barsHeld: oc.oc === "TIMEOUT" ? MAX_HOLD : undefined };
+      // Carry the live confluence score (scanner-logic.js) so the report can
+      // ask the only question that matters about it: do high-confluence signals
+      // actually beat low-confluence ones, or is the score decoration?
+      const conf = LfcScanner.confluenceScore(res, side);
+      // Every scoring contributor, recorded individually so the report can
+      // measure each one on its own evidence instead of trusting the sum.
+      const zoneUsed = side === "LONG" ? res.nearestDemand : res.nearestSupply;
+      const rec = { date: last.date, side, price: price.toFixed(2), zone: `${best.bottom.toFixed(2)}-${best.top.toFixed(2)}`, stop: stop.toFixed(2), target: target.toFixed(2), outcome: oc.oc, conf, components: {
+        fresh: !!(zoneUsed && zoneUsed.fresh),
+        emaConfluence: !!(zoneUsed && zoneUsed.emaConfluence),
+        rejectWick: (side === "LONG" ? res.rejectionWick.lower : res.rejectionWick.upper) >= 0.30,
+        trendAlign: side === "LONG" ? res.trend === "UPTREND" : res.trend === "DOWNTREND",
+        bos: res.structureEvent === "BoS",
+        choch: res.structureEvent === "CHoCH",
+        fvg: !!(res.fvg && ((side === "LONG" && res.fvg.dir === "BULL") || (side === "SHORT" && res.fvg.dir === "BEAR"))),
+        rightRangeHalf: side === "LONG" ? res.rangeZone === "DISCOUNT" : res.rangeZone === "PREMIUM",
+        bias: side === "LONG" ? res.candleBias === "BULLISH" : res.candleBias === "BEARISH",
+        twoSidedWick: res.twoSidedWick,
+        above200: side === "LONG" ? (res.above200 && res.sma200Rising) : (!res.above200 && !res.sma200Rising),
+        volume: res.volumeConfirm,
+        crossback: res.emaCrossback,
+        squareOf9: res.squareOf9,
+        circleEighths: res.circleEighths,
+        gann1x1: side === "LONG" ? res.gann1x1Up : res.gann1x1Down,
+        timeSquare: side === "LONG" ? res.timeSquareLow : res.timeSquareHigh,
+        narrowRange: side === "LONG" ? res.narrowRangeLong : res.narrowRangeShort,
+        baseNBreak: res.baseNBreak,
+      }, barsHeld: oc.oc === "TIMEOUT" ? MAX_HOLD : undefined };
       allSignals.push(rec);
 
       // Trailing-regime gate. The window sees exactly what the live digest
@@ -375,6 +403,73 @@ function yearsOf(sigs) {
     console.log(`  gate paused ${base.n - kept.n} signal(s) — of those ${pt} hit TARGET / ${ps} stopped (${base.n - kept.n ? Math.round(100 * pt / (base.n - kept.n)) + "% would-be hit rate" : "n/a"})`);
     const med = median(rows.flatMap((r) => r.windowSizes));
     console.log(`  trailing-window sample when the gate engaged: median ${med} resolved trades (every window < ${REGIME_MIN} fails open)`);
+  }
+
+  // Confluence bucketing: the falsification test for the rulebook score. If the
+  // score is real, EV should rise monotonically with it. If buckets are flat or
+  // inverted, the score is decoration and minConfluence should stay 0.
+  const allSigs = rows.flatMap((r) => r.allSignals.filter((s) => s.conf !== undefined));
+  if (allSigs.length >= 50) {
+    const bands = [[0, 1], [2, 2], [3, 4], [5, 6]];
+    console.log(`\n=== CONFLUENCE BUCKETS (${allSigs.length} signals, all symbols) ===`);
+    console.log("  conf   n     hit%    EV      vs board");
+    const boardSt = statsOf(allSigs);
+    for (const [lo, hi] of bands) {
+      const st = statsOf(allSigs.filter((s) => s.conf >= lo && s.conf <= hi));
+      if (!st.n) continue;
+      const d = st.ev == null || boardSt.ev == null ? null : st.ev - boardSt.ev;
+      console.log(`  ${String(lo + "-" + hi).padEnd(6)} ${String(st.n).padStart(4)}  ${String(st.hit == null ? "—" : st.hit).padStart(4)}%  ${fmtEv(st.ev)}  ${d == null ? "—" : (d >= 0 ? "+" : "") + d.toFixed(2) + "R"}`);
+    }
+    console.log(`  board  ${String(boardSt.n).padStart(4)}  ${String(boardSt.hit).padStart(4)}%  ${fmtEv(boardSt.ev)}`);
+    // Per-component read: which single detector carries the edge, and which is
+    // dead weight or actively harmful? Both sides pooled (each component is
+    // evaluated in its own trade direction), so n is the full signal set.
+    const comps = [
+      ["fresh zone", (s) => s.components.fresh],
+      ["ema20 slope", (s) => s.components.emaConfluence],
+      ["rejection wick", (s) => s.components.rejectWick],
+      ["trend align", (s) => s.components.trendAlign],
+      ["BoS structure", (s) => s.components.bos],
+      ["CHoCH", (s) => s.components.choch],
+      ["FVG direction", (s) => s.components.fvg],
+      ["discount/premium", (s) => s.components.rightRangeHalf],
+      ["candle bias", (s) => s.components.bias],
+      ["above 200-SMA", (s) => s.components.above200],
+      ["volume confirm", (s) => s.components.volume],
+      ["EMA crossback", (s) => s.components.crossback],
+      ["base n' break", (s) => s.components.baseNBreak],
+      ["Square of 9", (s) => s.components.squareOf9],
+      ["circle eighths", (s) => s.components.circleEighths],
+      ["Gann 1x1", (s) => s.components.gann1x1],
+      ["time square", (s) => s.components.timeSquare],
+      ["narrow-range rev", (s) => s.components.narrowRange],
+    ];
+    console.log("\n  -- single components (fires vs does not, direction-aware) --");
+    for (const [name, pred] of comps) {
+      const withIt = statsOf(allSigs.filter(pred));
+      const without = statsOf(allSigs.filter((s) => !pred(s)));
+      if (!withIt.n) { console.log(`  ${name.padEnd(16)} — never fired`); continue; }
+      const d = withIt.ev == null || without.ev == null ? null : withIt.ev - without.ev;
+      const verdict = d == null ? "" : d >= 0.10 ? "  ← HELPED" : d <= -0.10 ? "  ← HURT" : "  ← noise";
+      console.log(`  ${name.padEnd(16)} with ${String(withIt.n).padStart(4)} (${String(withIt.hit).padStart(3)}% ${fmtEv(withIt.ev)})  without ${String(without.n).padStart(4)} (${String(without.hit == null ? "—" : without.hit).padStart(3)}% ${fmtEv(without.ev)})  Δ ${d == null ? "—" : (d >= 0 ? "+" : "") + d.toFixed(2) + "R"}${verdict}`);
+    }
+  }
+
+  // Rule 39 seasonal overlay: "Years 5 & 9 peak in spring/summer; expect decline
+  // Sep-Nov" and "Years 1-4 tend bottoming in Feb-Mar". Bucketing every signal
+  // by calendar month tests that claim on real data (3 calendar years × 12
+  // months, so each cell is a year-slice rather than a single event).
+  if (allSigs.length >= 50) {
+    const boardSt = statsOf(allSigs);
+    console.log(`\n=== MONTH BUCKETS (Rule 39 seasonal overlay: "exit before Sep-Nov") ===`);
+    console.log("  month  n     hit%    EV      vs board");
+    const names = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+    for (let m = 0; m < 12; m++) {
+      const st = statsOf(allSigs.filter((s) => Number(s.date.slice(5, 7)) === m + 1));
+      if (!st.n) continue;
+      const d = st.ev == null || boardSt.ev == null ? null : st.ev - boardSt.ev;
+      console.log(`  ${names[m].padEnd(5)} ${String(st.n).padStart(4)}  ${String(st.hit == null ? "—" : st.hit).padStart(4)}%  ${fmtEv(st.ev)}  ${d == null ? "—" : (d >= 0 ? "+" : "") + d.toFixed(2) + "R"}`);
+    }
   }
 
   if (SAVE) {

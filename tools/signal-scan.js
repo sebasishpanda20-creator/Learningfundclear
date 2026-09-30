@@ -303,7 +303,7 @@ function buildSignal(symbol, action, zone, price, trend, date, tf, res) {
     date,
     confluence: conf,
     tag: LfcScanner.confluenceTag(conf),
-    details: `${tf.label} zone ${f(zone.bottom)}-${f(zone.top)} stop ${f(stop)} target ${f(target)} · ${trend} · conf ${conf}/7 ${LfcScanner.confluenceTag(conf)} · EOD ${date}`,
+    details: `${tf.label} zone ${f(zone.bottom)}-${f(zone.top)} stop ${f(stop)} target ${f(target)} · ${trend} · conf ${conf}/6 ${LfcScanner.confluenceTag(conf)} · EOD ${date}`,
   };
 }
 

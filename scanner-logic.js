@@ -25,6 +25,18 @@
     return out;
   }
 
+  /** Simple moving average over a numeric array (Kell uses SMA on daily). */
+  function sma(values, span) {
+    var out = new Array(values.length);
+    var sum = 0;
+    for (var i = 0; i < values.length; i++) {
+      sum += values[i];
+      if (i >= span) sum -= values[i - span];
+      out[i] = i >= span - 1 ? sum / span : null;
+    }
+    return out;
+  }
+
   function arrayMin(a) { var m = a[0]; for (var i = 1; i < a.length; i++) if (a[i] < m) m = a[i]; return m; }
   function arrayMax(a) { var m = a[0]; for (var i = 1; i < a.length; i++) if (a[i] > m) m = a[i]; return m; }
 
@@ -141,6 +153,13 @@
 
     // Rejection wick on the latest bar, measured against the nearest zone it
     // reached: wick = how far below the body price probed and came back from.
+    // 20-day average volume — needed by the Kell volume confirmation below.
+    var avgVol = null;
+    if (bars.length >= 20) {
+      var vols = bars.slice(-21, -1).map(function (b) { return b.volume || 0; });
+      avgVol = vols.reduce(function (a, b) { return a + b; }, 0) / vols.length;
+    }
+
     var bodyTop = Math.max(last.open, last.close);
     var bodyBottom = Math.min(last.open, last.close);
     var lowerWick = bodyBottom - low;                  // >0 = buyers stepped in below the body
@@ -236,6 +255,129 @@
       if (r > 0 && body / r >= 0.65) { orderblocker = true; break; }
     }
 
+    // ── Oliver Kell layer (Oliver_Kell_Price_Action_Rulebook.md) ───────────
+    // Kell trades growth stocks on DAILY bars with EMA 10/20 + SMA 50/200,
+    // volume confirmation, and a named cycle of setups. Three of his rules
+    // translate to EOD bars directly and are mechanically testable:
+    //
+    // A. 200/50 SMA TREND FILTER (Rule 03): the long-term magnets. Price above
+    //    a rising 200-SMA is his definition of a tradable uptrend.
+    var n = closes.length - 1;
+    var sma50 = sma(closes, 50);
+    var sma200 = sma(closes, 200);
+    var s50 = sma50[n], s200 = sma200[n];
+    var above200 = s200 != null && close > s200;
+    var above50 = s50 != null && close > s50;
+    // Slope reference: ideally 20 bars back, but a 200-SMA only exists from bar
+    // 199 onward, so on shorter histories fall back to the earliest legal sample
+    // rather than silently reporting a flat 200-SMA.
+    var s200Ref = null;
+    for (var back = 20; back >= 5; back--) {
+      if (n - back >= 0 && sma200[n - back] != null) { s200Ref = sma200[n - back]; break; }
+    }
+    var sma200Rising = s200 != null && s200Ref != null && s200 > s200Ref;
+
+    // B. VOLUME CONFIRMATION (Rule 02): "Bull snorts" — heavy volume marks
+    //    institutional participation. Kell wants breakout volume 50%+ above
+    //    average; we compare the signal bar to the trailing 20-bar mean.
+    var volumeConfirm = !!(avgVol && last.volume && last.volume >= avgVol * 1.5);
+
+    // C. EMA CROSSBACK (Rule 12, his 65%+ setup): price is in an uptrend above
+    //    the 10/20 EMA, pulls back to TOUCH that EMA, and closes back above it
+    //    (no close below = support held). This is the precise mechanical form
+    //    of the loose "EMA20 confluence" idea (which only checked slope).
+    var e10 = ema10[n], e20 = ema20[n];
+    var touchTol = close * 0.006;                     // "touches" = within 0.6%
+    var touchedEma = (Math.abs(low - e10) <= touchTol) || (Math.abs(low - e20) <= touchTol)
+      || (low <= Math.max(e10, e20) && close >= Math.min(e10, e20));
+    var emaCrossback = !!(close > e10 && close > e20 && touchedEma && trend === "UPTREND");
+
+    // D. BASE N' BREAK (Rule 15, 60-70%): a tight base (<=4% range over the last
+    //    15 bars) sitting near the recent high, then a close above the base top
+    //    on confirming volume. Kell: "volume drying up during consolidation,
+    //    breakout bar closes above base top on volume".
+    var baseNBreak = false, baseRange = null, baseTop = null;
+    if (bars.length >= 25) {
+      var base = bars.slice(-16, -1);                 // 15 completed bars
+      baseTop = arrayMax(base.map(function (x) { return x.high; }));
+      var baseLow = arrayMin(base.map(function (x) { return x.low; }));
+      baseRange = baseTop > 0 ? (baseTop - baseLow) / baseTop : 1;
+      var nearHigh = baseTop >= arrayMax(highs.slice(-40)) * 0.97;
+      baseNBreak = !!(baseRange <= 0.04 && nearHigh && close > baseTop && volumeConfirm && above50);
+    }
+
+    // Distance from the latest close to the nearest active demand zone, as a
+    // fraction of the close (0 = inside the zone). Null when no zone survives.
+    // ── Time-Price Squaring layer (TimePriceSquaring_Rulebook.md) ──────────
+    // The spine of this book is astrological — planetary longitude compared
+    // against a price converted to zodiac degrees — and that cannot be computed
+    // from OHLC bars (there is no ephemeris in a browser). But five of its
+    // modules DO reduce to arithmetic, so they are computed and then MEASURED
+    // by tools/research-thin-commodities.js before anything scores them.
+    //
+    // A. SQUARE OF 9 (Rules 73-78): the spiral grid maps price onto a circle
+    //    because one full 360° turn costs +2 on the square root of price —
+    //    degree = sqrt(price) × 180 mod 360. Price sits on a 45° harmonic of
+    //    that grid when the degree is within a few degrees of a multiple of 45.
+    var s9Deg = ((Math.sqrt(close) * 180) % 360 + 360) % 360;
+    var s9Off = Math.abs(s9Deg - Math.round(s9Deg / 45) * 45);
+    var squareOf9 = s9Off <= 6;                       // within 6° of a harmonic
+
+    // B. C.E. / EIGHTHS (Rules 06-08): the book's first conversion, price × 8
+    //    mod 360. Its lattice is every 45° — i.e. every 45/8 = 5.625 price
+    //    points — so "at a level" means the degree sits near a multiple of 45.
+    var ceDeg = ((close * 8) % 360 + 360) % 360;
+    var circleEighths = Math.abs(ceDeg - Math.round(ceDeg / 45) * 45) <= 6;
+
+    // C. GANN 1×1 ANGLE (Rules 24-26): a line of 1 price unit per bar drawn
+    //    from the last MAJOR swing extreme. "1 unit" is meaningless for a ₹50
+    //    stock and a ₹50,000 one, so the unit here is the 20-bar average range
+    //    (the scaling that keeps the angle's meaning constant). Price on the
+    //    correct side of that line from the low = uptrend intact.
+    var win90len = Math.min(bars.length, 90);
+    var win90 = bars.slice(-win90len);
+    var majorLow = Infinity, majorHigh = -Infinity, majorLowIdx = -1, majorHighIdx = -1;
+    for (var mi = 0; mi < win90.length; mi++) {
+      if (win90[mi].low <= majorLow) { majorLow = win90[mi].low; majorLowIdx = bars.length - win90len + mi; }
+      if (win90[mi].high >= majorHigh) { majorHigh = win90[mi].high; majorHighIdx = bars.length - win90len + mi; }
+    }
+    var atr20 = null;
+    if (bars.length >= 21) {
+      var trs = bars.slice(-21, -1).map(function (x) { return x.high - x.low; });
+      atr20 = trs.reduce(function (a, b) { return a + b; }, 0) / trs.length;
+    }
+    var barsSinceLow = bars.length - 1 - majorLowIdx;
+    var barsSinceHigh = bars.length - 1 - majorHighIdx;
+    var gann1x1Up = !!(atr20 && barsSinceLow >= 5 && close > majorLow + atr20 * barsSinceLow);
+    var gann1x1Down = !!(atr20 && barsSinceHigh >= 5 && close < majorHigh - atr20 * barsSinceHigh);
+
+    // D. TIME SQUARING (Rules 17-18): count bars forward from the major swing
+    //    and mark the natural cycle counts the book lists (22 = Mercury 90°,
+    //    56 = Venus 90°, plus the 30/45/60/90/120/144/180/270/360 family).
+    //    Within ±3 bars of one of them is a "squared time" date.
+    var timeSquares = [22, 30, 45, 56, 60, 90, 120, 144, 180, 270, 360];
+    function nearTimeSquare(nb) {
+      for (var ti = 0; ti < timeSquares.length; ti++) if (Math.abs(nb - timeSquares[ti]) <= 3) return true;
+      return false;
+    }
+    var timeSquareLow = nearTimeSquare(barsSinceLow);
+    var timeSquareHigh = nearTimeSquare(barsSinceHigh);
+
+    // E. NARROW-RANGE REVERSAL (Rule 72): a doji-sized bar on above-average
+    //    volume, straight after 2-3 bars of new highs, is the book's short
+    //    trigger at resistance (mirrored at lows for longs).
+    var avgRange20 = null;
+    if (bars.length >= 21) {
+      var rngs = bars.slice(-21, -1).map(function (x) { return x.high - x.low; });
+      avgRange20 = rngs.reduce(function (a, b) { return a + b; }, 0) / rngs.length;
+    }
+    var smallBar = !!(avgRange20 && barRange > 0 && barRange <= avgRange20 * 0.6);
+    var volAbove20 = !!(avgVol && last.volume && last.volume > avgVol);
+    var highsFresh = bars.length >= 24 && arrayMax(highs.slice(-4, -1)) >= arrayMax(highs.slice(-24, -4));
+    var lowsFresh = bars.length >= 24 && arrayMin(lows.slice(-4, -1)) <= arrayMin(lows.slice(-24, -4));
+    var narrowRangeShort = smallBar && volAbove20 && highsFresh;
+    var narrowRangeLong = smallBar && volAbove20 && lowsFresh;
+
     // Distance from the latest close to the nearest active demand zone, as a
     // fraction of the close (0 = inside the zone). Null when no zone survives.
     var distDemand = null;
@@ -251,12 +393,6 @@
       distDemand = best;
     }
 
-    // 20-day average volume (extra column; the reference suggested it as a filter).
-    var avgVol = null;
-    if (bars.length >= 20) {
-      var vols = bars.slice(-20).map(function (b) { return b.volume || 0; });
-      avgVol = vols.reduce(function (a, b) { return a + b; }, 0) / vols.length;
-    }
 
     return {
       price: close,
@@ -293,7 +429,29 @@
       ote: ote,                         // optimal-trade-entry fib band or null
       inOte: inOte,                     // price currently inside the OTE band
       orderblocker: orderblocker,       // large-body candle in last 4 bars (Module 5)
+      // Oliver Kell concepts:
+      sma50: s50,
+      sma200: s200,
+      above200: above200,               // price above the 200-SMA (Rule 03 long-term filter)
+      sma200Rising: sma200Rising,
+      volumeConfirm: volumeConfirm,     // signal bar >= 1.5x trailing 20-bar volume (Rule 02)
+      emaCrossback: emaCrossback,       // pullback touched 10/20 EMA and closed back above (Rule 12)
+      baseNBreak: baseNBreak,           // tight base + close above base top on volume (Rule 15)
+      baseRange: baseRange,             // base height as a fraction of its top (null if n/a)
       avgVol20: avgVol,
+      // Time-Price Squaring layer (TimePriceSquaring_Rulebook.md) — candidates,
+      // measured by tools/research-thin-commodities.js; none score yet.
+      squareOf9: squareOf9,                 // price within 6° of a Square-of-9 45° harmonic
+      s9Deg: s9Deg,
+      circleEighths: circleEighths,         // price near the C.E./45° eight-lattice (Rules 06/08)
+      gann1x1Up: gann1x1Up,
+      gann1x1Down: gann1x1Down,             // right side of an ATR-scaled 1×1 from the major swing
+      barsSinceMajorLow: barsSinceLow,
+      barsSinceMajorHigh: barsSinceHigh,
+      timeSquareLow: timeSquareLow,
+      timeSquareHigh: timeSquareHigh,       // major swing sits on a Gann cycle count (Rules 17/18)
+      narrowRangeLong: narrowRangeLong,
+      narrowRangeShort: narrowRangeShort,   // doji-at-extreme on volume (Rule 72)
       lastVol: last.volume
     };
   }
@@ -313,51 +471,56 @@
   }
 
   /**
-   * Confluence score for one signal, 0-6. PA-rulebook points (0-4):
-   *   +1 fresh zone (≤2 touches, Setup 4) · +1 EMA20 confluence (Setup 27)
-   *   +1 rejection wick ≥30% of bar range (Setup 12) · +1 trend alignment.
-   * SMC-rulebook points (book §10.3: "minimum acceptable: 3 confluences"):
-   *   +1 structure agree — BoS in the trade's direction, or no opposing CHoCH
-   *   +1 FVG confluence — an unmitigated gap sits behind the entry (institutional
-   *     footprint) in the trade's direction, or price is in the right half of the
-   *     range (LONG from DISCOUNT / SHORT from PREMIUM, book §7.8)
-   * Time-based rulebook point (Module 34):
-   *   +1 candle bias agrees — the last CLOSED bar printed a clean one-sided body
-   *     in the trade's direction with no two-sided retail wick (Rule 300/301 + 305)
-   * 5+ = exceptional; 3 = minimum acceptable; ≤2 = stand aside.
+   * Confluence score, 0-6 — MEASURED, not theorised.
+   *
+   * Five rulebooks' worth of candidate conditions were scored in one sum until
+   * tools/research-thin-commodities.js could bucket real signals by it. On a
+   * small first sample (4,245 signals, 60 NIFTY 500 names) the sum was FLAT,
+   * so the score was cut back to only the per-component winners. VALIDATED on
+   * the full board (30,456 signals, 420 symbols): the buckets now separate
+   * monotonically —
+   *
+   *   conf 0-1  10,697 sig · 36% · +0.08R   (−0.11R vs board)
+   *   conf 2    13,702 sig · 40% · +0.19R   (board)
+   *   conf 3-4   6,038 sig · 45% · +0.36R   (+0.17R)
+   *   conf 5-6      19 sig · 59% · +0.76R   (+0.58R)
+   *   board    30,456 sig · 40% · +0.19R
+   *
+   * Per-component Δ EV on the full board (fires vs does not, direction-aware):
+   *   above 200-SMA +0.16R → +2 · CHoCH +0.10R → +2 · EMA crossback +0.13R → +1
+   *   base n' break +0.01R (n=6, kept at +1 pending sample)
+   *   Everything else measured noise: BoS Δ−0.00 (the earlier −0.24 was sample
+   *   noise), FVG +0.03, volume +0.04, fresh zone −0.02, wick −0.00, bias −0.04,
+   *   ema20 slope −0.03, discount/premium +0.04.
+   *   Time-Price-Squaring layer (fifth rulebook), all NOISE or worse:
+   *   Square of 9 Δ−0.00 (n=8,284) · C.E. eighths Δ−0.00 (n=8,321) ·
+   *   time squares Δ+0.02 (n=14,116) · Gann 1×1 Δ−0.76 HURT (n=23) ·
+   *   narrow-range reversal Δ+0.31 but n=5. The astrology-adjacent modules
+   *   earn nothing; none score.
+   *
+   * Flags stay computed for display and future re-measurement; they just no
+   * longer move the score. Re-measure with:
+   *   node tools/research-thin-commodities.js <symbols...>
    */
   function confluenceScore(result, action) {
-    var zone = action === "LONG" ? result.nearestDemand : result.nearestSupply;
     var score = 0;
-    if (zone && zone.fresh) score++;
-    if (zone && zone.emaConfluence) score++;
-    var wick = action === "LONG" ? result.rejectionWick.lower : result.rejectionWick.upper;
-    if (wick >= 0.30) score++;
-    if (action === "LONG" && result.trend === "UPTREND") score++;
-    if (action === "SHORT" && result.trend === "DOWNTREND") score++;
-    // SMC: structure — a body-close BoS in our direction, or at least no fresh
-    // CHoCH against us. A WHIPSAW (both sides broken) earns nothing.
-    if (result.structureEvent === "BoS") score++;
-    else if (result.structureEvent !== "CHoCH") score += 0; // NONE/WHIPSAW neutral
-    // SMC: location + imbalance. LONG wants a bull FVG overhead-unmitigated below
-    // price (dip to fill it) or a discount read; SHORT mirrors it.
-    if (action === "LONG") {
-      if (result.fvg && result.fvg.dir === "BULL") score++;
-      else if (result.rangeZone === "DISCOUNT") score++;
-    } else {
-      if (result.fvg && result.fvg.dir === "BEAR") score++;
-      else if (result.rangeZone === "PREMIUM") score++;
-    }
-    // Time-based: the last closed candle's bias agrees, and it isn't the
-    // two-sided-wick retail chop the book says to avoid.
-    if (action === "LONG" && result.candleBias === "BULLISH" && !result.twoSidedWick) score++;
-    if (action === "SHORT" && result.candleBias === "BEARISH" && !result.twoSidedWick) score++;
+    var long = action === "LONG";
+    // 200-SMA trend filter (Kell Rule 03) — the strongest measured factor.
+    if (long && result.above200 && result.sma200Rising) score += 2;
+    if (!long && !result.above200 && !result.sma200Rising) score += 2;
+    // A fresh change of character: the measured-best bucket, and the opposite of
+    // what the SMC book predicted (it calls BoS the continuation edge).
+    if (result.structureEvent === "CHoCH") score += 2;
+    // Kell's named pullback setup (Rule 12, "65%+ with volume").
+    if (result.emaCrossback) score += 1;
+    // Kell's Base n' Break (Rule 15) — fires rarely, kept pending a bigger sample.
+    if (result.baseNBreak) score += 1;
     return score;
   }
 
-  /** Human-readable tag: A+ = exceptional (5+), A = ideal, C = stand aside. */
+  /** Human-readable tag over the measured 0-6 scale. */
   function confluenceTag(score) {
-    return score >= 5 ? "A+" : score >= 4 ? "A" : score === 3 ? "B" : "C";
+    return score >= 5 ? "A+" : score >= 3 ? "A" : score === 2 ? "B" : "C";
   }
 
   global.LfcScanner = {
