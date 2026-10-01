@@ -62,8 +62,7 @@ If sign-in behaves oddly after a browser update or tab restore: open the sign-in
 ============================================================
 What it does
 A daily (EOD) scan. For every symbol × timeframe it:
- 1. pulls the last N days of bars from Yahoo Finance (with jina.ai proxy fallback; the scan page
-    caches each symbol's bars for 20 hours, so a rescan later the same day is instant);
+ 1. pulls the last N days of bars from Yahoo Finance (with jina.ai text-proxy fallback);
  2. applies an independent pivot-based approximation of demand/supply zones:
     - a confirmed pivot low = the lowest low across (pivotLeft + pivotRight + 1) bars → a demand
       zone from [candle body top] to [candle low];
@@ -82,13 +81,13 @@ Tools sidebar (scanner.html, top card)
 - Require bullish EMA trend → only rows where EMA10 > EMA20 > EMA50 pass.
 - Include candles touching a zone → also shows candles that merely touch a zone edge (checkbox off
   keeps only fully INSIDE results).
-- Max distance above zone % → null disables it; a positive number (e.g. 2.5) additionally keeps
+- Max distance above zone % → null disables it; a positive number (e.g. 1.0) additionally keeps
   rows where the last close is no more than that many percent above the zone top. Useful as a
   "don't chase the breakout yet" filter.
 - Volume above 20-day average → keeps rows where lastVolume >= 20dAverageVolume.
 - Watchlist (one symbol per line) with Save / Import / Replace / Default list / Add commodities.
   - Add commodities appends the global futures that track MCX: GC=F (gold), SI=F (silver),
-    CL=F (WTI crude), BZ=F (Brent), NG=F (natural gas), HG=F (copper), ALI=F (aluminium),
+    CL=F (crude), BZ=F (Brent), NG=F (natural gas), HG=F (copper), ALI=F (aluminium),
     ZNC=F (zinc), PL=F (platinum). MCX contract codes do not exist on Yahoo, so these are the
     proxies — for example put COALINDIA.NS in the list to scan just the stocks you hold.
   - Import accepts CSV, one per line, or comma/semicolon separated, bare symbol (NSE), bare 5–6
@@ -105,12 +104,12 @@ Run a scan
    to zone (%), Zone created (date), and volume vs 20-day average.
 4. Tags:
    - INSIDE — the current candle's low/high sits inside a live demand or supply zone.
-   - TOUCHING — the candle only touches a zone edge.
+   - TOUCHING — the candle only touches a zone edge (only when the "Include touching" box is ticked).
    - A zone disappears the day price closes through it, so "inside" means "currently inside the
      last live zone".
 
 The scan card has a tiny chart viewer: click any row to open a chart card showing candlesticks
-(green up / red down), EMA20 (blue) and EMA50 (gold), zone bands, and last price. Hovering/zooming
+(green up / red down), EMA20 (blue), EMA50 (gold), zone bands, and last price. Hovering/zooming
 is not available — this is an EOD summary, not a real-time chart.
 
 Download Results (CSV)
@@ -118,7 +117,7 @@ Exports the last scan as UTF-8 CSV (BOM so Excel opens it correctly): Symbol, TF
 Demand Zone, Position, Dist to zone, Zone Date, Vol vs 20d.
 
 Settings saved locally
-The scan tool saves your last-used pivot/history/filters to localStorage (key lfc.scanSettings); a
+The scan tool saves your last-used pivot/history/filters to localStorage (key lfc.scanSettings), so a
 return visit restores them exactly. Changing the watchlist also saves it.
 
 Important: the scanner uses your browser's localStorage for the watchlist AND the scan settings.
@@ -153,7 +152,7 @@ The dashboard is a mix of public fund pages (visible to anyone) and private tool
 
 - Performance: handful of stats computed from a local research script and the Supabase signal_events
   table (see the maintainer notes).
-- FUNDS: AMFI mutual fund pages — significant, but the relevant ones are in funds/index.html, and the
+- FUNDS: AMFI fund pages — significant, but the relevant ones are in funds/index.html, and the
   screen's scan list is managed there.
 - Admin: mint new sign-ins (admin card), manage app_users.
 
@@ -167,7 +166,7 @@ Sign-in requirement
 ============================================================
 The portal is private by design:
 - Everyone can view the public fund pages (funds/index.html).
-- The scanner, setups, and journal tools require a signed-in session.
+- The scanner, setups, and journal tools need a signed-in session.
 - The admin (an app_users row with is_admin = true) can create sign-ins via the Admin card on
   signin.html. Those create a Supabase auth user and an app_users row with is_admin=false.
 - The journal's admin panel (in index.html) is the point of truth for roles; the correct one is the
