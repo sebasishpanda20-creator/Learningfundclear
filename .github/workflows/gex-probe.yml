@@ -34,7 +34,17 @@ jobs:
           URL="https://docs.google.com/spreadsheets/d/e/2PACX-1vRBd77wnD_dWeYBeyZoLOnFLCKbdirxHS0WjxQKM-Fxyv5wOTNV6xHNLVsuYDyAEd8-3vQEF9OsfeLc/pub?output=csv&gid=459184988&single=true"
           mkdir -p probe
           : > probe/samples.log
-          END=$(( $(date -u +%s) + MINUTES*60 ))
+          if [ "$MINUTES" = "390" ]; then
+            # Anchor to the absolute market window (03:42-10:00 UTC = 09:12-15:30
+            # IST) so GitHub's cron delays (hours on this repo) can't skew it.
+            START_AT=$(date -u -d '03:42' +%s)
+            END=$(date -u -d '10:00' +%s)
+            NOW=$(date -u +%s)
+            if [ "$NOW" -lt "$START_AT" ]; then sleep $(( START_AT - NOW )); fi
+            if [ "$NOW" -ge "$END" ]; then echo "started after market close; aborting" >> probe/samples.log; exit 0; fi
+          else
+            END=$(( $(date -u +%s) + MINUTES*60 ))
+          fi
           PREV=""; CHANGES=0; SAMPLES=0; FAILS=0
           while [ "$(date -u +%s)" -lt "$END" ]; do
             TS=$(date -u +%H:%M:%S)
