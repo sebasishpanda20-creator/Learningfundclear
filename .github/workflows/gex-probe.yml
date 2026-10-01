@@ -8,6 +8,7 @@ name: GEX sheet freshness probe
 on:
   schedule:
     - cron: '35 3 * * 1'   # Monday 03:35 UTC (job may start late; loop adapts)
+    - cron: '5 6 * * 1'    # backup trigger in case the first is dropped/delayed
   workflow_dispatch:
     inputs:
       minutes:
@@ -16,10 +17,6 @@ on:
 
 permissions:
   contents: write
-
-concurrency:
-  group: gex-probe
-  cancel-in-progress: true
 
 jobs:
   probe:
