@@ -473,7 +473,7 @@ async function resolveLiveOutcomes(rows) {
   for (const p of parsed) {
     try {
       let bars = barCache.get(p.sym);
-      if (!bars) { bars = await getBars(p.sym, { id: "d", label: "Daily", yrange: "1d" }); barCache.set(p.sym, bars); }
+      if (!bars) { bars = await getBars(p.sym, TIMEFRAMES[0]); barCache.set(p.sym, bars); }
       const from = bars.findIndex((b) => b.date > p.date);
       let oc = "OPEN";
       if (from > 0) {
