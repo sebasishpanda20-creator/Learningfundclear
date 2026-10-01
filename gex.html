@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html lang="en-IN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>GEX / Option Chain — Private Research Journal</title>
+<style>
+  :root { color-scheme: dark; }
+  * { box-sizing: border-box; margin: 0; }
+  body {
+    min-height: 100vh; background: #0b0f0e; color: #e8efe9; padding: 22px;
+    font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
+  }
+  a.back { color: #7fd1a8; text-decoration: none; font-size: 13px; }
+  h1 { font-size: 24px; margin: 10px 0 2px; }
+  .sub { color: #93a39a; font-size: 13px; margin-bottom: 14px; }
+  .card { background: #111714; border: 1px solid #24312b; border-radius: 12px; padding: 18px; margin-bottom: 18px; }
+  .row { display: flex; flex-wrap: wrap; gap: 14px; align-items: flex-end; }
+  label { display: block; font-size: 12px; color: #93a39a; margin-bottom: 4px; }
+  select {
+    padding: 9px 10px; border-radius: 8px; border: 1px solid #2c3a33;
+    background: #0d1310; color: #e8efe9; font-size: 13px;
+  }
+  button.primary { padding: 11px 22px; border: 0; border-radius: 9px; background: #6d5df1; color: #fff; font-size: 14px; font-weight: 600; cursor: pointer; }
+  button.primary:disabled { opacity: .55; cursor: wait; }
+  .msg { margin-top: 10px; font-size: 13px; color: #e8b34b; min-height: 18px; }
+  .mut { color: #6f7f76; font-size: 11px; line-height: 1.5; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th { text-align: right; color: #93a39a; font-size: 11px; letter-spacing: .04em; padding: 8px; border-bottom: 1px solid #24312b; }
+  td { padding: 7px 8px; border-bottom: 1px solid #1a231f; text-align: right; font-variant-numeric: tabular-nums; }
+  th.c, td.c { text-align: center; color: #b9c7bf; font-weight: 600; }
+  tr.atm td { background: #1c2a22; color: #9df0c4; font-weight: 600; }
+  .stats { display: flex; flex-wrap: wrap; gap: 12px; margin: 14px 0; }
+  .stat { background: #0d1310; border: 1px solid #24312b; border-radius: 10px; padding: 10px 16px; }
+  .stat b { font-size: 18px; display: block; font-variant-numeric: tabular-nums; }
+  .stat span { font-size: 11px; color: #93a39a; }
+  .pos { color: #5fe0a5; } .neg { color: #ef8f8f; }
+  .badge { display: inline-block; padding: 3px 10px; border-radius: 20px; font-size: 12px; font-weight: 700; }
+  .badge.live { background: #0e3b2a; color: #5fe0a5; }
+  .badge.stale { background: #3b3114; color: #e8b34b; }
+  .badge.closed { background: #262b33; color: #aebac5; }
+  #stamp { font-variant-numeric: tabular-nums; }
+  /* GEX bars */
+  #bars { display: flex; align-items: flex-end; gap: 2px; height: 170px; padding: 8px 4px 0; border-bottom: 1px solid #2c3a33; }
+  .barcol { flex: 1; display: flex; flex-direction: column; justify-content: flex-end; align-items: center; position: relative; min-width: 6px; }
+  .barce { width: 100%; background: #b54848; border-radius: 2px 2px 0 0; }
+  .barpe { width: 100%; background: #2f9e6c; border-radius: 0 0 2px 2px; align-self: flex-start; }
+  .colwrap { flex: 1; display: flex; flex-direction: column; min-width: 6px; }
+  .up { height: 120px; display: flex; align-items: flex-end; }
+  .down { height: 50px; display: flex; align-items: flex-start; }
+  .barlabel { font-size: 9px; color: #6f7f76; margin-top: 4px; transform: rotate(-45deg); white-space: nowrap; }
+  .flip { font-size: 12px; color: #d8c76a; margin-top: 8px; }
+  .disclaimer { font-size: 11px; color: #5d6d64; line-height: 1.6; max-width: 950px; }
+</style>
+</head>
+<body>
+<a class="back" href="index.html">&larr; Back to journal</a>
+<h1>Index Option Chain &amp; GEX</h1>
+<p class="sub">Fetched live from NSE through the portal's own relay &mdash; every number below is stamped with the moment it left the server.</p>
+
+<div class="card">
+  <div class="row">
+    <div>
+      <label for="sym">Index</label>
+      <select id="sym">
+        <option>NIFTY</option>
+        <option>BANKNIFTY</option>
+        <option>FINNIFTY</option>
+        <option>MIDCPNIFTY</option>
+      </select>
+    </div>
+    <div>
+      <label for="exp">Expiry</label>
+      <select id="exp"><option>loading&hellip;</option></select>
+    </div>
+    <button class="primary" id="load">Refresh</button>
+    <label style="align-self:center"><input type="checkbox" id="auto" checked> auto 60s</label>
+    <div style="align-self:center">
+      <span class="badge closed" id="mkt">CONNECTING&hellip;</span>
+      <div class="mut" id="stamp" style="margin-top:6px"></div>
+    </div>
+  </div>
+  <div class="msg" id="msg"></div>
+</div>
+
+<div class="stats" id="stats"></div>
+
+<div class="card">
+  <h3 style="margin-bottom:6px">Gamma exposure by strike <span class="mut">(calls up &middot; puts down &middot; OI &times; lot &times; spot, Rs crore)</span></h3>
+  <div id="bars"></div>
+  <div class="flip" id="flip"></div>
+</div>
+
+<div class="card">
+  <h3 style="margin-bottom:10px">Option chain <span class="mut" id="chainMeta"></span></h3>
+  <div style="overflow-x:auto">
+  <table>
+    <thead><tr>
+      <th>OI</th><th>OI &plusmn;</th><th>Vol</th><th>IV</th><th>LTP</th>
+      <th class="c">STRIKE</th>
+      <th>LTP</th><th>IV</th><th>Vol</th><th>OI &plusmn;</th><th>OI</th>
+    </tr></thead>
+    <tbody id="chain"></tbody>
+  </table>
+  </div>
+</div>
+
+<p class="disclaimer">Data: NSE India option chain, relayed via this portal's edge function. GEX here is a naive exposure estimate (OI &times; lot size &times; spot, signed by side) &mdash; not a dealer-positioning model, and IV-based gamma is not computed. Levels are research context, not advice. Verify everything on your broker platform before acting.</p>
+
+<script>
+const FN = "https://chbtjicvbezbiosuouwm.supabase.co/functions/v1/nse-chain";
+const $ = (id) => document.getElementById(id);
+const LOTS = { NIFTY: 75, BANKNIFTY: 30, FINNIFTY: 65, MIDCPNIFTY: 120 };
+const num = (x) => (x ?? 0).toLocaleString("en-IN");
+const cr = (x) => (x / 1e7).toLocaleString("en-IN", { maximumFractionDigits: 0 });
+const ist = (iso) => new Intl.DateTimeFormat("en-IN", { timeZone: "Asia/Kolkata", hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false }).format(new Date(iso));
+
+let DATA = null, lastFetch = null, atmStrike = null;
+
+function mktBadge(nseTs) {
+  const now = new Date();
+  const fmt = (o) => new Intl.DateTimeFormat("en-GB", { timeZone: "Asia/Kolkata", ...o }).format(now);
+  const istH = Number(fmt({ hour: "2-digit", hour12: false }));
+  const istM = Number(fmt({ minute: "2-digit" }));
+  const mins = istH * 60 + istM;
+  const dow = fmt({ weekday: "short" });
+  const inSession = !['Sat', 'Sun'].includes(dow) && mins >= 555 && mins <= 930; // 09:15-15:30 IST
+  // NSE stamps look like "01-Oct-2026 15:40:00"; is that today (IST)?
+  const nseToday = nseTs && nseTs.slice(0, 6) === fmt({ day: "2-digit" }).padStart(2, "0") + "-" + fmt({ month: "short" });
+  const b = $("mkt");
+  if (inSession && nseToday) {
+    b.className = "badge live"; b.textContent = "LIVE";
+  } else if (inSession) {
+    b.className = "badge stale"; b.textContent = "STALE?";
+  } else {
+    b.className = "badge closed"; b.textContent = "MARKET CLOSED";
+  }
+}
+
+function render() {
+  if (!DATA) return;
+  const spot = DATA.underlying;
+  // stats
+  let callGex = 0, putGex = 0, maxCeOi = { v: 0 }, maxPeOi = { v: 0 }, ceOi = 0, peOi = 0;
+  const lot = LOTS[DATA.symbol] || 1;
+  const per = DATA.strikes.map((r) => {
+    const ce = (r.ce?.oi || 0) * lot * spot;
+    const pe = (r.pe?.oi || 0) * lot * spot;
+    callGex += ce; putGex += pe; ceOi += r.ce?.oi || 0; peOi += r.pe?.oi || 0;
+    if (r.ce?.oi > maxCeOi.v) maxCeOi = { v: r.ce.oi, k: r.strike };
+    if (r.pe?.oi > maxPeOi.v) maxPeOi = { v: r.pe.oi, k: r.strike };
+    return { k: r.strike, ce, pe, net: pe - ce };
+  });
+  const net = putGex - callGex;
+  // flip: nearest strike where cumulative net changes sign, else ATM
+  let flip = null;
+  for (let i = 1; i < per.length; i++) {
+    if (per[i - 1].net <= 0 && per[i].net > 0 || per[i - 1].net >= 0 && per[i].net < 0) flip = per[i].k;
+  }
+  atmStrike = per.reduce((a, b) => Math.abs(b.k - spot) < Math.abs(a.k - spot) ? b : a).k;
+  $("stats").innerHTML = [
+    ["Spot", num(Math.round(spot)), ""],
+    ["Net GEX", (net >= 0 ? "+" : "") + cr(net) + " cr", net >= 0 ? "pos" : "neg"],
+    ["Flip zone", flip ? num(flip) : "&mdash;", ""],
+    ["Max Call OI", num(maxCeOi.v) + " @ " + num(maxCeOi.k), "neg"],
+    ["Max Put OI", num(maxPeOi.v) + " @ " + num(maxPeOi.k), "pos"],
+    ["PCR (OI)", ceOi ? (peOi / ceOi).toFixed(2) : "&mdash;", (peOi / (ceOi || 1)) >= 1 ? "pos" : "neg"],
+  ].map(([l, v, c]) => `<div class="stat"><span>${l}</span><b class="${c}">${v}</b></div>`).join("");
+
+  // bars: strikes within +/- 900 of spot
+  const win = per.filter((p) => Math.abs(p.k - spot) <= 900);
+  const mx = Math.max(...win.map((p) => Math.max(p.ce, p.pe)), 1);
+  $("bars").innerHTML = win.map((p, i) => {
+    const show = p.k === atmStrike || i % 4 === 0;
+    return `
+    <div class="colwrap">
+      <div class="up"><div class="barce" style="height:${(p.ce / mx * 100).toFixed(1)}%" title="${num(p.k)} · Call GEX ${cr(p.ce)}cr"></div></div>
+      <div class="down"><div class="barpe" style="height:${(p.pe / mx * 100).toFixed(1)}%" title="${num(p.k)} · Put GEX ${cr(p.pe)}cr"></div></div>
+      <div class="barlabel" style="${p.k === atmStrike ? "color:#9df0c4;font-weight:700" : show ? "" : "visibility:hidden"}">${(p.k / 1000).toFixed(1)}k</div>
+    </div>`;}).join("");
+  $("flip").textContent = flip
+    ? `Cumulative net exposure flips sign near ${num(flip)} — strikes below it lean put-heavy (support), above it call-heavy (resistance).`
+    : `No sign flip in range — ${net >= 0 ? "puts dominate the board (positive net GEX)" : "calls dominate (negative net GEX)"}.`;
+
+  // chain: 13 strikes each side of ATM
+  const rows = DATA.strikes.filter((r) => Math.abs(r.strike - spot) <= 13 * (DATA.strikes[1]?.strike - DATA.strikes[0]?.strike || 50));
+  $("chainMeta").textContent = `${DATA.expiry} \u00b7 ${rows.length} strikes \u00b7 NSE as-on ${DATA.nse_timestamp || "?"}`;
+  $("chain").innerHTML = rows.map((r) => {
+    const atm = r.strike === atmStrike ? ' class="atm"' : "";
+    const c = r.ce || {}, p = r.pe || {};
+    return `<tr${atm}>
+      <td>${num(c.oi)}</td><td class="${(c.oi_chg||0)>=0?"pos":"neg"}">${num(c.oi_chg)}</td><td>${num(c.vol)}</td><td>${c.iv ? c.iv.toFixed(1) : "-"}</td><td>${c.ltp ? c.ltp.toFixed(2) : "-"}</td>
+      <td class="c">${num(r.strike)}</td>
+      <td>${p.ltp ? p.ltp.toFixed(2) : "-"}</td><td>${p.iv ? p.iv.toFixed(1) : "-"}</td><td>${num(p.vol)}</td><td class="${(p.oi_chg||0)>=0?"pos":"neg"}">${num(p.oi_chg)}</td><td>${num(p.oi)}</td>
+    </tr>`;
+  }).join("");
+}
+
+function tick() {
+  if (!lastFetch) return;
+  const age = Math.round((Date.now() - lastFetch) / 1000);
+  const b = $("mkt");
+  if (age > 150 && b.textContent === "LIVE") { b.className = "badge stale"; b.textContent = "STALE"; }
+  $("stamp").innerHTML = `fetched ${ist(new Date(lastFetch).toISOString())} IST \u00b7 <b>${age}s ago</b> \u00b7 NSE as-on ${DATA?.nse_timestamp || "?"}`;
+}
+
+async function load() {
+  $("load").disabled = true;
+  $("msg").textContent = "";
+  try {
+    const u = new URL(FN);
+    u.searchParams.set("symbol", $("sym").value);
+    const exp = $("exp").value;
+    if (/^\d{2}-[A-Za-z]{3}-\d{4}$/.test(exp)) u.searchParams.set("expiry", exp);
+    const r = await fetch(u);
+    const j = await r.json();
+    if (!r.ok || j.error) throw new Error(j.error || "HTTP " + r.status);
+    DATA = j;
+    lastFetch = Date.now();
+    if ($("exp").options.length !== j.expiries.length || $("exp").dataset.sym !== j.symbol) {
+      $("exp").innerHTML = j.expiries.map((e) => `<option${e === j.expiry ? " selected" : ""}>${e}</option>`).join("");
+      $("exp").dataset.sym = j.symbol;
+    }
+    mktBadge(j.nse_timestamp);
+    render();
+    tick();
+  } catch (e) {
+    $("msg").textContent = "Could not load chain: " + e.message + " \u2014 NSE occasionally throttles; try again in a minute.";
+  } finally {
+    $("load").disabled = false;
+  }
+}
+
+$("load").onclick = load;
+$("sym").onchange = () => { $("exp").innerHTML = "<option>loading\u2026</option>"; load(); };
+$("exp").onchange = load;
+setInterval(() => { if ($("auto").checked && !document.hidden) load(); }, 60000);
+setInterval(tick, 1000);
+load();
+</script>
+</body>
+</html>
