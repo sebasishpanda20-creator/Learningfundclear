@@ -1,0 +1,95 @@
+name: GEX sheet freshness probe
+
+# One-off probe (Oct 5 2026): sample the published NIFTY GEX sheet every 2
+# minutes through the IST market window (03:45-10:00 UTC = 09:15-15:30 IST)
+# and record whether its content/LUT/price advance intraday.
+# The cleanup job removes this file after the scheduled run completes.
+
+on:
+  schedule:
+    - cron: '35 3 * * 1'   # Monday 03:35 UTC (job may start late; loop adapts)
+  workflow_dispatch:
+    inputs:
+      minutes:
+        description: 'Minutes to run (default 390 = full market window)'
+        default: '390'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: gex-probe
+  cancel-in-progress: true
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 420
+    steps:
+      - uses: actions/checkout@v4
+      - name: Sample published GEX sheet every 2 minutes
+        env:
+          MINUTES: ${{ github.event.inputs.minutes || '390' }}
+        run: |
+          URL="https://docs.google.com/spreadsheets/d/e/2PACX-1vRBd77wnD_dWeYBeyZoLOnFLCKbdirxHS0WjxQKM-Fxyv5wOTNV6xHNLVsuYDyAEd8-3vQEF9OsfeLc/pub?output=csv&gid=459184988&single=true"
+          mkdir -p probe
+          : > probe/samples.log
+          END=$(( $(date -u +%s) + MINUTES*60 ))
+          PREV=""; CHANGES=0; SAMPLES=0; FAILS=0
+          while [ "$(date -u +%s)" -lt "$END" ]; do
+            TS=$(date -u +%H:%M:%S)
+            if OUT=$(curl -s -L -m 30 "$URL") && [ -n "$OUT" ]; then
+              H1=$(printf '%s' "$OUT" | head -1)
+              LUT=$(printf '%s' "$H1" | sed -n 's/.*LUT,\([^,]*\).*/\1/p')
+              PRICE=$(printf '%s' "$H1" | cut -d, -f3 | tr -d '"')
+              MD5=$(printf '%s' "$OUT" | md5sum | cut -d' ' -f1)
+              SAMPLES=$((SAMPLES+1))
+              if [ -n "$PREV" ] && [ "$MD5" != "$PREV" ]; then
+                CHANGES=$((CHANGES+1))
+                echo "$TS CHANGE md5=$MD5" >> probe/samples.log
+              fi
+              echo "$TS|$MD5|LUT=$LUT|px=$PRICE" >> probe/samples.log
+              PREV="$MD5"
+            else
+              FAILS=$((FAILS+1))
+              echo "$TS|FETCH_FAIL" >> probe/samples.log
+            fi
+            sleep 120
+          done
+          echo "SUMMARY samples=$SAMPLES changes=$CHANGES fetch_fails=$FAILS window_started=$(head -1 probe/samples.log | cut -d'|' -f1) window_ended=$TS" >> probe/samples.log
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: gex-probe-samples
+          path: probe/samples.log
+      - name: Write summary
+        if: always()
+        run: |
+          {
+            echo "## GEX freshness probe"
+            echo ""
+            echo "- Samples taken: $(grep -c '|' probe/samples.log || true)"
+            echo "- Content changes seen: $(grep -c CHANGE probe/samples.log || true)"
+            echo "- Fetch failures: $(grep -c FETCH_FAIL probe/samples.log || true)"
+            echo ""
+            echo '```'
+            head -3 probe/samples.log
+            echo "..."
+            tail -4 probe/samples.log
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  cleanup:
+    needs: probe
+    if: always() && github.event_name == 'schedule'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Remove this probe workflow after the scheduled run
+        run: |
+          git config user.name "probe-bot"
+          git config user.email "probe-bot@users.noreply.github.com"
+          git rm -f .github/workflows/gex-probe.yml
+          git commit -m "chore: remove one-off GEX freshness probe" || echo "nothing to commit"
+          git pull --rebase origin main || true
+          git push || echo "push failed; will need manual removal"
