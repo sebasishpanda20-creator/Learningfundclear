@@ -41,8 +41,22 @@ function json(status: number, body: unknown): Response {
 }
 
 Deno.serve(async (req: Request) => {
+  try {
+    return await handle(req);
+  } catch (err) {
+    // Never let a throw escape: an opaque 500 without CORS headers makes the
+    // browser blame CORS instead of showing the real error.
+    console.error("create-user failed:", err);
+    return json(500, { error: "Internal error: " + String((err as Error)?.message ?? err) });
+  }
+});
+
+async function handle(req: Request): Promise<Response> {
   // Browsers send this before every cross-origin POST — must answer 2xx.
-  if (req.method === "OPTIONS") return new Response("ok", { status: 204, headers: CORS });
+  // NOTE: a 204 response must have a NULL body; `new Response("ok", {status: 204})`
+  // throws TypeError in Deno — which was the cause of the 500-without-CORS that
+  // made every browser preflight fail here.
+  if (req.method === "OPTIONS") return new Response(null, { status: 204, headers: CORS });
   if (req.method !== "POST") return json(405, { error: "Method not allowed" });
 
   const authHeader = req.headers.get("Authorization") ?? "";
@@ -113,4 +127,4 @@ Deno.serve(async (req: Request) => {
   }
 
   return json(200, { ok: true, username });
-});
+}
