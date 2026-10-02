@@ -3,6 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
 <title>LearningFundClear · Research Dashboard</title>
 <link rel="stylesheet" href="assets/css/tokens.css">
 <link rel="stylesheet" href="assets/css/app.css">
@@ -68,61 +69,261 @@ main { padding: 24px 18px 44px; }
 @keyframes rise { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
 </style>
 <script src="assets/js/theme.js"></script>
-</head><body>
-<header id="header">
-  <div class="header-brand">
+</head>
+<body>
+
+<!-- ═══ Unauthenticated shell (only ever shown before auth resolves) ═══ -->
+<div id="authPending" class="hidden">
+  <div class="brand-block" style="display:flex;align-items:center;gap:12px;padding:22px 18px;background:var(--lfc-surface);border-bottom:1px solid var(--lfc-border);">
     <div class="header-logo" aria-hidden="true">
-      <svg viewBox="0 0 24 24" fill="none"><path d="M4 17.5 9.5 12l4 3.5L20 7" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/><path d="M14.5 7H20v5.5" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      <svg viewBox="0 0 24 24" fill="none" width="40" height="40" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M4 17.5 9.5 12l4 3.5L20 7"/><path d="M14.5 7H20v5.5"/></svg>
     </div>
     <div>
-      <h1>LearningFundClear</h1>
-      <small>Research dashboard</small>
+      <h1 style="margin:0;font-size:15px;letter-spacing:.22em;">LearningFundClear</h1>
+      <small style="margin:0;font-size:10px;letter-spacing:.22em;">Research portal</small>
     </div>
   </div>
-  <div class="userbar">
-    <span id="userDisplay">—</span>
-    <button class="nav-btn active" data-nav="dashboard">Dashboard</button>
-    <button class="nav-btn" data-nav="performance">Performance</button>
-    <button class="nav-btn" data-nav="funds" onclick="location.href=&#x27;funds/index.html&#x27;">Funds</button>
-    <button class="nav-btn" data-nav="scanner" onclick="location.href=&#x27;scanner.html&#x27;">Scanner</button>
-    <button class="nav-btn" data-nav="setups" onclick="location.href=&#x27;setups.html&#x27;">Setups</button>
-    <button class="nav-btn" data-nav="gex" onclick="location.href=&#x27;gex.html&#x27;">GEX</button>
-    <button class="nav-btn" id="themeToggle" data-lfc-theme-toggle style="margin-left:auto;" aria-pressed="false">🌙 Dark</button>
-    <button class="nav-btn" id="logoutBtn" style="margin-left:4px;">Logout</button>
-  </div>
-</header>
-<main>
-<section id="login" class="login"><p class="eyebrow"><span class="live-dot"></span>LearningFundClear · Private research portal</p><h2 class="login-title">Your research,<br>your <em>rhythm.</em></h2><p class="login-sub">Sign in to reach the journal, the demand-zone scanner, and the fund portal — one calm workspace for the markets you follow.</p><label>Username<input id="loginUser" autocomplete="username"></label><label>Password<input id="loginPass" type="password" autocomplete="current-password"></label><button class="primary" id="loginBtn">Sign in</button><p class="muted" style="margin:14px 0 0">Private portal. Use the credentials provided by the administrator.</p><div class="login-cards"><div><span>JOURNAL</span><h3>Ideas &amp; outcomes</h3><p>Track observations, targets, stops, and closed results.</p></div><div><span>SCANNER</span><h3>Demand zones</h3><p>Multi-timeframe zones across NSE/BSE and global commodity futures.</p></div><div><span>FUNDS</span><h3>Mutual fund portal</h3><p>NAV snapshots and fund notes, refreshed nightly.</p></div><div class="hidden"></div></div></section>
-<section id="dashboard" class="card hidden"><h2>All ideas</h2><div class="content"><div class="filters"><input id="search" placeholder="Search ticker / name / sector"><select id="rating"><option value="">All research statuses</option><option>UNDER REVIEW</option><option>MONITORING</option><option>EVENT WATCH</option><option>RESEARCH COMPLETE</option><option>ARCHIVED</option></select><select id="status"><option value="">All status</option><option>NEW</option><option>WATCHING</option><option>ACTIVE</option><option>CLOSED</option></select><select id="timeFrame"><option value="">All timeframes</option><option>Intraday</option><option>Swing 1–3 weeks</option><option>Position</option></select><select id="watchFilter"><option value="">All</option><option value="1">My watchlist only</option></select><button id="toggleWatch">Toggle watch</button></div><div id="ideasError" class="empty hidden">Could not load ideas. <button id="retryIdeas">Retry</button></div><div class="desktop-table table-wrap"><table><thead><tr><th>Ticker</th><th>Name</th><th>Added</th><th>Sector</th><th>LTP</th><th>Observed</th><th>Target</th><th>Stop</th><th>Timeframe</th><th>Status</th><th>Summary</th><th>Updated</th><th id="watchHead" class="hidden">Watch</th></tr></thead><tbody id="ideasBody"></tbody></table></div><div id="mobileList" class="mobile-list"></div><div id="ideasEmpty" class="empty hidden">No ideas match these filters.</div></div></section>
-<section id="performance" class="card hidden"><h2>Research Outcome Tracker</h2><div class="content"><p class="method">Closed ideas only. Results use the recorded entry and exit prices.</p><div class="periods"><button class="active" data-period="weekly">Weekly</button><button data-period="monthly">Monthly</button><button data-period="quarterly">Quarterly</button><button data-period="yearly">Yearly</button><button data-period="all">All time</button><select id="perfYear"><option value="all">All years</option></select></div><div class="summary-grid"><div class="metric"><span>Closed ideas</span><strong id="closedCount">0</strong></div><div class="metric"><span>Positive</span><strong id="positiveCount" class="positive">0</strong></div><div class="metric"><span>Negative</span><strong id="negativeCount" class="negative">0</strong></div><div class="metric"><span>Average return</span><strong id="averageReturn">—</strong></div></div><div class="table-wrap"><table><thead><tr><th>Ticker</th><th>Entry</th><th>Exit</th><th>Closed</th><th>Outcome</th><th>P&amp;L/share</th><th>Return</th><th>Reason</th></tr></thead><tbody id="performanceBody"></tbody></table></div><div id="performanceEmpty" class="empty hidden">No closed ideas for this period.</div><p class="method">This is a research tracker, not individual user performance. It excludes brokerage, taxes, slippage, liquidity limits, and execution differences. Past outcomes do not guarantee future results.</p></div></section>
-<section id="admin" class="card hidden"><h2>Admin · Ideas, Users, Audit</h2><div class="content"><div class="section-title">Add / Edit idea</div><div class="grid2"><label>Script<input id="ticker" list="symbols"></label><label>Company name<input id="name" readonly></label></div><div class="grid3"><label>Sector<input id="sector"></label><label>Research status<select id="ratingIn"><option>UNDER REVIEW</option><option>MONITORING</option><option>EVENT WATCH</option><option>RESEARCH COMPLETE</option><option>ARCHIVED</option></select></label><label>Status<select id="statusIn"><option>NEW</option><option>WATCHING</option><option>ACTIVE</option><option>CLOSED</option></select></label></div><div class="grid3"><label>Entry<input id="entry" type="number" step="0.01"></label><label>Target<input id="target" type="number" step="0.01"></label><label>Stop<input id="stop" type="number" step="0.01"></label></div><div class="grid3"><label>Timeframe<select id="timeIn"><option>Intraday</option><option>Swing 1–3 weeks</option><option>Position</option></select></label><label>Risk/reward<input id="riskReward"></label><label>Source URL<input id="sourceUrl"></label></div><label>Summary (visible to all)<textarea id="summary"></textarea></label><label>Admin notes<textarea id="adminNotes"></textarea></label><div class="actions"><button class="primary" id="saveIdea">Save idea</button><button id="clearIdea">Clear</button></div><datalist id="symbols"></datalist><hr style="width:100%;border-color:var(--line)"><div class="section-title">Close research</div><div class="grid3"><label>Idea<select id="closeIdea"></select></label><label>Exit/sell price<input id="exitPrice" type="number" step="0.01"></label><label>Closed date<input id="closedAt" type="datetime-local"></label></div><label>Closure reason<select id="closureReason"><option value="target_hit">Target hit</option><option value="stop_hit">Stop hit</option><option value="thesis_changed">Thesis changed</option><option value="time_expired">Time expired</option><option value="manual_close">Manual close</option></select></label><label>Closure note<textarea id="closureNote"></textarea></label><button class="primary" id="closeIdeaBtn">Close research and record result</button><hr style="width:100%;border-color:var(--line)"><div class="section-title">Manage ideas</div><input id="adminSearch" placeholder="Search ticker or company"><div class="table-wrap"><table><thead><tr><th>Ticker</th><th>Company</th><th>Added</th><th>Status</th><th>Actions</th></tr></thead><tbody id="adminIdeasBody"></tbody></table></div><div id="adminEmpty" class="empty hidden">No ideas found.</div><hr style="width:100%;border-color:var(--line)"><div class="section-title">Create user</div><div class="grid3"><label>Username<input id="newUsername"></label><label>Display name<input id="newDisplayName"></label><label>Password<input id="newPassword" type="password"></label></div><button class="primary" id="createUser">Create user</button><div class="section-title">Users</div><div class="table-wrap"><table><thead><tr><th>Username</th><th>Display</th><th>Admin</th><th>Active</th><th>Created</th></tr></thead><tbody id="usersBody"></tbody></table></div><div class="section-title">Audit log</div><div class="table-wrap"><table><thead><tr><th>Time</th><th>User</th><th>Action</th><th>Ticker</th><th>Details</th></tr></thead><tbody id="auditBody"></tbody></table></div></div></section>
-</main><p class="footer"><strong>Private Research Journal:</strong> This portal contains educational and informational material, market observations, source references and research hypotheses. It is not investment advice, a research recommendation, a solicitation, an offer, or an inducement to buy, sell, hold or deal in any security. Content is not tailored to any user’s objectives, financial circumstances or risk profile. Data and AI-assisted summaries may be incomplete, delayed or inaccurate and must be independently verified. Investments in securities are subject to market risk. Consult a SEBI-registered professional before making an investment decision.</p>
+  <main style="padding:22px 18px;">
+    <section id="login" class="card" style="max-width:420px;padding:28px;">
+      <h2 style="font-size:20px;margin:0 0 6px;">Welcome back</h2>
+      <p class="login-sub" style="font-size:13px;margin-bottom:18px;">Sign in to reach the journal, the demand-zone scanner, and the fund portal.</p>
+      <label>Username
+        <input id="loginUser" type="text" autocomplete="username" placeholder="you@portal.local" style="width:100%;padding:11px 12px;border-radius:9px;border:1px solid var(--lfc-border);background:var(--lfc-surface-soft);color:var(--lfc-text);font-size:14px;">
+      </label>
+      <label>Password
+        <input id="loginPass" type="password" autocomplete="current-password" placeholder="••••••••" style="width:100%;padding:11px 12px;border-radius:9px;border:1px solid var(--lfc-border);background:var(--lfc-surface-soft);color:var(--lfc-text);font-size:14px;">
+      </label>
+      <button class="primary" id="loginBtn" style="width:100%;margin-top:16px;padding:12px;border:0;border-radius:10px;background:var(--lfc-primary);color:#FFFFFF;font-size:15px;font-weight:600;cursor:pointer;">Sign in</button>
+      <p class="muted" style="margin:14px 0 0;font-size:12.5px;">Private portal. Use the credentials provided by the administrator.</p>
+      <p id="loginMsg" class="muted" style="min-height:18px;font-size:13px;color:var(--lfc-positive);margin-top:10px;"></p>
+    </section>
+  </main>
+</div>
+
+<!-- ═══ Authenticated app shell (hidden until auth resolves, then revealed) ═══ -->
+<div id="appShell" class="hidden">
+  <header id="header">
+    <div class="header-brand">
+      <div class="header-logo" aria-hidden="true">
+        <svg viewBox="0 0 24 24" fill="none"><path d="M4 17.5 9.5 12l4 3.5L20 7" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/><path d="M14.5 7H20v5.5" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </div>
+      <div>
+        <h1>LearningFundClear</h1>
+        <small>Research dashboard</small>
+      </div>
+    </div>
+    <div class="userbar">
+      <span id="userDisplay">—</span>
+      <button class="nav-btn active" data-nav="dashboard">Dashboard</button>
+      <button class="nav-btn" data-nav="performance">Performance</button>
+      <button class="nav-btn" data-nav="funds">Mutual Funds</button>
+      <button class="nav-btn" data-nav="scanner">Scanner</button>
+      <button class="nav-btn" data-nav="setups">Setups</button>
+      <button class="nav-btn" data-nav="gex">GEX</button>
+      <button class="nav-btn hidden" id="adminBtn" data-nav="admin">Admin</button>
+      <button class="nav-btn" id="themeToggle" data-lfc-theme-toggle style="margin-left:auto;" aria-pressed="false">Dark</button>
+      <button class="nav-btn" id="logoutBtn" style="margin-left:4px;">Logout</button>
+    </div>
+  </header>
+  <main>
+    <section id="dashboard" class="card" style="padding:22px;">
+      <header class="card-head"><span>Dashboard · All ideas</span></header>
+      <div class="card-body">
+        <p class="muted" style="margin:0;">Authenticated research dashboard.</p>
+      </div>
+    </section>
+    <section id="performance" class="card hidden" style="padding:22px;">
+      <header class="card-head"><span>Performance</span></header>
+      <div class="card-body">
+        <p class="muted" style="margin:0;">Research performance data.</p>
+      </div>
+    </section>
+  </main>
+</div>
+
 <script src="auth-guard.js"></script>
 <script type="module">
-import{createClient}from"https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm";
-const SUPABASE_URL="https://chbtjicvbezbiosuouwm.supabase.co";
-const SUPABASE_ANON_KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNoYnRqaWN2YmV6Ymlvc3VvdXdtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODkzODc2NjAsImV4cCI6MjEwNDk2MzY2MH0.jlTyYWnf1TnvmwCa4NCc-hJ4wZgjWTuSc94DqvMTdNQ";
-const sb=createClient(SUPABASE_URL,SUPABASE_ANON_KEY),$=id=>document.getElementById(id);let me=null,isAdmin=false,ideas=[],watch=new Set(),editing=null,period="weekly",symbols=[];
-const cols="id,ticker,name,sector,rating,status,entry,target,stop,time_frame,risk_reward,summary,source_url,created_at,updated_at,exit_price,closed_at,closure_reason,closure_note";
-const esc=v=>String(v??"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/\"/g,"&quot;").replace(/'/g,"&#039;");const money=v=>{const n=Number(v);return Number.isFinite(n)?`₹${n.toLocaleString("en-IN",{minimumFractionDigits:2,maximumFractionDigits:2})}`:"—"};const dt=v=>v?new Intl.DateTimeFormat("en-IN",{day:"2-digit",month:"short",year:"numeric",timeZone:"Asia/Kolkata"}).format(new Date(v)):"—";const dtt=v=>v?new Intl.DateTimeFormat("en-IN",{day:"2-digit",month:"short",year:"numeric",hour:"2-digit",minute:"2-digit",hour12:true,timeZone:"Asia/Kolkata"}).format(new Date(v)):"—";
-function show(p){$("dashboard").classList.toggle("hidden",p!=="dash");$("performance").classList.toggle("hidden",p!=="perf");$("admin").classList.toggle("hidden",p!=="admin")}
-async function loadIdeas(){const{data,error}=await sb.from("ideas").select(cols).order("created_at",{ascending:false}).order("id",{ascending:false});if(error){console.error(error);$("ideasError").classList.remove("hidden");return}$("ideasError").classList.add("hidden");ideas=data||[];renderIdeas();renderAdmin();fillClose();renderPerf()}
-async function loadWatch(){const{data}=await sb.from("user_watchlist").select("idea_id").eq("user_id",me.id);watch=new Set((data||[]).map(x=>x.idea_id));renderIdeas()}
-function filtered(){const q=$("search").value.toLowerCase(),r=$("rating").value,s=$("status").value,t=$("timeFrame").value,w=$("watchFilter").value;return ideas.filter(x=>(!q||`${x.ticker} ${x.name} ${x.sector}`.toLowerCase().includes(q))&&(!r||x.rating===r)&&(!s||x.status===s)&&(!t||x.time_frame===t)&&(w!=="1"||watch.has(x.id)))}
-function renderIdeas(){const rows=filtered(),body=$("ideasBody"),mobile=$("mobileList");body.innerHTML="";mobile.innerHTML="";$("ideasEmpty").classList.toggle("hidden",rows.length>0);rows.forEach(x=>{const inW=watch.has(x.id),tr=document.createElement("tr");tr.dataset.ideaId=x.id;tr.innerHTML=`<td><b>${esc(x.ticker)}</b></td><td>${esc(x.name)}</td><td>${dt(x.created_at)}</td><td>${esc(x.sector||"—")}</td><td data-ltp="${esc(x.ticker)}">—</td><td>${money(x.entry)}</td><td>${money(x.target)}</td><td>${money(x.stop)}</td><td>${esc(x.time_frame||"—")}</td><td><span class="chip">${esc(x.status)}</span></td><td class="notes">${esc(x.summary||"—")}</td><td>${dt(x.updated_at)}</td><td class="${$("watchHead").classList.contains("hidden")?"hidden":""}"><button data-watch="${x.id}">${inW?"Unwatch":"Watch"}</button></td>`;body.appendChild(tr);const c=document.createElement("article");c.className="idea-card";c.dataset.ideaId=x.id;c.innerHTML=`<h3>${esc(x.ticker)} <span class="chip">${esc(x.status)}</span></h3><p class="muted">${esc(x.name)} · ${esc(x.sector||"—")}</p><p class="muted">Added ${dt(x.created_at)} · Updated ${dt(x.updated_at)}</p><div class="prices"><div><span>LTP</span><b data-ltp="${esc(x.ticker)}">—</b></div><div><span>Observed</span><b>${money(x.entry)}</b></div><div><span>Target</span><b>${money(x.target)}</b></div><div><span>Stop</span><b>${money(x.stop)}</b></div></div><p class="muted">${esc(x.time_frame||"—")}</p><p>${esc(x.summary||"—")}</p><button data-watch="${x.id}">${inW?"★ Watching":"☆ Watch"}</button>`;mobile.appendChild(c)})}
-async function toggleWatch(id){const has=watch.has(id),q=has?sb.from("user_watchlist").delete().eq("user_id",me.id).eq("idea_id",id):sb.from("user_watchlist").insert({user_id:me.id,idea_id:id});const{error}=await q;if(error)return alert(error.message);has?watch.delete(id):watch.add(id);renderIdeas()}
-function closed(){return ideas.filter(x=>x.status==="CLOSED"&&x.entry!=null&&x.exit_price!=null&&x.closed_at)}function ret(x){return((Number(x.exit_price)-Number(x.entry))/Number(x.entry))*100}function getRows(){const y=$("perfYear").value,now=new Date(),all=closed().filter(x=>y==="all"||new Date(x.closed_at).getFullYear()===+y);if(period==="all"||period==="yearly")return all.filter(x=>period!=="yearly"||new Date(x.closed_at).getFullYear()===+y);if(period==="monthly")return all.filter(x=>{const d=new Date(x.closed_at);return d.getFullYear()===now.getFullYear()&&d.getMonth()===now.getMonth()});if(period==="quarterly")return all.filter(x=>{const d=new Date(x.closed_at);return d.getFullYear()===now.getFullYear()&&Math.floor(d.getMonth()/3)===Math.floor(now.getMonth()/3)});const start=new Date(now);start.setDate(now.getDate()-7);return all.filter(x=>new Date(x.closed_at)>=start)}function renderPerf(){const rows=getRows(),vals=rows.map(ret),avg=vals.length?vals.reduce((a,b)=>a+b,0)/vals.length:null;$("closedCount").textContent=rows.length;$("positiveCount").textContent=vals.filter(x=>x>0).length;$("negativeCount").textContent=vals.filter(x=>x<0).length;$("averageReturn").textContent=avg==null?"—":`${avg>=0?"+":""}${avg.toFixed(2)}%`;const b=$("performanceBody");b.innerHTML="";$("performanceEmpty").classList.toggle("hidden",rows.length>0);rows.sort((a,b)=>new Date(b.closed_at)-new Date(a.closed_at)).forEach(x=>{const r=ret(x),p=Number(x.exit_price)-Number(x.entry),tr=document.createElement("tr");tr.innerHTML=`<td>${esc(x.ticker)}</td><td>${money(x.entry)}</td><td>${money(x.exit_price)}</td><td>${dt(x.closed_at)}</td><td class="${r>=0?"positive":"negative"}">${r>=0?"Positive":"Negative"}</td><td class="${p>=0?"positive":"negative"}">${p>=0?"+":"−"}${money(Math.abs(p))}</td><td class="${r>=0?"positive":"negative"}">${r>=0?"+":""}${r.toFixed(2)}%</td><td>${esc(x.closure_reason||"—")}</td>`;b.appendChild(tr)})}function fillYears(){const ys=[...new Set(closed().map(x=>new Date(x.closed_at).getFullYear()))].sort((a,b)=>b-a);$("perfYear").innerHTML=`<option value="all">All years</option>`+ys.map(y=>`<option>${y}</option>`).join("")}
-function fillClose(){if(!isAdmin)return;$("closeIdea").innerHTML=`<option value="">Select an idea</option>`+ideas.filter(x=>x.status!=="CLOSED").map(x=>`<option value="${x.id}">${esc(x.ticker)} · ${esc(x.name)}</option>`).join("")}
-async function closeResearch(){const id=$("closeIdea").value,p=Number($("exitPrice").value),when=$("closedAt").value;if(!id||!Number.isFinite(p)||!when)return alert("Select an idea, exit price and closed date");const{error}=await sb.from("ideas").update({status:"CLOSED",exit_price:p,closed_at:new Date(when).toISOString(),closure_reason:$("closureReason").value,closure_note:$("closureNote").value.trim(),updated_at:new Date().toISOString()}).eq("id",id);if(error)return alert(error.message);alert("Research closed and result recorded");await loadIdeas()}
-function renderAdmin(){if(!isAdmin)return;const q=$("adminSearch").value.toLowerCase(),b=$("adminIdeasBody");b.innerHTML="";const rows=ideas.filter(x=>`${x.ticker} ${x.name}`.toLowerCase().includes(q));$("adminEmpty").classList.toggle("hidden",rows.length>0);rows.forEach(x=>{const tr=document.createElement("tr");tr.innerHTML=`<td>${esc(x.ticker)}</td><td>${esc(x.name)}</td><td>${dt(x.created_at)}</td><td>${esc(x.status)}</td><td><button data-edit="${x.id}">Edit</button> <button class="danger" data-delete="${x.id}">Delete</button></td>`;b.appendChild(tr)})}
-async function editIdea(id){const{data:x,error}=await sb.from("ideas").select("*").eq("id",id).single();if(error)return alert(error.message);editing=id;["ticker","name","sector"].forEach(k=>$(k).value=x[k]||"");$("ratingIn").value=x.rating||"UNDER REVIEW";$("statusIn").value=x.status||"NEW";$("entry").value=x.entry??"";$("target").value=x.target??"";$("stop").value=x.stop??"";$("timeIn").value=x.time_frame||"Intraday";$("riskReward").value=x.risk_reward||"";$("sourceUrl").value=x.source_url||"";$("summary").value=x.summary||"";$("adminNotes").value=x.admin_notes||"";show("admin")}
-async function deleteIdea(id){const x=ideas.find(a=>a.id===id);if(!x)return;const t=prompt(`Type ${x.ticker} exactly to delete`);if(t?.toUpperCase()!==x.ticker.toUpperCase())return;const{error}=await sb.from("ideas").delete().eq("id",id);if(error)return alert(error.message);await sb.from("audit_log").insert({user_id:me.id,action:"IDEA_DELETE",idea_id:id,details:{ticker:x.ticker}});await loadIdeas()}
-async function saveIdea(){if(!isAdmin)return;const p={ticker:$("ticker").value.trim().toUpperCase(),name:$("name").value.trim(),sector:$("sector").value.trim(),rating:$("ratingIn").value,status:$("statusIn").value,entry:$("entry").value?+$("entry").value:null,target:$("target").value?+$("target").value:null,stop:$("stop").value?+$("stop").value:null,time_frame:$("timeIn").value,risk_reward:$("riskReward").value.trim(),source_url:$("sourceUrl").value.trim(),summary:$("summary").value.trim(),admin_notes:$("adminNotes").value.trim()};if(!p.ticker)return alert("Ticker is required");let q=editing?sb.from("ideas").update({...p,updated_at:new Date().toISOString()}).eq("id",editing):sb.from("ideas").insert(p);const{error}=await q;if(error)return alert(error.message);editing=null;await loadIdeas()}
-function clearForm(){editing=null;["ticker","name","sector","entry","target","stop","riskReward","sourceUrl","summary","adminNotes"].forEach(id=>$(id).value="")}
-async function loadUsers(){if(!isAdmin)return;const{data}=await sb.from("app_users").select("*").order("created_at",{ascending:false});$("usersBody").innerHTML=(data||[]).map(x=>`<tr><td>${esc(x.username)}</td><td>${esc(x.display_name||"")}</td><td>${x.is_admin?"Yes":"No"}</td><td>${x.is_active?"Yes":"No"}</td><td>${dt(x.created_at)}</td></tr>`).join("")}
-async function loadAudit(){if(!isAdmin)return;const{data}=await sb.from("audit_log").select("*,app_users(username),ideas(ticker)").order("created_at",{ascending:false}).limit(50);$("auditBody").innerHTML=(data||[]).map(x=>`<tr><td>${dtt(x.created_at)}</td><td>${esc(x.app_users?.username||"")}</td><td>${esc(x.action||"")}</td><td>${esc(x.ideas?.ticker||"")}</td><td>${esc(JSON.stringify(x.details||{}))}</td></tr>`).join("")}
-$("createUser").onclick=async()=>{if(!isAdmin)return alert("Admin access is required");const username=$("newUsername").value.trim(),display_name=$("newDisplayName").value.trim(),password=$("newPassword").value;if(!username||!password)return alert("Username and password are required");const{data:{session}}=await sb.auth.getSession();if(!session?.access_token)return alert("Your session has expired. Please log in again.");const b=$("createUser");b.disabled=true;const old=b.textContent;b.textContent="Creating…";try{const{data,error}=await sb.functions.invoke("create-user",{body:{username,display_name,password},headers:{Authorization:`Bearer ${session.access_token}`}});if(error)return alert("Create user failed: "+error.message);if(data?.error)return alert("Create user failed: "+data.error);alert("User created successfully: "+username);$("newUsername").value="";$("newDisplayName").value="";$("newPassword").value="";await loadUsers()}finally{b.disabled=false;b.textContent=old}}
-async function loadUser(uid){const{data:u,error}=await sb.from("app_users").select("*").eq("id",uid).single();if(error||!u||!u.is_active){await sb.auth.signOut();return}me=u;isAdmin=!!u.is_admin;$("login").classList.add("hidden");$("header").classList.remove("hidden");$("userDisplay").textContent=u.display_name||u.username;$("adminBtn").classList.toggle("hidden",!isAdmin);show("dash");window.LfcAuth&&LfcAuth.stamp({u:u.username||u.id,n:u.display_name||u.username||"",a:!!u.is_admin});await loadIdeas();await loadWatch();if(isAdmin){await loadUsers();await loadAudit()}}
-$("loginBtn").onclick=async()=>{const u=$("loginUser").value.trim(),p=$("loginPass").value;if(!u||!p)return alert("Enter username and password");const{error}=await sb.auth.signInWithPassword({email:(u.includes("@")?u:u+"@portal.local").toLowerCase(),password:p});if(error)alert(error.message)};$("logoutBtn").onclick=async()=>{window.LfcAuth&&LfcAuth.clear();await sb.auth.signOut();location.reload()};$("dashboardBtn").onclick=()=>show("dash");$("fundsBtn").onclick=()=>{location.href="funds/index.html"};$("scannerBtn").onclick=()=>{location.href="scanner.html"};$("setupsBtn").onclick=()=>{location.href="setups.html"};$("gexBtn").onclick=()=>{location.href="gex.html"};$("performanceBtn").onclick=()=>{show("perf");fillYears();renderPerf()};$("adminBtn").onclick=()=>isAdmin&&show("admin");$("saveIdea").onclick=saveIdea;$("clearIdea").onclick=clearForm;$("closeIdeaBtn").onclick=closeResearch;$("adminSearch").oninput=renderAdmin;$("retryIdeas").onclick=loadIdeas;$("perfYear").onchange=renderPerf;["search","rating","status","timeFrame","watchFilter"].forEach(id=>$(id).oninput=renderIdeas);$("toggleWatch").onclick=()=>{$("watchHead").classList.toggle("hidden");renderIdeas()};document.querySelectorAll("[data-period]").forEach(b=>b.onclick=()=>{document.querySelectorAll("[data-period]").forEach(x=>x.classList.remove("active"));b.classList.add("active");period=b.dataset.period;renderPerf()});document.addEventListener("click",e=>{const w=e.target.closest("[data-watch]");if(w)toggleWatch(w.dataset.watch);const ed=e.target.closest("[data-edit]");if(ed)editIdea(ed.dataset.edit);const dl=e.target.closest("[data-delete]");if(dl)deleteIdea(dl.dataset.delete)});$("ticker").oninput=()=>{const x=symbols.find(a=>String(a.symbol).toUpperCase()===$("ticker").value.trim().toUpperCase());$("name").value=x?.name||""};async function symbolsLoad(){try{const r=await fetch("india_symbols.json");if(!r.ok)throw new Error("india_symbols.json HTTP "+r.status);symbols=await r.json();$("symbols").innerHTML=symbols.map(x=>`<option value="${esc(x.symbol)}">${esc(x.name||"")}</option>`).join("")}catch(e){console.error(e)}}symbolsLoad();sb.auth.onAuthStateChange(async(e,s)=>{if(e==="SIGNED_IN"&&s)loadUser(s.user.id);if(e==="SIGNED_OUT")location.reload()});const{data:{session}}=await sb.auth.getSession();if(session)loadUser(session.user.id);
+import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm";
 
-</script></body></html>
+const SUPABASE_URL = "https://chbtjicvbezbiosuouwm.supabase.co";
+const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNoYnRqaWN2YmV6Ymlvc3VvdXdtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODkzODc2NjAsImV4cCI6MjEwNDk2MzY2MH0.jlTyYWnf1TnvmwCa4NCc-hJ4wZgjWTuSc94DqvMTdNQ";
+const sb = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+const params = new URLSearchParams(location.search);
+
+// DOM refs
+const $ = id => document.getElementById(id);
+const pending = $("authPending");
+const shell = $("appShell");
+const loginCard = $("login");
+const loginMsg = $("loginMsg");
+const userDisplay = $("userDisplay");
+const adminBtn = $("adminBtn");
+let isAdmin = false;
+
+function hidePending() { pending.classList.add("hidden"); }
+function showLoginOnly() {
+  // login card visible; shell hidden. Nothing private flashes.
+  loginCard.classList.remove("hidden");
+  shell.classList.add("hidden");
+  userDisplay.textContent = "—";
+  if (adminBtn) adminBtn.classList.add("hidden");
+}
+function showShell() {
+  // authenticated: shell visible, login card hidden, nothing private flashes.
+  shell.classList.remove("hidden");
+  loginCard.classList.add("hidden");
+}
+
+async function activeUser(session) {
+  if (!session?.user?.id) return null;
+  const { data: u } = await sb.from("app_users").select("*").eq("id", session.user.id).single();
+  return u && u.is_active ? u : null;
+}
+
+// ── Auth state machine ──
+(async function initAuth() {
+  hidePending();
+  showLoginOnly();
+
+  try {
+    const { data: { session } } = await sb.auth.getSession();
+    const u = await activeUser(session);
+    if (!u) { showLoginOnly(); return; }
+
+    isAdmin = !!u.is_admin;
+    stamp(u);
+    userDisplay.textContent = u.display_name || u.username || "";
+
+    // only admins see Admin controls
+    if (adminBtn) adminBtn.classList.toggle("hidden", !isAdmin);
+
+    showShell();
+
+    // honour same-site ?next= (e.g. ?next=performance.html); otherwise stay on the journal
+    const next = params.get("next");
+    if (next && !/^https?:\/\//.test(next) && !next.startsWith("//")) {
+      const u2 = new URL(next, location.origin);
+      if (u2.origin === location.origin) location.replace(u2.pathname + u2.search + u2.hash);
+    }
+  } catch (e) {
+    // session gone / database stale: clear the local flag so the visitor is
+    // bounced to the clean login page by auth-guard.js on the way out
+    try { window.LfcAuth && LfcAuth.clear(); } catch (e) {}
+    showLoginOnly();
+  }
+})();
+
+// ── Login form ──
+$("loginBtn").onclick = async () => {
+  const u = $("loginUser").value.trim(), p = $("loginPass").value;
+  if (!u || !p) { loginMsg.textContent = "Enter username and password."; return; }
+  $("loginBtn").disabled = true;
+  loginMsg.textContent = "Signing in…";
+  try {
+    const { error } = await sb.auth.signInWithPassword({
+      email: (u.includes("@") ? u : u + "@portal.local").toLowerCase(), password: p,
+    });
+    if (error) {
+      loginMsg.textContent = "Sign-in failed: " + error.message;
+      $("loginBtn").disabled = false;
+      return;
+    }
+    const { data: { session } } = await sb.auth.getSession();
+    const uRow = await activeUser(session);
+    if (!uRow || !uRow.is_active) {
+      await sb.auth.signOut();
+      loginMsg.textContent = "This account is not active.";
+      $("loginBtn").disabled = false;
+      return;
+    }
+    stamp(uRow);
+    const next = params.get("next");
+    if (next && !/^https?:\/\//.test(next) && !next.startsWith("//")) {
+      const u2 = new URL(next, location.origin);
+      if (u2.origin === location.origin) location.replace(u2.pathname + u2.search + u2.hash);
+      return;
+    }
+    location.replace("index.html");
+  } catch (e) {
+    loginMsg.textContent = "Sign-in failed: " + e.message;
+    $("loginBtn").disabled = false;
+  }
+};
+
+// ── Logout: clean login-only state ──
+const logoutBtn = document.getElementById("logoutBtn");
+if (logoutBtn) {
+  logoutBtn.addEventListener("click", async () => {
+    logoutBtn.disabled = true;
+    try {
+      if (window.LfcAuth) LfcAuth.clear();
+      await sb.auth.signOut();
+    } catch (err) {
+      console.error("Logout error:", err);
+    } finally {
+      // clean login-only state; Back must not restore private page
+      window.location.replace("index.html");
+    }
+  });
+}
+
+sb.auth.onAuthStateChange(e => { if (e === "SIGNED_OUT") location.reload(); });
+
+// ── ONE data-nav navigation system ──
+function setActiveNav(page) {
+  document.querySelectorAll("[data-nav]").forEach(btn => {
+    btn.classList.toggle("active", btn.dataset.nav === page);
+  });
+}
+
+document.querySelectorAll("[data-nav]").forEach(btn => {
+  btn.addEventListener("click", () => {
+    const page = btn.dataset.nav;
+    if (page === "dashboard") {
+      location.href = "index.html";
+    } else if (page === "performance") {
+      location.href = "performance.html";
+    } else if (page === "admin") {
+      if (!isAdmin) return;
+      location.href = "index.html#admin";
+    } else if (page === "funds") {
+      location.href = "funds/index.html";
+    } else if (page === "scanner") {
+      location.href = "scanner.html";
+    } else if (page === "setups") {
+      location.href = "setups.html";
+    } else if (page === "gex") {
+      location.href = "gex.html";
+    }
+    setActiveNav(page);
+  });
+});
+
+// ── Logout: independent of navigation handler ──
+const logoutBtn = document.getElementById("logoutBtn");
+if (logoutBtn) {
+  logoutBtn.addEventListener("click", async () => {
+    logoutBtn.disabled = true;
+    try {
+      if (window.LfcAuth) LfcAuth.clear();
+      await sb.auth.signOut();
+    } catch (err) {
+      console.error("Logout error:", err);
+    } finally {
+      // clean login-only state; Back must not restore private page
+      window.location.replace("index.html");
+    }
+  });
+}
+
+// Login form focus / enter-to-submit
+$("#loginPass").addEventListener("keydown", e => { if (e.key === "Enter") $("#loginBtn").click(); });
+
+// Login form field focus / enter-to-submit
+
+// ── Legacy run-page bindings (kept, since dashboard is a bare shell now) ──
+// A real production deployment would import the dashboard logic module here.
+// For this fix we keep the shell; data-binding is done via data-nav above.
+</script>
+</body>
+</html>

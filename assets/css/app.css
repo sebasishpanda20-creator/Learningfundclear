@@ -25,6 +25,24 @@ body::before { content: ""; position: fixed; inset: 0; z-index: -1; pointer-even
   --lfc-neutral: #96A39B; --lfc-neutral-soft: #1E2733; --lfc-neutral-ink: #24303A;
 }
 
+
+/* ── State utility ── */
+.hidden { display: none !important; }
+
+/* ── Auth state (auth-guard / page boot) ────────────────────────────
+ * PAGE LOAD → AUTH_PENDING (everything hidden) → getSession() → final state.
+ * Never let login form or authenticated shell flash before a valid session.
+ */
+html.auth-pending #login, html.auth-pending #appShell,
+html.auth-pending .authenticated-shell, html.auth-pending .login-card,
+html.auth-pending #appMain, html.auth-pending #appHeader {
+  visibility: hidden;
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+}
+html.auth-pending body { overflow: hidden; }
+
 /* Layout primitives (all pages) */
 header { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 12px 20px; background: var(--lfc-surface-raised); border-bottom: 1px solid var(--lfc-border); position: sticky; top: 0; z-index: 5; }
 .header-brand { display: flex; gap: 12px; align-items: center; }

@@ -85,6 +85,19 @@
     return null;
   }
 
+  // On the sign-in page itself, don't bounce a visitor who already has a live,
+  // locally-stamped session: land them on the authenticated shell instead.
+  if (onGatePage()) {
+    var gateRec = read();
+    if (gateRec) {
+      global.location.replace("index.html");
+    }
+  }
+  // On journal pages, bounce visitors without a locally-known session to sign-in.
+  if (isJournalPage() && !onGatePage()) {
+    guard();
+  }
+
   var API = {
     current: read,
     stamp: write,

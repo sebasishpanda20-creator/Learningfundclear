@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>Performance — LearningFundClear</title>
+<link rel="stylesheet" href="assets/css/tokens.css">
+<link rel="stylesheet" href="assets/css/app.css">
+<style>
+/* ── Performance page (light token-driven) ── */
+#performance h2.card-head {
+  background: var(--lfc-surface);
+  border-bottom: 1px solid var(--lfc-border);
+  color: var(--lfc-text-strong);
+}
+</style>
+</head>
+<body>
+
+<div id="authPending" class="hidden">
+  <div class="brand-block" style="display:flex;align-items:center;gap:12px;padding:22px 18px;background:var(--lfc-surface);border-bottom:1px solid var(--lfc-border);">
+    <div class="header-logo" aria-hidden="true">
+      <svg viewBox="0 0 24 24" fill="none" width="40" height="40" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M4 17.5 9.5 12l4 3.5L20 7"/><path d="M14.5 7H20v5.5"/></svg>
+    </div>
+    <div>
+      <h1 style="margin:0;font-size:15px;letter-spacing:.22em;">LearningFundClear</h1>
+      <small style="margin:0;font-size:10px;letter-spacing:.22em;">Research portal</small>
+    </div>
+  </div>
+  <main style="padding:22px 18px;">
+    <section id="login" class="card" style="max-width:420px;padding:28px;">
+      <h2 style="font-size:20px;margin:0 0 6px;">Welcome back</h2>
+      <p class="login-sub" style="font-size:13px;margin-bottom:18px;">Sign in to reach the performance history and metric history.</p>
+      <label>Username
+        <input id="loginUser" type="text" autocomplete="username" placeholder="you@portal.local" style="width:100%;padding:11px 12px;border-radius:9px;border:1px solid var(--lfc-border);background:var(--lfc-surface-soft);color:var(--lfc-text);font-size:14px;">
+      </label>
+      <label>Password
+        <input id="loginPass" type="password" autocomplete="current-password" placeholder="••••••••" style="width:100%;padding:11px 12px;border-radius:9px;border:1px solid var(--lfc-border);background:var(--lfc-surface-soft);color:var(--lfc-text);font-size:14px;">
+      </label>
+      <button class="primary" id="loginBtn" style="width:100%;margin-top:16px;padding:12px;border:0;border-radius:10px;background:var(--lfc-primary);color:#FFFFFF;font-size:15px;font-weight:600;cursor:pointer;">Sign in</button>
+      <p class="muted" style="margin:14px 0 0;font-size:12.5px;">Private portal. Use the credentials provided by the administrator.</p>
+    </section>
+  </main>
+</div>
+
+<div id="appShell" class="hidden">
+  <header id="header">
+    <div class="header-brand">
+      <div class="header-logo" aria-hidden="true">
+        <svg viewBox="0 0 24 24" fill="none"><path d="M4 17.5 9.5 12l4 3.5L20 7" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/><path d="M14.5 7H20v5.5" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </div>
+      <div>
+        <h1>LearningFundClear</h1>
+        <small>Research dashboard</small>
+      </div>
+    </div>
+    <div class="userbar">
+      <span id="userDisplay">—</span>
+      <button class="nav-btn active" data-nav="dashboard">Dashboard</button>
+      <button class="nav-btn" data-nav="performance">Performance</button>
+      <button class="nav-btn" data-nav="funds">Funds</button>
+      <button class="nav-btn" data-nav="scanner">Scanner</button>
+      <button class="nav-btn" data-nav="setups">Setups</button>
+      <button class="nav-btn" data-nav="gex">GEX</button>
+      <button class="nav-btn" id="themeToggle" data-lfc-theme-toggle style="margin-left:auto;" aria-pressed="false">🌙 Dark</button>
+      <button class="nav-btn" id="logoutBtn" style="margin-left:4px;">Logout</button>
+    </div>
+  </header>
+  <main>
+    <section id="dashboard" class="card" style="padding:22px;">
+      <header class="card-head"><span>Dashboard · All ideas</span></header>
+      <div class="card-body">
+        <p class="muted" style="margin:0;">Authenticated research dashboard.</p>
+      </div>
+    </section>
+    <section id="performance" class="card" style="padding:22px;">
+      <header class="card-head"><span>Performance</span></header>
+      <div class="card-body">
+        <p class="muted" style="margin:0;">Research performance data.</p>
+      </div>
+    </section>
+  </main>
+</div>
+
+<script src="auth-guard.js"></script>
+<script type="module">
+import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm";
+
+const SUPABASE_URL = "https://chbtjicvbezbiosuouwm.supabase.co";
+const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNoYnRqaWN2YmV6Ymlvc3VvdXdtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODkzODc2NjAsImV4cCI6MjEwNDk2MzY2MH0.jlTyYWnf1TnvmwCa4NCc-hJ4wZgjWTuSc94DqvMTdNQ";
+const $ = id => document.getElementById(id);
+const sb = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+const params = new URLSearchParams(location.search);
+const pending = $("#authPending");
+const shell = $("#appShell");
+const loginCard = $("#loginCard");
+const msg = $("#msg");
+const userDisplay = $("#userDisplay");
+
+function showLogin() {
+  loginCard.classList.remove("hidden");
+  shell.classList.add("hidden");
+  userDisplay.textContent = "—";
+}
+function showShell(u) {
+  pending.classList.remove("hidden");
+  loginCard.classList.add("hidden");
+  shell.classList.remove("hidden");
+  userDisplay.textContent = u.display_name || u.username || "";
+}
+
+async function activeUser(session) {
+  if (!session?.user?.id) return null;
+  const { data: u } = await sb.from("app_users").select("*").eq("id", session.user.id).single();
+  return u && u.is_active ? u : null;
+}
+
+(async function initAuth() {
+  if (params.get("signout")) {
+    try { await sb.auth.signOut(); } catch (e) {}
+    localStorage.removeItem("lfc.auth");
+    showLogin();
+    return;
+  }
+  hidePending();
+  showLogin();
+
+  try {
+    const { data: { session } } = await sb.auth.getSession();
+    const u = await activeUser(session);
+    if (!u) { showLogin(); return; }
+    stamp(u);
+    userDisplay.textContent = u.display_name || u.username || "";
+    if (u.is_admin) { showLogin(); return; }
+    showShell(u);
+  } catch (e) {
+    showLogin();
+  }
+})();
+
+$("#loginBtn").onclick = async () => {
+  const u = $("#loginUser").value.trim(), p = $("#loginPass").value;
+  if (!u || !p) { msg.textContent = "Enter username and password."; return; }
+  $("#loginBtn").disabled = true;
+  msg.textContent = "Signing in…";
+  try {
+    const { error } = await sb.auth.signInWithPassword({
+      email: (u.includes("@") ? u : u + "@portal.local").toLowerCase(), password: p,
+    });
+    if (error) {
+      msg.textContent = "Sign-in failed: " + error.message;
+      $("#loginBtn").disabled = false;
+      return;
+    }
+    const { data: { session } } = await sb.auth.getSession();
+    const uRow = await activeUser(session);
+    if (!uRow) {
+      await sb.auth.signOut();
+      msg.textContent = "This account is not active.";
+      $("#loginBtn").disabled = false;
+      return;
+    }
+    stamp(uRow);
+    location.replace(params.get("next") || "./");
+  } catch (e) {
+    msg.textContent = "Sign-in failed: " + e.message;
+    $("#loginBtn").disabled = false;
+  }
+};
+
+$("#logoutBtn").onclick = async () => {
+  try { await sb.auth.signOut(); } catch (e) {}
+  localStorage.removeItem("lfc.auth");
+  showLogin();
+};
+
+sb.auth.onAuthStateChange(e => { if (e === "SIGNED_OUT") location.reload(); });
+
+document.querySelectorAll("[data-nav]").forEach(btn => {
+  btn.addEventListener("click", () => {
+    const target = btn.dataset.nav;
+    if (target === "dashboard") { location.href = "index.html"; }
+    else if (target === "performance") { location.href = "performance.html"; }
+    else if (target === "scanner") { location.href = "scanner.html"; }
+    else if (target === "setups") { location.href = "setups.html"; }
+    else if (target === "gex") { location.href = "gex.html"; }
+    else if (target === "funds") { location.href = "funds/index.html"; }
+    else if (target === "log-out") { $("#logoutBtn").click(); }
+  });
+});
+
+$("#loginPass").addEventListener("keydown", e => { if (e.key === "Enter") $("#loginBtn").click(); });
+</script>
+</body>
+</html>

@@ -1,6 +1,8 @@
 // ── LearningFundClear theme toggle ─────────────────────────────────────────
 // Light is the production default. Darkness is an explicitly opt-in layer.
 // Persistence: localStorage["lfc.theme"] (values: "light" | "dark").
+// New users ALWAYS start in LIGHT. Dark is only activated after the user
+// explicitly chooses it (or restores an existing saved "dark" preference).
 (function () {
   "use strict";
   var STORAGE_KEY = "lfc.theme";
@@ -10,12 +12,13 @@
   function setStored(value) {
     try { localStorage.setItem(STORAGE_KEY, value); } catch (e) {}
   }
+  // New users (or users with no saved preference) are LIGHT. Only an explicit
+  // saved "dark" value is honoured — never the OS preference.
   function getPreferredDark() {
-    var saved = getStored();
-    if (saved === "dark") return true;
-    if (saved === "light") return false;
-    if (window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches) return true;
-    return false;
+    var stored = getStored();
+    if (stored === "dark") return true;
+    if (stored === "light") return false;
+    return false; // force LIGHT for brand-new users
   }
   function applyTheme(dark) {
     var root = document.documentElement;
