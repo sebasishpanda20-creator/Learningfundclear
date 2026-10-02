@@ -1,0 +1,50 @@
+// ── LearningFundClear theme toggle ─────────────────────────────────────────
+// Light is the production default. Darkness is an explicitly opt-in layer.
+// Persistence: localStorage["lfc.theme"] (values: "light" | "dark").
+(function () {
+  "use strict";
+  var STORAGE_KEY = "lfc.theme";
+  function getStored() {
+    try { return localStorage.getItem(STORAGE_KEY); } catch (e) { return null; }
+  }
+  function setStored(value) {
+    try { localStorage.setItem(STORAGE_KEY, value); } catch (e) {}
+  }
+  function getPreferredDark() {
+    var saved = getStored();
+    if (saved === "dark") return true;
+    if (saved === "light") return false;
+    if (window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches) return true;
+    return false;
+  }
+  function applyTheme(dark) {
+    var root = document.documentElement;
+    if (dark) root.classList.add("theme-dark"); else root.classList.remove("theme-dark");
+  }
+  function syncToggleButton() {
+    var btn = document.querySelector("[data-lfc-theme-toggle]");
+    if (!btn) return;
+    var isDark = document.documentElement.classList.contains("theme-dark");
+    btn.setAttribute("aria-pressed", isDark ? "true" : "false");
+    btn.textContent = isDark ? "☀️ Light" : "🌙 Dark";
+  }
+  function init() {
+    var prefersDark = getPreferredDark();
+    applyTheme(prefersDark);
+    syncToggleButton();
+    var btn = document.querySelector("[data-lfc-theme-toggle]");
+    if (btn) {
+      btn.addEventListener("click", function () {
+        var nowDark = !document.documentElement.classList.contains("theme-dark");
+        applyTheme(nowDark);
+        setStored(nowDark ? "dark" : "light");
+        syncToggleButton();
+      });
+    }
+  }
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", init);
+  } else {
+    init();
+  }
+})();

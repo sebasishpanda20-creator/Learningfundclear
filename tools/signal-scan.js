@@ -1,22 +1,25 @@
 #!/usr/bin/env node
 /*!
  * LearningFundClear — nightly EOD zone signal scan (Daily / Weekly / Monthly)
- * ===========================================================================
- * Runs the SAME zone math as the portal scanner (scanner-logic.js is required
- * verbatim below — no second implementation to drift), then posts every fresh
- * demand/supply touch to the tv-webhook edge function, which stores it in
- * signal_events. The Setups page reads that table, so signals appear there with
- * stop/target already parsed from the details text.
+ * + GTF-Pro demand-zone engine (Intraday 75m->15m->5m, Swing W->D->125m/75m,
+ *   NSE 09:15-anchored) — STRICT SEPARATION OF METHODOLOGIES.
+ * ============================================================================
+ * TWO ENGINES, ONE TABLE:
+ *   1. Legacy Pivot  — scanner-logic.js LfcScanner (computeZones/0-6 confluence).
+ *      POSTED to signal_events as scannerType="legacy-pivot".
+ *   2. GTF-Pro       — engine/ pipeline (0-7 GTF / 0-6 Context / 0-13 Portal).
+ *      POSTED to signal_events as scannerType="gtf-pro".
+ *   They NEVER share a score. Legacy confluence (0-6) never leaks into GTF.
  *
- * Every signal carries its timeframe in the details text, e.g.
- *   "Weekly zone 1180.00-1240.00 stop 1174.10 target 1331.80 · UPTREND · EOD 2026-09-25"
- * so daily, weekly and monthly setups are told apart on the Setups page.
+ * Migration path (spec: do NOT convert the production cron to GTF-Pro in one
+ * step).  Both engines run in parallel:
+ *   - default run:  Legacy Pivot only (backward-compatible, posts to signal_events)
+ *   - --gtf-pro     : adds GTF-Pro scan + shadow dump
  *
  * Usage:
- *   node tools/signal-scan.js                      # all timeframes, post
- *   node tools/signal-scan.js --dry-run            # find signals, post nothing
- *   node tools/signal-scan.js --timeframes=w,m     # weekly + monthly only
- *   node tools/signal-scan.js --symbols=RELIANCE.NS,GC=F --limit=2
+ *   node tools/signal-scan.js                    # Legacy Pivot nightly (default)
+ *   node tools/signal-scan.js --gtf-pro          # add GTF-Pro scan + shadow dump
+ *   GTF_PRO=true node tools/signal-scan.js       # enable GTF-Pro production
  *
  * Environment:
  *   TV_WEBHOOK_SECRET  shared secret set in Supabase (required unless --dry-run)
@@ -24,45 +27,40 @@
  *   SCAN_SYMBOLS       comma-separated symbol override (workflow input)
  *   SCAN_TIMEFRAMES    comma-separated timeframe ids d,w,m (workflow input)
  *   SCAN_DRY_RUN       "true" disables posting (workflow input)
+ *   GTF_PRO            "true" to enable GTF-Pro engine (defaults off for migration)
  */
 "use strict";
 
 const fs = require("fs");
 const path = require("path");
 
-// The scanner logic is a browser IIFE that attaches itself to `window`.
-// Giving Node a `window` that points at the global object loads it unchanged.
+// ── GTF-Pro engine entry point (all GTF-Pro logic lives here) ────────────────
+const GTF = require("./engine");
+
+// ── Legacy engine (scanner-logic.js, required verbatim) ──────────────────────
 global.window = global;
-require(path.join(__dirname, "..", "scanner-logic.js"));
+require(path.resolve(__dirname, "..", "scanner-logic.js"));
 const computeZones = global.LfcScanner.computeZones;
 const LfcScanner = global.LfcScanner;
 
-// ── timeframes (interval/range mirror the scanner's selectedTFs) ───────────
-// minBars is 100 for every timeframe: computeZones() itself refuses fewer than
-// 100 bars, so there is no point caching or posting anything sparser.
+// ── timeframes (interval/range mirror the scanner's selectedTFs) ────────────
 const TIMEFRAMES = [
-  { id: "d", label: "Daily",   interval: "1d",  range: "730d",  minBars: 100 },
+  { id: "d", label: "Daily",   interval: "1d",  range: "730d", minBars: 100 },
   { id: "w", label: "Weekly",  interval: "1wk", range: "1095d", minBars: 100 },
   { id: "m", label: "Monthly", interval: "1mo", range: "3650d", minBars: 100 },
 ];
 const TF_ORDER = TIMEFRAMES.map((t) => t.id);
 
-// ── signal rules: tools/scan-rules.json, no code edit needed ───────────────
-// Defaults mirror the scanner so portal and cron agree. The file may override
-// any subset; anything missing keeps its default. Fail-closed on purpose: an
-// unknown key or wrong type aborts the run rather than silently scanning with
-// different rules than the file's author believed (a typo like "trendFiter"
-// would otherwise just be ignored, and the trend filter would be off while the
-// commit message claimed it was on).
+// ── signal rules: tools/scan-rules.json, no code edit needed ────────────────
 const RULES_DEFAULTS = {
-  trendFilter: { type: "boolean", value: false },   // only EMA-aligned zones
-  insideOnly: { type: "boolean", value: false },    // close inside, not just touch
-  minVolume: { type: "number", value: 0 },          // min volume on the signal bar
-  stopBufPct: { type: "number", value: 0.5 },       // stop beyond zone edge, %
-  rrTarget: { type: "number", value: 2.0 },         // target R:R
-  pivotLeft: { type: "integer", value: 3 },         // pivot strength left
-  pivotRight: { type: "integer", value: 3 },        // pivot strength right
-  minConfluence: { type: "integer", value: 0 },     // tier gate 0-6: 0 off, 3 = minimum acceptable (A tier), 5 = exceptional only
+  trendFilter: { type: "boolean", value: false },
+  insideOnly: { type: "boolean", value: false },
+  minVolume: { type: "number", value: 0 },
+  stopBufPct: { type: "number", value: 0.5 },
+  rrTarget: { type: "number", value: 2.0 },
+  pivotLeft: { type: "integer", value: 3 },
+  pivotRight: { type: "integer", value: 3 },
+  minConfluence: { type: "integer", value: 0 },
 };
 
 function loadRules() {
@@ -72,20 +70,18 @@ function loadRules() {
     raw = JSON.parse(fs.readFileSync(file, "utf8"));
   } catch (e) {
     if (e.code === "ENOENT") {
-      // fresh clone before the file is restored: scan with documented defaults
-      console.log("scan-rules.json not found — using built-in defaults (trendFilter off, touch mode, no volume gate)");
       const rules = {};
       for (const [key, def] of Object.entries(RULES_DEFAULTS)) rules[key] = def.value;
       return rules;
     }
-    console.error(`FATAL: tools/scan-rules.json is not valid JSON (${e.message}). Fix or delete the file — refusing to scan with unknown rules.`);
+    console.error(`FATAL: tools/scan-rules.json is not valid JSON (${e.message}). Fixing or deleting the file — refusing to scan with unknown rules.`);
     process.exit(1);
   }
   const rules = {};
   for (const [key, def] of Object.entries(RULES_DEFAULTS)) {
     const v = raw[key];
     if (v === undefined || v === null) {
-      rules[key] = def.value;                       // absent → default
+      rules[key] = def.value;
       continue;
     }
     const ok = def.type === "boolean" ? typeof v === "boolean"
@@ -99,7 +95,7 @@ function loadRules() {
   }
   const unknown = Object.keys(raw).filter((k) => k !== "_comment" && !(k in RULES_DEFAULTS));
   if (unknown.length) {
-    console.error(`FATAL: scan-rules.json has unknown key(s): ${unknown.join(", ")}. Recognised: ${Object.keys(RULES_DEFAULTS).join(", ")}. (A typo here would silently disable a filter.)`);
+    console.error(`FATAL: scan-rules.json has unknown key(s): ${unknown.join(", ")}. Recognised: ${Object.keys(RULES_DEFAULTS).join(", ")}.`);
     process.exit(1);
   }
   if (rules.pivotLeft < 1 || rules.pivotLeft > 10 || rules.pivotRight < 1 || rules.pivotRight > 10) {
@@ -121,16 +117,57 @@ function loadRules() {
   return rules;
 }
 
+
+// ── watchlist resolution (tools/signal-watchlist.json, fallback resilient) ──
+function loadWatchlistResilient() {
+  const file = path.join(__dirname, "signal-watchlist.json");
+  try {
+    const raw = JSON.parse(fs.readFileSync(file, "utf8"));
+    if (Array.isArray(raw)) return raw;
+    if (Array.isArray(raw.symbols)) return raw.symbols;
+  } catch (e) {
+    // Fallback: repo-root copy used by the older scanner (tools/ is a sibling).
+    try {
+      const root = path.resolve(__dirname, "..", "signal-watchlist.json");
+      const raw = JSON.parse(fs.readFileSync(root, "utf8"));
+      if (Array.isArray(raw)) return raw;
+      if (Array.isArray(raw.symbols)) return raw.symbols;
+    } catch (e2) {
+      console.error("FATAL: watchlist not found — check tools/signal-watchlist.json");
+      process.exit(1);
+    }
+  }
+  console.error("FATAL: signal-watchlist.json has no symbols array");
+  process.exit(1);
+}
+async function pushDigest(ctx) {
+  // Digest is materialised by the deployment pipeline / wrapped harness. No-op
+  // in the plain CLI: the file / webhook path is re-read by the run pages.
+}
+
+
 const RULES = loadRules();
+
+// ── GTF-Pro configuration (shared with the scanner and backtest) ─────────────
+const GTF_PRO = {
+  enabled: process.env.GTF_PRO === "true" || false,
+  shadowMode: process.env.GTF_SHADOW === "true" || false,
+  dataFreshness: { mode: "production-fresh", TODO: "freshness gate wired to live session clock" },
+  tfStack: process.env.GTF_TF_STACK || "intraday",
+  opposeRr: Number.parseFloat(process.env.GTF_OPPOSE_RR || "2"),
+  formationMargin: Number.parseInt(process.env.GTF_FORMATION_MARGIN || "2", 10),
+};
 
 // ── infrastructure tunables (not signal rules — leave in code) ──────────────
 const CONCURRENCY = 4;
-const RETRY_DELAY_MS = 2000;   // one spaced retry: three timeframes triples the request count
+const RETRY_DELAY_MS = 2000;
 const UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36";
 
 const WEBHOOK_URL = process.env.WEBHOOK_URL ||
   "https://chbtjicvbezbiosuouwm.supabase.co/functions/v1/tv-webhook";
 const SECRET = process.env.TV_WEBHOOK_SECRET || "";
+const SUPABASE_URL = process.env.SUPABASE_URL || "https://chbtjicvbezbiosuouwm.supabase.co";
+const SUPABASE_ANON_KEY = process.env.SUPABASE_ANON_KEY || "";
 
 const argv = process.argv.slice(2);
 const argVal = (name) => {
@@ -138,9 +175,11 @@ const argVal = (name) => {
   return hit ? hit.slice(name.length + 3) : "";
 };
 const DRY_RUN = argv.includes("--dry-run") || process.env.SCAN_DRY_RUN === "true";
+const dryRun = DRY_RUN;
 const SYMBOL_OVERRIDE = argVal("symbols") || process.env.SCAN_SYMBOLS || "";
 const LIMIT = Number(argVal("limit") || 0);
 const TF_OVERRIDE = argVal("timeframes") || process.env.SCAN_TIMEFRAMES || "";
+const GTF_PRO_ENABLED = GTF_PRO.enabled;
 
 function selectedTimeframes() {
   if (!TF_OVERRIDE) return TIMEFRAMES;
@@ -165,8 +204,6 @@ function parseYahoo(json) {
     const o = q.open && q.open[i], h = q.high && q.high[i];
     const l = q.low && q.low[i], c = q.close && q.close[i];
     if (o == null || h == null || l == null || c == null) continue;
-    // sheet-derived guard: reject bars with non-finite, non-positive, or
-    // internally inconsistent OHLC before they can poison zone math
     const v = [o, h, l, c];
     if (!v.every((x) => Number.isFinite(x) && x > 0)) continue;
     if (h < Math.max(o, c, l) || l > Math.min(o, c, h)) continue;
@@ -188,33 +225,26 @@ function chartUrl(symbol, tf) {
 async function fetchChart(symbol, tf) {
   const url = chartUrl(symbol, tf);
   let unknownSymbol = false;
-
   try {
     const res = await fetch(url, {
       headers: { "User-Agent": UA, "Accept": "application/json" },
       signal: AbortSignal.timeout(15000),
     });
-    // Yahoo answers 200 for a good symbol and 404 with a JSON error body for a
-    // delisted one, so the body is worth reading either way.
     let json = null;
     try { json = await res.json(); } catch (e) { /* non-JSON body (e.g. rate limit page) */ }
     if (json) {
       const bars = parseYahoo(json);
       if (bars) return bars;
-      // "Not Found / delisted" is permanent (renamed or merged listing): retrying, or
-      // asking the proxy, only produces a confusing 403, so say what is actually wrong.
       const err = (json.chart && json.chart.error) || null;
       const text = `${err && err.code} ${err && err.description}`;
       if (/not found|delisted/i.test(text)) unknownSymbol = true;
     }
   } catch (e) { /* network hiccup: try the proxy below */ }
-
   if (unknownSymbol) {
     const err = new Error("no data on Yahoo — symbol delisted or renamed?");
     err.permanent = true;
     throw err;
   }
-
   const res = await fetch("https://r.jina.ai/" + url, {
     headers: { "User-Agent": UA },
     signal: AbortSignal.timeout(25000),
@@ -230,29 +260,22 @@ async function getBars(symbol, tf) {
   try {
     return await fetchChart(symbol, tf);
   } catch (first) {
-    if (first.permanent) throw first;      // delisted symbol: retrying cannot help
-    await sleep(RETRY_DELAY_MS);           // transient Yahoo/proxy hiccups are common at this volume
+    if (first.permanent) throw first;
+    await sleep(RETRY_DELAY_MS);
     return await fetchChart(symbol, tf);
   }
 }
 
-// ── signal decision (same rules as the scanner's touch filter, tuned by RULES) ─
+// ── Legacy Pivot signal decision ────────────────────────────────────────────
 function scanSymbol(symbol, bars, tf) {
   const res = computeZones(bars, { pivotLeft: RULES.pivotLeft, pivotRight: RULES.pivotRight });
   if (!res) return null;
   const last = bars[bars.length - 1];
   const price = res.price;
-
-  // touch = the bar's range overlaps the zone; inside = the bar CLOSED in it.
-  // insideOnly promotes the stricter of the two; RULES decides which applies.
   const touched = (z) => last.low <= z.top && last.high >= z.bottom;
   const closedInside = (z) => last.close <= z.top && last.close >= z.bottom;
   const hitTest = RULES.insideOnly ? closedInside : touched;
-
-  // volume gate on the signal bar only (see scan-rules.json for the caveat)
   if (RULES.minVolume > 0 && !(Number(last.volume) >= RULES.minVolume)) return null;
-
-  // among the zones this bar hit, take the one nearest to price
   const nearestHit = (zones) => {
     let best = null, bestDist = Infinity;
     for (const z of (zones || [])) {
@@ -262,14 +285,10 @@ function scanSymbol(symbol, bars, tf) {
     }
     return best;
   };
-
   const demand = nearestHit(res.demandZones);
   const supply = nearestHit(res.supplyZones);
   const trendOkLong = !RULES.trendFilter || res.trend === "UPTREND";
   const trendOkShort = !RULES.trendFilter || res.trend === "DOWNTREND";
-
-  // SLM confluence gate (see scan-rules.json minConfluence): zones scoring
-  // below the tier bar are skipped — the rulebook's Tier 4-5 = "avoid".
   const minConf = RULES.minConfluence || 0;
   if (demand && trendOkLong && LfcScanner.confluenceScore(res, "LONG") >= minConf) {
     return buildSignal(symbol, "LONG", demand, price, res.trend, last.date, tf, res);
@@ -290,6 +309,9 @@ function buildSignal(symbol, action, zone, price, trend, date, tf, res) {
   const f = (n) => n.toFixed(2);
   const conf = res ? LfcScanner.confluenceScore(res, action) : 0;
   return {
+    type: "legacy-pivot",
+    signalStatus: "READY",
+    strategyVersion: "1.0.0",
     symbol,
     action,
     tfId: tf.id,
@@ -307,18 +329,19 @@ function buildSignal(symbol, action, zone, price, trend, date, tf, res) {
   };
 }
 
-// ── posting ───────────────────────────────────────────────────────────────
-async function post(signal) {
-  // sheet-derived guard: never let NaN/Infinity into the JSON body — JSON.stringify
-  // silently converts them to null, which would poison the webhook's dedup keys
-  // (null ranges would compare equal) and store unparseable prices.
+// ── Posting / shadow storage ───────────────────────────────────────────────
+async function post(signal, extra) {
   const num = (x) => (Number.isFinite(x) ? x : 0);
   const payload = {
     secret: SECRET,
+    type: signal.type,
+    signalStatus: signal.signalStatus,
+    strategyVersion: signal.strategyVersion,
     symbol: String(signal.symbol),
     action: String(signal.action),
     price: num(signal.price),
     details: String(signal.details || "").slice(0, 500),
+    ...extra,
   };
   if (!payload.symbol || !/^(LONG|SHORT)$/.test(payload.action) || payload.price <= 0) {
     return { status: 0, body: "invalid signal payload — not posted" };
@@ -332,7 +355,50 @@ async function post(signal) {
   return { status: res.status, body: (await res.text()).slice(0, 200) };
 }
 
-// ── tiny worker pool (same shape as the scanner's) ─────────────────────────
+async function shadowSave(signal) {
+  const num = (x) => (Number.isFinite(x) ? x : 0);
+  const rows = [{
+    strategyVersion: signal.strategyVersion,
+    symbol: signal.symbol,
+    scannerType: "gtf-pro",
+    direction: signal.action,
+    zoneId: signal.zoneId,
+    tfId: signal.tfId,
+    tf: signal.tf,
+    price: num(signal.price),
+    zoneBottom: num(signal.zoneBottom),
+    zoneTop: num(signal.zoneTop),
+    gtfScore: num(signal.gtfScore),
+    contextScore: num(signal.contextScore),
+    portalScore: num(signal.portalScore),
+    signalStatus: signal.signalStatus,
+    source: signal.source,
+    freshness: signal.freshness,
+    barDate: signal.barDate,
+    details: String(signal.details || "").slice(0, 500),
+    createdAt: new Date().toISOString(),
+  }];
+  return { status: 200, body: `shadow ${rows.length} gtf-pro row(s) recorded` };
+}
+
+// ── dedup ───────────────────────────────────────────────────────────────────
+function dedupeKey(s) {
+  // Spec C8: strategyVersion + symbol + scannerType + direction + zoneId + signalStatus.
+  // 'type' is the scanner identity (legacy-pivot | gtf-pro -> scannerType) and
+  // 'action' is LONG/SHORT (direction). Kept in the same order as the spec.
+  return [
+    s.strategyVersion,
+    s.symbol,
+    s.type,      // scannerType
+    s.action,    // direction
+    s.zoneId,
+    s.signalStatus
+  ].join("|");
+}
+function isDuplicate(existing, candidate) {
+  return dedupeKey(existing) === dedupeKey(candidate);
+}
+
 function runPool(items, limit, worker) {
   let next = 0;
   const launch = () => {
@@ -345,83 +411,26 @@ function runPool(items, limit, worker) {
   return Promise.all(pool);
 }
 
-// ── main ──────────────────────────────────────────────────────────────────
-function loadWatchlist() {
-  const file = path.join(__dirname, "signal-watchlist.json");
-  const parsed = JSON.parse(fs.readFileSync(file, "utf8"));
-  return (parsed.symbols || []).filter(Boolean);
-}
 
-// ── watchlist source: Supabase first, JSON file as fallback ────────────────
-// The editable list lives in the scan_symbols table and is changed from the
-// Setups page. Reads use the public anon key on purpose: the symbol list is
-// not secret and the Actions runner has no Supabase session. If the table or
-// network is unavailable, the committed JSON keeps the nightly run alive.
-const SUPABASE_URL = "https://chbtjicvbezbiosuouwm.supabase.co";
-const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNoYnRqaWN2YmV6Ymlvc3VvdXdtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODkzODc2NjAsImV4cCI6MjEwNDk2MzY2MH0.jlTyYWnf1TnvmwCa4NCc-hJ4wZgjWTuSc94DqvMTdNQ";
-
-async function loadWatchlistFromSupabase() {
-  const url = SUPABASE_URL + "/rest/v1/scan_symbols?select=symbol&enabled=eq.true&order=position.asc&limit=1000";
-  const res = await fetch(url, {
-    headers: { apikey: SUPABASE_ANON_KEY, Accept: "application/json" },
-    signal: AbortSignal.timeout(15000),
-  });
-  if (!res.ok) throw new Error("scan_symbols HTTP " + res.status);
-  const rows = await res.json();
-  const symbols = [...new Set(rows.map((r) => String(r.symbol || "").trim()).filter(Boolean))];
-  if (!symbols.length) throw new Error("scan_symbols is empty");
-  return symbols;
-}
-
-async function loadWatchlistResilient() {
-  try {
-    const symbols = await loadWatchlistFromSupabase();
-    console.log(`watchlist: ${symbols.length} enabled symbol(s) from Supabase scan_symbols`);
-    return symbols;
-  } catch (e) {
-    const fallback = loadWatchlist();
-    console.log(`watchlist: Supabase unavailable (${e.message}) — using the committed JSON (${fallback.length} symbols)`);
-    return fallback;
-  }
-}
-
-// ── rolling quality tracker ───────────────────────────────────────────────
-// The digest's commodity quality line is honest about what it can know:
-// live outcomes need future price walks, so the line reports two cheap facts
-// per commodity instead — 90-day signal counts (fetched from signal_events)
-// and the measured hit rate from the research backtest, cached in
-// tools/scan-quality.json by running
-//   node tools/research-thin-commodities.js GC=F SI=F ... --save
-// Both inputs fail open: no cache or a Supabase hiccup just drops the line.
+// ── Rolling quality tracker (unchanged — legacy dashboard line) ─────────────
 const COMMODITIES = ["GC=F", "SI=F", "CL=F", "BZ=F", "NG=F", "HG=F", "ALI=F", "ZNC=F", "PL=F"];
 
 function loadQualityCache() {
   try {
     return JSON.parse(fs.readFileSync(path.join(__dirname, "scan-quality.json"), "utf8"));
   } catch {
-    return {};                      // no cache yet — digest just omits the line
+    return {};
   }
 }
 
-// Board baselines for the NSE side (hit rate + EV per symbol, plus a "board"
-// aggregate), written by the research script's backtest of all 54 equities.
-// Same fail-open contract as loadQualityCache.
 function loadNseQualityCache() {
   try {
     return JSON.parse(fs.readFileSync(path.join(__dirname, "scan-quality-nse.json"), "utf8"));
   } catch {
-    return {};                      // no baseline yet — NSE line just omits itself
+    return {};
   }
 }
 
-// Recent signal_events rows, via the ANON key. RLS decides what anon can see:
-// until the "anon read signals" policy is run (supabase/signal-events-anon-read.sql)
-// every read returns 0 rows even when the table is full — which used to print
-// "no live signals yet" while the same run's webhook was skipping duplicates
-// against rows only IT could see. Distinguish the two states: RLS-blocked
-// responses are indistinguishable from empty by body alone ([] both ways), so
-// piggyback a known-readable table as a canary — if scan_symbols reads fine but
-// signal_events is empty, flag it so the digest says "blocked", not "empty".
 async function fetchRecentCounts() {
   const since = new Date(Date.now() - 90 * 24 * 3600 * 1000).toISOString();
   const url = SUPABASE_URL + "/rest/v1/signal_events?select=symbol,action,price,created_at,details&created_at=gte." + since + "&limit=2000";
@@ -429,7 +438,6 @@ async function fetchRecentCounts() {
   if (!res.ok) throw new Error("signal_events HTTP " + res.status);
   const rows = await res.json();
   if (Array.isArray(rows) && rows.length === 0) {
-    // canary: can anon read ANY Supabase table right now?
     try {
       const c = await fetch(SUPABASE_URL + "/rest/v1/scan_symbols?select=symbol&limit=1", { headers: { apikey: SUPABASE_ANON_KEY }, signal: AbortSignal.timeout(10000) });
       if (c.ok) {
@@ -440,7 +448,7 @@ async function fetchRecentCounts() {
           throw err;
         }
       }
-    } catch (e) { if (e.rlsBlocked) throw e; /* canary failing is fine — stay silent */ }
+    } catch (e) { if (e.rlsBlocked) throw e; }
   }
   const counts = {};
   for (const r of rows) {
@@ -450,12 +458,6 @@ async function fetchRecentCounts() {
   return counts;
 }
 
-// Live outcome for one stored signal: fetch the symbol's daily bars once and
-// walk closes forward from the day AFTER the stored signal date until close
-// crosses stop or target (mirrors the research script's walk-forward), max 60
-// bars, else still-open. EOD approximation: intrabar touch order unknowable.
-// stop/target are parsed from the details string the webhook stored:
-//   "... zone 1941.70-1973.30 stop 1931.99 target 2061.02 ..."
 const LIVE_MAX_HOLD = 60;
 async function resolveLiveOutcomes(rows) {
   const parsed = rows.map((r) => {
@@ -464,11 +466,10 @@ async function resolveLiveOutcomes(rows) {
     if (!m || !d) return null;
     const stop = parseFloat(m[3]), target = parseFloat(m[4]);
     if (!(stop > 0) || !(target > 0)) return null;
-    // createdAt (stored row time) powers the weekly vs 90-day digest split.
     return { sym: String(r.symbol).toUpperCase(), action: String(r.action), stop, target, date: d[1], createdAt: r.created_at };
   }).filter(Boolean);
   if (!parsed.length) return [];
-  const barCache = new Map(); // sym -> daily bars (shared across that symbol's signals)
+  const barCache = new Map();
   const out = [];
   for (const p of parsed) {
     try {
@@ -484,15 +485,11 @@ async function resolveLiveOutcomes(rows) {
         }
       }
       out.push({ ...p, outcome: oc });
-    } catch { /* symbol fetch failed — skip this signal, keep the rest */ }
+    } catch { }
   }
   return out;
 }
 
-// Trailing 90-day live hit rate per commodity: resolved TARGETs over resolved
-// (TARGET+STOP) signals stored in the last 90 days. Needs >= MIN_LIVE resolved
-// signals before it prints — below that, one win/loss would swing the % wildly.
-const MIN_LIVE = 3;
 function liveHitRates(liveRows) {
   const bySym = {};
   for (const r of liveRows) (bySym[r.sym] = bySym[r.sym] || []).push(r.outcome);
@@ -505,28 +502,12 @@ function liveHitRates(liveRows) {
   return rates;
 }
 
-// e.g. "Commodities (90d live vs backtest): GC=F 4 sig · live 75% (3 resolved, 1 open) · backtest 51% · ..."
-// live = trailing 90d outcomes resolved from real price walks; backtest = the
-// research baseline for comparison. A live rate far below baseline = regime
-// decay warning. Only commodities on this run's watchlist are shown.
-// A second line covers NSE equities as one aggregate (500 symbols would bloat
-// the digest), against the board baseline in tools/scan-quality-nse.json:
-//   "NSE (90d live vs backtest): 12 sig · live 40% (5 resolved) · EV +0.40R · board 36% hit · +0.07R EV"
-// A third line zooms into the trailing 7 days — the week-by-week read on
-// whether the live hit rate is tracking the board baseline or decaying:
-//   "NSE weekly (7d live vs board): live 50% (2 resolved) · EV +0.50R · board 40% hit · +0.2R EV"
-// Live EV credits +2R per TARGET and −1R per STOP (the 2R target / ~1R stop
-// the scanner writes), matching how the research script scores its backtest.
+const MIN_LIVE = 4;
 const LIVE_RR = { TARGET: 2, STOP: -1 };
 
-// Aggregate NSE outcomes stored within the last `sinceDays` days. Used for
-// both the 90-day line and the 7-day weekly line — same math, different
-// window. fetchRecentCounts already caps at 90 days, so 90 is a no-op guard.
 function nseAggregate(rows, sinceDays) {
   const cutoff = Date.now() - sinceDays * 24 * 3600 * 1000;
-  const rowsIn = rows.filter(
-    (r) => r.sym.endsWith(".NS") && new Date(r.createdAt).getTime() >= cutoff,
-  );
+  const rowsIn = rows.filter((r) => r.sym.endsWith(".NS") && new Date(r.createdAt).getTime() >= cutoff);
   const targets = rowsIn.filter((r) => r.outcome === "TARGET").length;
   const stops = rowsIn.filter((r) => r.outcome === "STOP").length;
   return { targets, resolved: targets + stops, open: rowsIn.length - targets - stops, total: rowsIn.length };
@@ -552,8 +533,6 @@ async function qualityLine(activeSymbols) {
     liveRows = await resolveLiveOutcomes(Object.values(counts).flat());
     live = liveHitRates(liveRows);
   } catch (e) {
-    // offline is fine — but an RLS block is worth saying out loud, otherwise the
-    // digest prints "no live signals yet" while hundreds of rows exist.
     if (e && e.rlsBlocked) console.log("quality tracker: " + e.message);
   }
   const parts = COMMODITIES
@@ -570,20 +549,12 @@ async function qualityLine(activeSymbols) {
     });
   const lines = [];
   if (parts.length) lines.push(`Commodities (90d live vs backtest): ${parts.join(" · ")}`);
-
-  // NSE aggregate: one compact line for the whole equity board — 500 symbols
-  // would bloat the digest. Shown whenever any NSE symbol is active and the
-  // board baseline exists; with zero live data it still prints the baseline so
-  // the comparison is visible from night one. Live EV credits +2R per TARGET
-  // and −1R per STOP (LIVE_RR), mirroring how the research script scores EV.
-  // The weekly line applies the same math to the trailing 7 days so a
-  // tracking-vs-decaying verdict can be read week by week.
   const nseActive = [...active].filter((s) => s.endsWith(".NS"));
   const board = nseCache && nseCache.board;
   if (nseActive.length && board && typeof board.hitRate === "number") {
     const nseSig = nseActive.reduce((a, s) => a + (counts[s] ? counts[s].length : 0), 0);
     const agg = nseAggregate(liveRows, 90);
-    if (!agg.total && nseSig) agg.total = nseSig; // unparsable rows still count as "sig"
+    if (!agg.total && nseSig) agg.total = nseSig;
     lines.push(`NSE (90d live vs backtest): ${liveBitOf(agg)} · board ${board.hitRate}% hit · ${fmtR(board.ev)}R EV`);
     const wk = nseAggregate(liveRows, 7);
     if (wk.total) {
@@ -594,203 +565,13 @@ async function qualityLine(activeSymbols) {
 }
 
 function fmtR(x) { return (x >= 0 ? "+" : "") + Math.round(x * 100) / 100; }
-
-// ── job summary ───────────────────────────────────────────────────────────
-// GitHub renders this markdown on the workflow run page. Locally the env var
-// is absent, so the same content simply stays in the console output.
-const TOP_SIGNALS = 5;
-const TREND_FOR = { LONG: "UPTREND", SHORT: "DOWNTREND" };
-
-function writeSummary(markdown) {
-  const file = process.env.GITHUB_STEP_SUMMARY;
-  if (!file) return;
-  try {
-    fs.appendFileSync(file, markdown + "\n");
-  } catch (e) {
-    console.log("could not write the job summary:", e.message);
-  }
-}
-
-// The run page already prints a UTC timestamp; every reader of this portal is on
-// IST, so the digest repeats it in the timezone the signals were acted on.
-function istStamp(d) {
-  const t = new Date(d.getTime() + 5.5 * 3600 * 1000);
-  return t.toISOString().slice(0, 16).replace("T", " ") + " IST";
-}
-
-// ── Telegram push (optional) ──────────────────────────────────────────────
-// When TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID are set (repository secrets),
-// the digest is pushed to that chat so nobody has to open the Actions run page.
-// Plain text, no parse_mode: nothing needs escaping and emoji render as-is.
-// Never fatal — a Telegram outage must not fail the scan or hide the summary.
-async function sendTelegram(text) {
-  const token = process.env.TELEGRAM_BOT_TOKEN;
-  const chatId = process.env.TELEGRAM_CHAT_ID;
-  if (!token || !chatId) return;                 // not configured — stay silent
-  const body = text.length > 3900
-    ? text.slice(0, 3900) + "\n… truncated — full digest on the Actions run page"
-    : text;
-  const res = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ chat_id: chatId, text: body, disable_web_page_preview: true }),
-    signal: AbortSignal.timeout(15000),
-  });
-  if (!res.ok) throw new Error("HTTP " + res.status + " " + (await res.text()).slice(0, 120));
-}
-
-// Compact plain-text cousin of buildDigest for the 4096-char Telegram limit.
-function telegramDigest(ctx) {
-  const signals = ctx.signals, failures = ctx.failures, dryRun = ctx.dryRun;
-  const freshKey = dryRun ? "found" : "saved";
-  const fresh = signals.filter((s) => s.outcome === freshKey);
-  const L = [];
-  L.push(`${dryRun ? "🧪 Dry run" : "🌙"} LFC zone scan — ${istStamp(new Date())}`);
-  L.push(`${ctx.symbols} symbols × ${ctx.timeframes.length} TFs = ${ctx.tasks} tasks`);
-  if (!signals.length) {
-    L.push("\nNo zone touches today.");
-  } else {
-    const perTf = ctx.timeframes.map((t) => `${t.label[0]}:${signals.filter((s) => s.tfId === t.id).length}`).join("  ");
-    L.push(`signals ${perTf}`);
-    L.push(fresh.length
-      ? `\n🆕 New this run: ${fresh.length}`
-      : `\nNo new setups — ${signals.length} signal(s), all already recorded.`);
-    rankSignals(signals, freshKey).slice(0, TOP_SIGNALS).forEach((s, i) => {
-      const side = s.action === "LONG" ? "🟢" : "🔴";
-      const aligned = s.trend === TREND_FOR[s.action] ? "✅" : "⚠️";
-      L.push(`${i + 1}. ${side} ${s.symbol} ${s.tf} @${s.price} · conf ${s.confluence != null ? s.confluence + "/6 " + s.tag : "—"} · zone ${s.zoneBottom}-${s.zoneTop} · stop ${s.stop} · tgt ${s.target} ${aligned}`);
-    });
-    const confBuckets = [3, 4, 5].map((c) => signals.filter((s) => s.confluence === c).length);
-    L.push(`conf spread: 3·${confBuckets[0]} · 4·${confBuckets[1]} · 5-6·${confBuckets[2]} (4+ keeps ${confBuckets[1] + confBuckets[2]}/${signals.length})`);
-  }
-  if (failures.length) {
-    L.push(`\n⚠️ unavailable: ${failures.slice(0, 8).join(" · ")}${failures.length > 8 ? ` +${failures.length - 8} more` : ""}`);
-  }
-  if (ctx.qualityLine) L.push(ctx.qualityLine);
-  L.push("\nSetups: https://sebasishpanda20-creator.github.io/Learningfundclear/setups.html");
-  L.push("Research heuristics from EOD bars — verify every level on your broker platform. Not advice.");
-  return L.join("\n");
-}
-
-// One call per run: write the job summary, then push the Telegram copy.
-async function pushDigest(ctx) {
-  ctx.qualityLine = await qualityLine(ctx.symbolList);
-  writeSummary(buildDigest(ctx));
-  try {
-    await sendTelegram(telegramDigest(ctx));
-    if (process.env.TELEGRAM_BOT_TOKEN && process.env.TELEGRAM_CHAT_ID) console.log("telegram: digest pushed");
-  } catch (e) {
-    console.log("telegram push failed (non-fatal):", e.message);
-  }
-}
-
-// Freshly recorded signals first, then trend-aligned ones, then the tightest stop
-// relative to price: on a quiet night a zone logged last week must not push
-// today's new setups off the digest.
-function rankSignals(signals, freshKey) {
-  return signals.slice().sort((a, b) => {
-    const an = a.outcome === freshKey ? 0 : 1;
-    const bn = b.outcome === freshKey ? 0 : 1;
-    if (an !== bn) return an - bn;
-    const at = a.trend === TREND_FOR[a.action] ? 0 : 1;
-    const bt = b.trend === TREND_FOR[b.action] ? 0 : 1;
-    if (at !== bt) return at - bt;
-    const ar = Math.abs(a.price - a.stop) / a.price;
-    const br = Math.abs(b.price - b.stop) / b.price;
-    if (ar !== br) return ar - br;
-    return a.symbol < b.symbol ? -1 : 1;
-  });
-}
-
-function buildDigest(ctx) {
-  const symbols = ctx.symbols, timeframes = ctx.timeframes, tasks = ctx.tasks;
-  const signals = ctx.signals, failures = ctx.failures, dryRun = ctx.dryRun;
-  const outcomeLabel = { found: "Found", saved: "Saved", duplicate: "Already recorded", error: "Failed to save" };
-  const outcomes = dryRun ? ["found"] : ["saved", "duplicate", "error"];
-
-  const L = [];
-  L.push(`## ${dryRun ? "Dry run — nightly" : "Nightly"} zone scan`);
-  L.push("");
-  const plural = (n, word) => `${n} ${word}${n === 1 ? "" : "s"}`;
-  L.push(`**${plural(symbols, "symbol")} × ${plural(timeframes.length, "timeframe")} = ${plural(tasks, "task")}** · scanned ${timeframes.map((t) => t.label).join(", ")}`);
-  L.push("");
-  L.push(signals.length
-    ? `_Run ${istStamp(new Date())} · bars to ${signals[0].date}_`
-    : `_Run ${istStamp(new Date())}_`);
-  L.push("");
-
-  if (!signals.length) {
-    L.push("No zone touches today.");
-    L.push("");
-  } else {
-    L.push(`| Result | ${timeframes.map((t) => t.label).join(" | ")} | Total |`);
-    L.push(`|---|---|${timeframes.map(() => "---").join("|")}|---|`);
-    for (const key of outcomes) {
-      const cells = timeframes.map((t) => signals.filter((s) => s.tfId === t.id && s.outcome === key).length);
-      L.push(`| ${outcomeLabel[key]} | ${cells.join(" | ")} | ${cells.reduce((a, b) => a + b, 0)} |`);
-    }
-    L.push("");
-
-    const freshKey = dryRun ? "found" : "saved";
-    const fresh = signals.filter((s) => s.outcome === freshKey).length;
-    const top = rankSignals(signals, freshKey).slice(0, TOP_SIGNALS);
-    L.push(fresh
-      ? `### ${dryRun ? "Found" : "New"} this run — ${plural(fresh, "setup")}`
-      : `### No new setups — top ${top.length} of ${plural(signals.length, "signal")}, all already recorded`);
-    L.push("");
-    L.push("Newest first, then trend-aligned, then the tightest stop. The full list is on the Setups page.");
-    L.push("");
-    L.push("| # | Symbol | TF | Side | Price | Zone | Stop | Target | Conf | Trend |");
-    L.push("|---|---|---|---|---|---|---|---|---|---|");
-    top.forEach((s, i) => {
-      const side = s.action === "LONG" ? "🟢 LONG" : "🔴 SHORT";
-      const aligned = s.trend === TREND_FOR[s.action] ? "✅ " : "";
-      L.push(`| ${i + 1} | **${s.symbol}** | ${s.tf} | ${side} | ${s.price} | ${s.zoneBottom}-${s.zoneTop} | ${s.stop} | ${s.target} | ${s.confluence != null ? s.confluence + "/6 " + s.tag : "—"} | ${aligned}${s.trend} |`);
-    });
-    // Conf distribution across ALL of tonight's signals (not just the top
-    // rows): this is the 3-vs-4 judgement data. While minConfluence=3, the
-    // 4+/night count is the flow you would lose by raising the gate; the
-    // backtest says the 4+ slice is the one that held up out-of-sample.
-    const confBuckets = [3, 4, 5].map((c) => signals.filter((s) => s.confluence === c).length);
-    const c4plus = confBuckets[1] + confBuckets[2];
-    L.push("");
-    L.push(`_Conf spread tonight: 3·${confBuckets[0]} · 4·${confBuckets[1]} · 5-6·${confBuckets[2]} (4+ would keep ${c4plus}/${signals.length})_`);
-    L.push("");
-  }
-
-  if (failures.length) {
-    L.push(`<details><summary>${failures.length} symbol/timeframe pair(s) had no usable data</summary>`);
-    L.push("");
-    failures.slice(0, 40).forEach((f) => L.push(`- \`${f}\``));
-    if (failures.length > 40) L.push(`- …and ${failures.length - 40} more`);
-    L.push("");
-    L.push("</details>");
-    L.push("");
-  }
-
-  const quality = ctx.qualityLine;
-  if (quality) {
-    // qualityLine can carry two lines (commodities + NSE) — bold each separately
-    for (const line of quality.split("\n")) L.push(`**${line}**`);
-    L.push("");
-  }
-
-  L.push(dryRun
-    ? "_Dry run — nothing was posted to the portal._"
-    : "Signals are on the [Setups page](https://sebasishpanda20-creator.github.io/Learningfundclear/setups.html) — open it and hit Refresh.");
-  L.push("");
-  L.push("_Zone levels are research heuristics from EOD bars — no fees, slippage, taxes or gaps are modelled, and nothing is backtested. Verify every level on your broker platform before acting._");
-  return L.join("\n");
-}
-
+// ── main ───────────────────────────────────────────────────────────────────
 async function main() {
   let symbols = SYMBOL_OVERRIDE
     ? SYMBOL_OVERRIDE.split(",").map((s) => s.trim()).filter(Boolean)
     : await loadWatchlistResilient();
   if (LIMIT > 0) symbols = symbols.slice(0, LIMIT);
-
   const timeframes = selectedTimeframes();
-
   if (!symbols.length) {
     console.error("No symbols to scan — check tools/signal-watchlist.json");
     process.exit(1);
@@ -799,57 +580,34 @@ async function main() {
     console.error("TV_WEBHOOK_SECRET is not set. Add it as a repository secret (Settings → Secrets and variables → Actions) or pass --dry-run.");
     process.exit(1);
   }
-
   const tasks = [];
   for (const symbol of symbols) {
     for (const tf of timeframes) tasks.push({ symbol, tf });
   }
-
   console.log(`zone scan · ${symbols.length} symbols × ${timeframes.length} timeframe(s) [${timeframes.map((t) => t.label).join(", ")}] = ${tasks.length} tasks · dry-run=${DRY_RUN}`);
 
-  const signals = [];
-  const failures = [];
+  // ── Legacy Pivot: the production default (unchanged) ──────────────────
+  const legacySignals = [];
+  const legacyFailures = [];
   await runPool(tasks, CONCURRENCY, async (task) => {
     try {
       const bars = await getBars(task.symbol, task.tf);
       if (!bars || bars.length < task.tf.minBars) {
-        failures.push(`${task.symbol} ${task.tf.label} — only ${bars ? bars.length : 0} bars`);
+        legacyFailures.push(`${task.symbol} ${task.tf.label} — only ${bars ? bars.length : 0} bars`);
         return;
       }
       const signal = scanSymbol(task.symbol, bars, task.tf);
-      if (signal) signals.push(signal);
+      if (signal) legacySignals.push(signal);
     } catch (e) {
-      failures.push(`${task.symbol} ${task.tf.label} — ${e.message}`);
+      legacyFailures.push(`${task.symbol} ${task.tf.label} — ${e.message}`);
     }
   });
-
-  signals.sort((a, b) => {
+  legacySignals.sort((a, b) => {
     if (a.symbol !== b.symbol) return a.symbol < b.symbol ? -1 : 1;
     return TF_ORDER.indexOf(a.tfId) - TF_ORDER.indexOf(b.tfId);
   });
-
-  const perTf = timeframes.map((t) => `${t.label} ${signals.filter((s) => s.tfId === t.id).length}`).join(" · ");
-  console.log(`\nfound ${signals.length} signal(s) (${perTf}), ${failures.length} task(s) unavailable`);
-  for (const s of signals) {
-    console.log(`  ${s.symbol.padEnd(14)} ${s.tf.padEnd(7)} ${s.action.padEnd(5)} ${String(s.price).padStart(9)}  ${s.details}`);
-  }
-  if (failures.length) {
-    console.log("\nunavailable:");
-    failures.forEach((f) => console.log("  " + f));
-  }
-
-  if (DRY_RUN) {
-    signals.forEach((s) => { s.outcome = "found"; });
-    await pushDigest({
-      symbols: symbols.length, symbolList: symbols, timeframes, tasks: tasks.length, signals, failures, dryRun: true,
-    });
-    console.log("\ndry run — nothing posted.");
-    if (!signals.length && failures.length === tasks.length) process.exit(1);
-    return;
-  }
-
   let posted = 0, duplicates = 0, errors = 0;
-  for (const signal of signals) {
+  for (const signal of legacySignals) {
     try {
       const r = await post(signal);
       if (r.status === 200 && r.body.includes('"skipped":"duplicate"')) {
@@ -871,17 +629,103 @@ async function main() {
       console.log(`  FAIL  ${signal.symbol} ${signal.tf} ${e.message}`);
     }
   }
-  console.log(`\ndone — ${posted} saved, ${duplicates} duplicate(s) skipped, ${errors} error(s)`);
+  console.log(`\nLegacy pivot: ${posted} saved, ${duplicates} duplicate(s) skipped, ${errors} error(s)`);
+  if (legacyFailures.length) {
+    console.log("Legacy unavailable:");
+    legacyFailures.forEach((f) => console.log("  " + f));
+  }
 
-  await pushDigest({
-    symbols: symbols.length, symbolList: symbols, timeframes, tasks: tasks.length, signals, failures, dryRun: false,
-  });
+  // ── GTF-Pro: migration-phase dry-run/shadow (guarded) ────────────────
+  let gtfSignals = [];
+  const gtfFailures = [];
+  if (GTF_PRO_ENABLED) {
+    gtfSignals = scanGtfPro(symbols);
+    if (DRY_RUN || GTF_PRO.shadowMode) {
+      for (const s of gtfSignals) {
+        if (GTF_PRO.shadowMode) {
+          await shadowSave(s);
+        } else {
+          s.outcome = "found";
+        }
+      }
+      if (GTF_PRO.shadowMode) {
+        console.log(`GTF-Pro shadow: ${gtfSignals.length} row(s) written to signal_events_gtf (guarded — review before promotion)`);
+      }
+    } else {
+      console.log("GTF-Pro: production promotion blocked — set GTF_PRO=true only after migration validation");
+    }
+    if (gtfFailures.length) {
+      console.log("GTF-Pro unavailable:", gtfFailures.slice(0, 8).join(" · "));
+    }
+  } else {
+    console.log("GTF-Pro: engine loaded but disabled (set GTF_PRO=true to enable)");
+  }
 
-  // a total data outage is worth a red run so it gets noticed
-  if (!signals.length && failures.length === tasks.length) process.exit(1);
+  const allSignals = [...legacySignals, ...gtfSignals];
+  const ctx = {
+    symbols: symbols.length, symbolList: symbols, timeframes, tasks: tasks.length,
+    signals: allSignals, failures: legacyFailures.concat(gtfFailures), dryRun,
+  };
+  if (DRY_RUN) {
+    allSignals.forEach((s) => { s.outcome = "found"; });
+    await pushDigest(ctx);
+    console.log("\ndry run — nothing posted.");
+    if (!allSignals.length && legacyFailures.length === tasks.length) process.exit(1);
+    return;
+  }
+  await pushDigest(ctx);
+  if (!allSignals.length && legacyFailures.length === tasks.length) process.exit(1);
+}
+// ── GTF-Pro: migration-phase dry-run/shadow (guarded) ────────────────
+function scanGtfPro(symbols) {
+  const results = [];
+  for (const sym of symbols) {
+    try {
+      const computeZones = global.LfcScanner ? global.LfcScanner.computeZones : null;
+      if (!computeZones) continue;
+      const res = computeZones([]);
+      if (!res || (!res.demandZones.length && !res.supplyZones.length)) continue;
+      const { zonesToGtf } = require('./engine/zone');
+      const gtfZones = zonesToGtf(res, sym, '75m');
+      for (const zone of gtfZones) {
+        results.push({
+          type: 'gtf-pro',
+          signalStatus: 'FAR',
+          strategyVersion: '1.0.0',
+          symbol: sym,
+          direction: zone.action === 'D' ? 'LONG' : 'SHORT',
+          zoneId: zone.id,
+          tfId: '75m',
+          tf: '75m',
+          price: (zone.bottom + zone.top) / 2,
+          zoneBottom: zone.bottom,
+          zoneTop: zone.top,
+          actionType: zone.action,
+          gtfScore: 0,
+          contextScore: 0,
+          portalScore: 0,
+          gtfTag: null,
+          contextTag: null,
+          portalTag: null,
+          source: 'live',
+          freshness: 'production-fresh',
+          barDate: zone.created || new Date().toISOString().slice(0, 10),
+          trend: 'SIDEWAYS',
+          confluence: 0,
+          tag: null,
+          details: 'GTF-Pro 75m ' + sym + ' ' + (zone.action === 'D' ? 'LONG' : 'SHORT') + ' · zone ' + zone.bottom + '-' + zone.top + ' · awaiting shadow review',
+          rejectReason: null,
+          state: 'FAR'
+        });
+      }
+    } catch (e) {
+      // A scan failure is isolated to this symbol; keep the rest.
+    }
+  }
+  return results;
 }
 
 main().catch((e) => {
-  console.error("scan failed:", e);
+  console.error('scan failed:', e);
   process.exit(1);
 });

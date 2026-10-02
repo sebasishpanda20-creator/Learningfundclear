@@ -5,7 +5,90 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex">
 <title>Demand Zone Scanner — Private Research Journal</title>
+<link rel="stylesheet" href="assets/css/tokens.css">
+<link rel="stylesheet" href="assets/css/app.css">
+<link rel="stylesheet" href="assets/css/tokens.css">
+<link rel="stylesheet" href="assets/css/app.css"><script src="assets/js/theme.js"></script>
 <style>
+
+:root { color-scheme: light; }
+/* ── LIGHT default (production theme) ── */
+* { box-sizing: border-box; margin: 0; }
+body { min-height: 100vh; background: var(--lfc-bg); color: var(--lfc-text); padding: 22px; font-family: "Segoe UI", system-ui, -apple-system, sans-serif; }
+a.back { color: var(--lfc-primary); text-decoration: none; font-size: 13px; }
+h1 { font-size: 24px; margin: 10px 0 2px; color: var(--lfc-text-strong); }
+.sub { color: var(--lfc-muted); font-size: 13px; margin-bottom: 18px; }
+.card { background: var(--lfc-surface); border: 1px solid var(--lfc-border); border-radius: 12px; padding: 18px; margin-bottom: 18px; }
+.theme-dark .card { background: var(--lfc-surface); border-color: var(--lfc-border); }
+.row { display: flex; flex-wrap: wrap; gap: 14px; align-items: flex-end; }
+label { display: block; font-size: 12px; color: var(--lfc-muted); margin-bottom: 4px; }
+input, select, textarea {
+  padding: 9px 10px; border-radius: 8px; border: 1px solid var(--lfc-border);
+  background: var(--lfc-surface-soft); color: var(--lfc-text); font-size: 13px;
+}
+input[type="checkbox"] { width: auto; }
+.theme-dark input, .theme-dark select, .theme-dark textarea { background: var(--lfc-surface); border-color: var(--lfc-border); }
+textarea { resize: vertical; }
+.hidden { display: none; }
+button.primary {
+  padding: 11px 22px; border: 0; border-radius: 9px; background: var(--lfc-primary);
+  color: #FFFFFF; font-size: 14px; font-weight: 700; cursor: pointer;
+}
+button.primary:disabled { opacity: .55; cursor: wait; }
+button.ghost {
+  padding: 8px 12px; border-radius: 8px; border: 1px solid var(--lfc-border);
+  background: transparent; color: var(--lfc-muted); font-size: 12px; cursor: pointer;
+}
+.theme-dark button.primary { background: var(--lfc-primary); color: #FFFFFF; }
+.theme-dark button.ghost { color: var(--lfc-muted); }
+.msg { margin-top: 12px; font-size: 13px; color: var(--lfc-positive); min-height: 18px; }
+.theme-dark .msg { color: var(--lfc-positive); }
+.stats { display: flex; flex-wrap: wrap; gap: 12px; margin: 14px 0; }
+.stat { background: var(--lfc-surface-soft); border: 1px solid var(--lfc-border); border-radius: 10px; padding: 10px 16px; }
+.stat b { font-size: 18px; display: block; color: var(--lfc-text-strong); }
+.stat span { font-size: 11px; color: var(--lfc-muted); }
+table { width: 100%; border-collapse: collapse; font-size: 13px; }
+th { text-align: left; color: var(--lfc-muted); font-size: 11px; letter-spacing: .04em; padding: 8px; border-bottom: 1px solid var(--lfc-border); }
+td { padding: 8px; border-bottom: 1px solid var(--lfc-border-soft); }
+tr:hover td { background: var(--lfc-primary-soft); }
+.tag { display: inline-block; padding: 2px 8px; border-radius: 20px; font-size: 11px; font-weight: 600; }
+.tag.up { background: var(--lfc-positive-soft); color: var(--lfc-positive); }
+.tag.down { background: var(--lfc-negative-soft); color: var(--lfc-negative); }
+.tag.side { background: var(--lfc-warning-soft); color: var(--lfc-warning); }
+.tag.in { background: var(--lfc-primary-soft); color: var(--lfc-primary); }
+.tag.touch { background: var(--lfc-neutral-soft); color: var(--lfc-muted); }
+.theme-dark .tag.up { background: #0e3b2a; color: #5fe0a5; }
+.theme-dark .tag.down { background: #3b1414; color: #ef8f8f; }
+.theme-dark .tag.side { background: #33301a; color: #d8c76a; }
+.theme-dark .tag.in { background: #0e3b2a; color: #5fe0a5; }
+.theme-dark .tag.touch { background: #1a2b3b; color: #7fc0ef; }
+.theme-dark .mut { color: #6f7f76; }
+#chartWrap { margin-top: 10px; }
+canvas { width: 100%; height: 340px; display: block; }
+.theme-dark .disclaimer { color: #5d6d64; }
+.theme-dark .barlabel { color: #6f7f76; }
+.theme-dark .flip { color: #d8c76a; }
+.theme-dark .barce { background: #b54848; }
+.theme-dark .barpe { background: #2f9e6c; }
+
+/* ── DARK opt-in (explicit override) ── */
+.theme-dark {
+  --lfc-bg: #0b0f0e; --lfc-bg-ink: #0b0f0e; --lfc-surface: #111714;
+  --lfc-surface-soft: #0d1310; --lfc-surface-raised: #0f151b;
+  --lfc-text: #e8efe9; --lfc-text-strong: #e8efe9; --lfc-muted: #93a39a;
+  --lfc-muted-soft: #6f7f76; --lfc-border: #24312b; --lfc-border-soft: #1a231f;
+  --lfc-primary: #6d5df1; --lfc-primary-hover: #8576f5; --lfc-primary-soft: #1b1433;
+  --lfc-secondary: #2ec3b0; --lfc-secondary-soft: #12312c;
+  --lfc-positive: #5fe0a5; --lfc-positive-soft: #0e3b2a;
+  --lfc-warning: #d8c76a; --lfc-warning-soft: #33301a;
+  --lfc-negative: #ef8f8f; --lfc-negative-soft: #3b1414;
+  --lfc-purple: #c4a7ff; --lfc-purple-soft: #1f1535;
+  --lfc-neutral: #93a39a; --lfc-neutral-soft: #1e2733; --lfc-neutral-ink: #24303a;
+}
+
+/* restore the old marker if present for exact fallback (kept minimal) */
+
+
   :root { color-scheme: dark; }
   * { box-sizing: border-box; margin: 0; }
   body {
@@ -56,9 +139,35 @@
   #chartWrap { margin-top: 10px; }
   canvas { width: 100%; height: 340px; display: block; }
   .disclaimer { font-size: 11px; color: #5d6d64; line-height: 1.6; max-width: 900px; }
+
+
+
+/* keep any page-native overrides using var tokens */
+
 </style>
 </head>
 <body>
+
+<header id="header">
+  <div class="header-brand">
+    <div class="header-logo" aria-hidden="true">
+      <svg viewBox="0 0 24 24" fill="none"><path d="M4 17.5 9.5 12l4 3.5L20 7" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/><path d="M14.5 7H20v5.5" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    </div>
+    <div>
+      <h1>LearningFundClear</h1>
+      <small>Research portal</small>
+    </div>
+  </div>
+  <div class="userbar">
+    <button class="nav-btn" data-nav="dash" onclick="location.href='index.html'">Dashboard</button>
+    <button class="nav-btn" data-nav="perf" onclick="location.href='#'">Performance</button>
+    <button class="nav-btn active" data-nav="scanner" onclick="location.href='scanner.html'">Scanner</button>
+    <button class="nav-btn" data-nav="setups" onclick="location.href='setups.html'">Setups</button>
+    <button class="nav-btn" data-nav="gex" onclick="location.href='gex.html'">GEX</button>
+    <button class="nav-btn" id="themeToggle" data-lfc-theme-toggle style="margin-left:auto;" aria-pressed="false">🌙 Dark</button>
+    <button class="nav-btn" id="logoutBtn" style="margin-left:4px;">Logout</button>
+  </div>
+</header>
 <a class="back" href="index.html">← Back to journal</a>
 <a class="back" href="funds/index.html">Funds portal →</a>
 <h1>Demand Zone Scanner</h1>  <p class="sub">End-of-day NSE/BSE + global commodity futures scan · independent pivot-based zone approximation · private page — same sign-in as the journal</p>

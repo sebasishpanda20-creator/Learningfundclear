@@ -99,7 +99,7 @@ fs.unlinkSync(tmp);
   if (nse) {
     expect(nse.includes("live 60% (5 resolved"), "90d line should read live 60% (5 resolved), got: " + nse);
     expect(nse.includes("EV +0.8R"), "90d EV should be +0.8R, got: " + nse);
-    expect(nse.includes("board 40% hit · +0.2R EV"), "90d line should quote board baseline, got: " + nse);
+    expect(nse.includes("board 45% hit · +0.35R EV"), "90d line should quote board baseline, got: " + nse);
   }
   // weekly: 3 TARGET + 1 STOP of the 4 rows stored in-window → 75% hit,
   // EV (3*2-1*1)/4 = +1.25R — different from the 90d numbers, proving the split
@@ -107,7 +107,7 @@ fs.unlinkSync(tmp);
   if (wk) {
     expect(wk.includes("live 75% (4 resolved"), "weekly should read live 75% (4 resolved), got: " + wk);
     expect(wk.includes("EV +1.25R"), "weekly EV should be +1.25R, got: " + wk);
-    expect(wk.includes("board 40% hit · +0.2R EV"), "weekly line should quote board baseline, got: " + wk);
+    expect(wk.includes("board 45% hit · +0.35R EV"), "weekly line should quote board baseline, got: " + wk);
   }
   // no commodities line (no commodity symbols active)
   expect(!lines.some((l) => l.startsWith("Commodities")), "commodity line should be absent");

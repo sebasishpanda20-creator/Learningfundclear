@@ -1,36 +1,27 @@
-/*!
- * LearningFundClear - single stylesheet
- * Mobile-first: base styles target a phone, media queries only ever widen.
- * Sections: 1 tokens  2 reset  3 layout  4 header/nav  5 hero  6 cards
- *           7 tables  8 lists  9 forms  10 results  11 legal/footer  12 utilities
- */
 
-/* 1. Tokens ---------------------------------------------------------- */
+/* ── Light default (production) ── */
 :root {
-  /* Portal-dark palette — matches the journal/scanner/setups pages (index.html tokens) */
-  --bg: #080b09;
-  --surface: #101512;
-  --surface-2: #0d1310;
-  --line: #263229;
-  --line-soft: #1d2721;
-  --ink: #edf2ec;
-  --ink-strong: #ffffff;
-  --muted: #96a39b;
-  --muted-2: #84958a;
-  --brand: #4ade80;
-  --brand-ink: #6ee0b6;
-  --brand-soft: #122019;
-  --warn: #f0b429;
-  --warn-soft: #2e2617;
-  --danger: #ff8080;
-  --up: #4ade80;
-  --down: #f87171;
-  --radius: 10px;
-  --radius-sm: 7px;
-  --maxw: 1080px;
-  --shadow: 0 1px 2px rgba(0, 0, 0, 0.4), 0 10px 28px rgba(0, 0, 0, 0.3);
-  --sans: "Segoe UI", system-ui, -apple-system, "Helvetica Neue", Arial, sans-serif;
-  --mono: ui-monospace, "Cascadia Mono", Menlo, Consolas, monospace;
+  --bg: var(--lfc-bg); --surface: var(--lfc-surface); --surface-2: var(--lfc-surface-2);
+  --line: var(--lfc-line); --line-soft: var(--lfc-line-soft);
+  --ink: var(--lfc-ink); --ink-strong: var(--lfc-ink-strong);
+  --muted: var(--lfc-muted); --muted-2: var(--lfc-muted-2);
+  --brand: var(--lfc-brand); --brand-ink: var(--lfc-brand-ink); --brand-soft: var(--lfc-brand-soft);
+  --warn: var(--lfc-warn); --warn-soft: var(--lfc-warn-soft);
+  --danger: var(--lfc-danger); --up: var(--lfc-up); --down: var(--lfc-down);
+  --radius: var(--lfc-radius); --radius-sm: var(--lfc-radius-sm); --maxw: var(--lfc-maxw);
+  --shadow: var(--lfc-shadow);
+  --sans: var(--lfc-sans); --mono: var(--lfc-mono);
+}
+
+/* ── Dark opt-in (explicit override) ── */
+.theme-dark {
+  --bg: var(--lfc-bg-dark); --surface: var(--lfc-surface-dark); --surface-2: var(--lfc-surface-2-dark);
+  --line: var(--lfc-line-dark); --line-soft: var(--lfc-line-soft-dark);
+  --ink: var(--lfc-ink-dark); --ink-strong: var(--lfc-ink-strong-dark);
+  --muted: var(--lfc-muted-dark); --muted-2: var(--lfc-muted-2-dark);
+  --brand: var(--lfc-brand-dark); --brand-ink: var(--lfc-brand-ink-dark); --brand-soft: var(--lfc-brand-soft-dark);
+  --warn: var(--lfc-warn-dark); --warn-soft: var(--lfc-warn-soft-dark);
+  --danger: var(--lfc-danger-dark); --up: var(--lfc-up-dark); --down: var(--lfc-down-dark);
 }
 
 /* 2. Reset & base ---------------------------------------------------- */
@@ -46,7 +37,7 @@ body {
   min-height: 100vh;
 }
 h1, h2, h3, h4 { color: var(--ink-strong); line-height: 1.28; margin: 0 0 8px; }
-.brand svg rect { fill: #e4c47c; }
+.brand svg rect { fill: var(--brand); }
 h1 { font-size: 24px; letter-spacing: -0.2px; }
 h2 { font-size: 19px; }
 h3 { font-size: 16px; }
@@ -82,7 +73,7 @@ main { flex: 1 0 auto; padding: 18px 0 44px; }
 .site-nav a.nav-portal { color: #f3d992; border: 1px solid rgba(228, 196, 124, 0.35); background: rgba(228, 196, 124, 0.08); font-weight: 600; }
 .site-nav a.nav-portal:hover { background: rgba(228, 196, 124, 0.16); color: #f8e3ae; }
 .site-nav a[aria-current="page"] { color: var(--ink-strong); background: var(--brand-soft); font-weight: 600; }
-.data-strip { background: rgba(228, 196, 124, 0.08); border-bottom: 1px solid var(--line); font-size: 12.5px; color: var(--gold-text, #e4c47c); }
+.data-strip { background: rgba(228, 196, 124, 0.08); border-bottom: 1px solid var(--line); font-size: 12.5px; color: var(--brand); }
 .data-strip strong { color: #f3d992; }
 .data-strip .wrap { display: flex; gap: 14px; flex-wrap: wrap; padding: 7px 14px; }
 

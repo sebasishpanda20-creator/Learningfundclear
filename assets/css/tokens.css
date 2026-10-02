@@ -1,0 +1,78 @@
+/* ── LearningFundClear shared design system: tokens (light default) ──────────
+ * Light mode IS the production default.  Dark is an explicitly optional
+ * override layered on top via `.theme-dark` on <html> or <body>.
+ *
+ * Do not reference the old dark palette (#080b09 / #101512 / #e4c47c) here.
+ * Those values may survive ONLY inside an opt-in `.theme-dark` block.
+ * ─────────────────────────────────────────────────────────────────────────── */
+
+:root {
+  /* Page background ── light grey */
+  --lfc-bg: #F5F7FB;
+  --lfc-bg-ink: #EEF2F7;
+  --lfc-bg-raised: #FFFFFF;
+
+  /* Surfaces */
+  --lfc-surface: #FFFFFF;
+  --lfc-surface-soft: #F8FAFC;
+  --lfc-surface-raised: #FFFFFF;
+  --lfc-surface-active: #EEF4FF;
+
+  /* Text */
+  --lfc-text: #172033;
+  --lfc-text-strong: #0B1220;
+  --lfc-muted: #64748B;
+  --lfc-muted-soft: #94A3B8;
+
+  /* Borders */
+  --lfc-border: #E2E8F0;
+  --lfc-border-soft: #EDF1F6;
+
+  /* Brand ── blue = navigation / primary actions */
+  --lfc-primary: #2563EB;
+  --lfc-primary-hover: #1D4ED8;
+  --lfc-primary-soft: #EFF6FF;
+
+  /* Secondary (teal) */
+  --lfc-secondary: #0F766E;
+  --lfc-secondary-soft: #F0FDFA;
+
+  /* Status: positive / amber / negative / purple */
+  --lfc-positive: #15803D;
+  --lfc-positive-soft: #F0FDF4;
+  --lfc-warning: #B45309;
+  --lfc-warning-soft: #FFFBEB;
+  --lfc-negative: #B91C1C;
+  --lfc-negative-soft: #FEF2F2;
+  --lfc-purple: #7C3AED;
+  --lfc-purple-soft: #F5F3FF;
+
+  /* Neutral / grey for watch / disabled / empty states */
+  --lfc-neutral: #64748B;
+  --lfc-neutral-soft: #F1F5F9;
+  --lfc-neutral-ink: #0F172A;
+
+  /* Radii / shadows (kept minimal so components inherit a consistent feel) */
+  --lfc-radius: 10px;
+  --lfc-radius-sm: 8px;
+  --lfc-radius-lg: 14px;
+  --lfc-shadow: 0 1px 2px rgba(15, 23, 42, 0.04), 0 1px 3px rgba(15, 23, 42, 0.06);
+  --lfc-shadow-sm: 0 1px 2px rgba(15, 23, 42, 0.04);
+  --lfc-shadow-lg: 0 10px 30px rgba(15, 23, 42, 0.08);
+
+  /* Typography scale (matches old reading sizes in spirit) */
+  --lfc-font-sans: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --lfc-font-mono: "SF Mono", "Fira Code", "Consolas", monospace;
+
+  --lfc-text-xs: 10.5px;
+  --lfc-text-sm: 12px;
+  --lfc-text-base: 14px;
+  --lfc-text-lg: 15px;
+  --lfc-text-xl: 16px;
+
+  --lfc-line-height: 1.5;
+  --lfc-gap: 12px;
+  --lfc-padding: 16px;
+  --lfc-radius-control: 10px;
+  --lfc-arrow: "→";
+}
