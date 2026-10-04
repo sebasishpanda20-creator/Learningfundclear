@@ -7,8 +7,10 @@
 <title>Setups — Private Research Journal</title>
 <link rel="stylesheet" href="assets/css/tokens.css">
 <link rel="stylesheet" href="assets/css/app.css">
+<link rel="stylesheet" href="assets/css/portal-shell.css">
 <link rel="stylesheet" href="assets/css/tokens.css">
 <link rel="stylesheet" href="assets/css/app.css"><script src="assets/js/theme.js"></script>
+<script defer src="assets/js/portal-shell.js"></script>
 <style>
 
 :root { color-scheme: light; }
@@ -144,7 +146,7 @@ canvas { width: 100%; height: 340px; display: block; }
 
 </style>
 </head>
-<body>
+<body data-page="setups">
 
 <header id="header">
   <div class="header-brand">
@@ -157,14 +159,17 @@ canvas { width: 100%; height: 340px; display: block; }
     </div>
   </div>
   <div class="userbar">
-    <button class="nav-btn" data-nav="dash" onclick="location.href='index.html'">Dashboard</button>
-    <button class="nav-btn" data-nav="perf" onclick="location.href='#'">Performance</button>
-    <button class="nav-btn active" data-nav="scanner" onclick="location.href='scanner.html'">Scanner</button>
-    <button class="nav-btn" data-nav="setups" onclick="location.href='setups.html'">Setups</button>
-    <button class="nav-btn" data-nav="gex" onclick="location.href='gex.html'">GEX</button>
-    <button class="nav-btn" id="themeToggle" data-lfc-theme-toggle style="margin-left:auto;" aria-pressed="false">🌙 Dark</button>
-    <button class="nav-btn" id="logoutBtn" style="margin-left:4px;">Logout</button>
-  </div>
+      <span id="userDisplay">—</span>
+      <button class="nav-btn" data-nav="dashboard">Dashboard</button>
+      <button class="nav-btn" data-nav="performance">Performance</button>
+      <button class="nav-btn" data-nav="funds">Mutual Funds</button>
+      <button class="nav-btn" data-nav="scanner">Scanner</button>
+      <button class="nav-btn active" data-nav="setups" aria-current="page">Setups</button>
+      <button class="nav-btn" data-nav="gex">GEX</button>
+      <button class="nav-btn hidden" id="adminBtn" data-nav="admin">Admin</button>
+      <button class="nav-btn" id="themeToggle" data-lfc-theme-toggle aria-pressed="false">🌙 Dark</button>
+      <button class="nav-btn" id="logoutBtn">Logout</button>
+    </div>
 </header>
 <a class="back" href="index.html">← Back to journal</a>
 <a class="back" href="funds/index.html">Funds portal →</a>
