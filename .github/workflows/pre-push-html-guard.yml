@@ -1,0 +1,14 @@
+name: pre-push HTML contract guard
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+permissions: read-all
+jobs:
+  guard-html:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: HTML/JS contract guard
+        run: bash .ci/guard.sh
