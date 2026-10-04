@@ -25,15 +25,27 @@ pages = [
     "funds/calculators.html", "funds/methodology.html", "funds/legal.html",
     "signin.html",
 ]
+dashboard_preview = None
 for rel in pages:
     p = site / rel
     text = p.read_text(encoding="utf-8")
     text = re.sub(r'<script(?![^>]*\bsrc=)[^>]*>[\s\S]*?</script>', '', text, flags=re.I)
     if rel in {"index.html", "performance.html"}:
         text = text.replace('id="appShell" class="hidden"', 'id="appShell"')
+    if rel == "index.html":
+        text = text.replace('id="dashboard" class="card hidden"', 'id="dashboard" class="card"')
+        dashboard_preview = text
     if rel == "signin.html":
         text = text.replace('id="authPending" class="hidden"', 'id="authPending"')
     p.write_text(text, encoding="utf-8")
+
+if dashboard_preview:
+    admin = dashboard_preview.replace('id="dashboard" class="card"', 'id="dashboard" class="card hidden"', 1)
+    admin = admin.replace('id="admin" class="card hidden"', 'id="admin" class="card"', 1)
+    (site / "admin-qa.html").write_text(admin, encoding="utf-8")
+
+    menu = dashboard_preview.replace('class="userbar"', 'class="userbar is-open"', 1)
+    (site / "mobile-menu-qa.html").write_text(menu, encoding="utf-8")
 
 (site / "auth-guard.js").write_text(
     '(function(g){g.LfcAuth={current:function(){return {u:"qa@portal.local",n:"Visual QA",a:true};},'
@@ -61,9 +73,10 @@ if [ "$ready" -ne 1 ]; then
   exit 1
 fi
 
-PAGES=(
+PRIMARY_PAGES=(
   "signin.html"
   "index.html"
+  "admin-qa.html#admin"
   "performance.html"
   "scanner.html"
   "setups.html"
@@ -71,11 +84,20 @@ PAGES=(
   "funds/index.html"
 )
 
+FUNDS_DETAIL_PAGES=(
+  "funds/funds.html"
+  "funds/compare.html"
+  "funds/calculators.html"
+  "funds/methodology.html"
+  "funds/legal.html"
+)
+
 capture() {
   local width="$1"
   local height="$2"
   local page="$3"
   local slug="${page//\//-}"
+  slug="${slug//#/-}"
   slug="${slug%.html}"
   "$BROWSER" \
     --headless=new \
@@ -89,15 +111,25 @@ capture() {
     "http://127.0.0.1:$PORT/$page" >/dev/null 2>&1
 }
 
-for page in "${PAGES[@]}"; do
+for page in "${PRIMARY_PAGES[@]}"; do
   capture 390 2200 "$page"
+  capture 430 2200 "$page"
   capture 768 2400 "$page"
+  capture 1024 2400 "$page"
   capture 1440 2600 "$page"
 done
 
+for page in "${FUNDS_DETAIL_PAGES[@]}"; do
+  capture 390 2400 "$page"
+  capture 1440 2600 "$page"
+done
+
+capture 390 2200 "mobile-menu-qa.html"
+capture 768 2400 "mobile-menu-qa.html"
+
 count="$(find "$OUT" -type f -name '*.png' | wc -l | tr -d ' ')"
-if [ "$count" -ne 21 ]; then
-  echo "Expected 21 screenshots, found $count"
+if [ "$count" -ne 52 ]; then
+  echo "Expected 52 screenshots, found $count"
   exit 1
 fi
 if find "$OUT" -type f -name '*.png' -size 0 | grep -q .; then
