@@ -7,6 +7,8 @@
 <title>Performance — LearningFundClear</title>
 <link rel="stylesheet" href="assets/css/tokens.css">
 <link rel="stylesheet" href="assets/css/app.css">
+<link rel="stylesheet" href="assets/css/portal-shell.css">
+<link rel="stylesheet" href="assets/css/dashboard.css">
 <style>
 /* ── Performance page (light token-driven) ── */
 #performance h2.card-head {
@@ -15,8 +17,10 @@
   color: var(--lfc-text-strong);
 }
 </style>
+<script src="assets/js/theme.js"></script>
+<script defer src="assets/js/portal-shell.js"></script>
 </head>
-<body>
+<body data-page="performance">
 
 <div id="authPending" class="hidden">
   <div class="brand-block" style="display:flex;align-items:center;gap:12px;padding:22px 18px;background:var(--lfc-surface);border-bottom:1px solid var(--lfc-border);">
@@ -46,7 +50,7 @@
 </div>
 
 <div id="appShell" class="hidden">
-  <header id="header">
+  <header class="portal-header" id="header">
     <div class="header-brand">
       <div class="header-logo" aria-hidden="true">
         <svg viewBox="0 0 24 24" fill="none"><path d="M4 17.5 9.5 12l4 3.5L20 7" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/><path d="M14.5 7H20v5.5" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
@@ -56,35 +60,25 @@
         <small>Performance</small>
       </div>
     </div>
-    </div>
     <div class="userbar">
       <span id="userDisplay">—</span>
-      <button class="nav-btn active" data-nav="performance">Performance</button>
+      <button class="nav-btn" data-nav="dashboard">Dashboard</button>
+      <button class="nav-btn active" data-nav="performance" aria-current="page">Performance</button>
       <button class="nav-btn" data-nav="funds">Mutual Funds</button>
       <button class="nav-btn" data-nav="scanner">Scanner</button>
       <button class="nav-btn" data-nav="setups">Setups</button>
       <button class="nav-btn" data-nav="gex">GEX</button>
       <button class="nav-btn hidden" id="adminBtn" data-nav="admin">Admin</button>
-      <button class="nav-btn" id="themeToggle" data-lfc-theme-toggle style="margin-left:auto;" aria-pressed="false">Dark</button>
-      <button class="nav-btn" id="logoutBtn" style="margin-left:4px;">Logout</button>
+      <button class="nav-btn" id="themeToggle" data-lfc-theme-toggle aria-pressed="false">🌙 Dark</button>
+      <button class="nav-btn" id="logoutBtn">Logout</button>
     </div>
   </header>
   <main>
-    <section id="dashboard" class="card" style="padding:22px;">
-      <header class="card-head"><span>Dashboard · All ideas</span></header>
-      <div class="card-body">
-        <p class="muted" style="margin:0;">Authenticated research dashboard.</p>
-      </div>
-    </section>
-    <section id="performance" class="card" style="padding:22px;">
-      <header class="card-head"><span>Performance</span></header>
-      <div class="card-body">
-        <p class="muted" style="margin:0;">Research performance data.</p>
-      </div>
-    </section>
-  </main>
+<section id="performance" class="card"><h2>Research Outcome Tracker</h2><div class="content"><p class="method">Closed ideas only. Results use the recorded entry and exit prices.</p><div class="periods"><button class="active" data-period="weekly">Weekly</button><button data-period="monthly">Monthly</button><button data-period="quarterly">Quarterly</button><button data-period="yearly">Yearly</button><button data-period="all">All time</button><select id="perfYear"><option value="all">All years</option></select></div><div class="summary-grid"><div class="metric"><span>Closed ideas</span><strong id="closedCount">0</strong></div><div class="metric"><span>Positive</span><strong id="positiveCount" class="positive">0</strong></div><div class="metric"><span>Negative</span><strong id="negativeCount" class="negative">0</strong></div><div class="metric"><span>Average return</span><strong id="averageReturn">—</strong></div></div><div class="table-wrap"><table><thead><tr><th>Ticker</th><th>Entry</th><th>Exit</th><th>Closed</th><th>Outcome</th><th>P&amp;L/share</th><th>Return</th><th>Reason</th></tr></thead><tbody id="performanceBody"></tbody></table></div><div id="performanceEmpty" class="empty hidden">No closed ideas for this period.</div><p class="method">This is a research tracker, not individual user performance. It excludes brokerage, taxes, slippage, liquidity limits, and execution differences. Past outcomes do not guarantee future results.</p></div></section>
+</main>
 </div>
 
+<script src="assets/js/performance.js"></script>
 <script src="auth-guard.js"></script>
 <script type="module">
 import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm";
@@ -144,6 +138,9 @@ async function activeUser(session) {
     if (adminBtn) adminBtn.classList.toggle("hidden", !isAdmin);
 
     showShell(u);
+    if (window.LfcPerformance) {
+      await window.LfcPerformance.init({ sb, user: u });
+    }
   } catch (e) {
     showLogin();
   }
@@ -172,7 +169,7 @@ $("loginBtn").onclick = async () => {
       return;
     }
     stamp(uRow);
-    location.replace(params.get("next") || "./");
+    location.replace("performance.html");
   } catch (e) {
     msg.textContent = "Sign-in failed: " + e.message;
     $("loginBtn").disabled = false;

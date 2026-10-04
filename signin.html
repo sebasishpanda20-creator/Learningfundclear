@@ -10,6 +10,57 @@
 <script src="assets/js/theme.js"></script>
 <style>
 :root { color-scheme: light; }
+
+html, body { min-height: 100%; }
+body { min-height: 100vh; }
+
+#authPending {
+  min-height: 100vh;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  padding: 32px 20px;
+}
+
+.brand-block {
+  width: 100%;
+  max-width: 460px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
+#login {
+  width: 100%;
+  max-width: 460px !important;
+  padding: 30px !important;
+}
+
+.disclaimer {
+  width: 100%;
+  max-width: 560px !important;
+  margin: 18px auto 0;
+  text-align: center;
+}
+
+@media (max-width: 560px) {
+  #authPending {
+    justify-content: flex-start;
+    padding: 48px 16px 24px;
+  }
+
+  .brand-block {
+    justify-content: flex-start;
+  }
+
+  #login {
+    padding: 22px !important;
+  }
+}
 </style>
 </head>
 <body>
@@ -53,6 +104,29 @@ const SUPABASE_URL = "https://chbtjicvbezbiosuouwm.supabase.co";
 const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNoYnRqaWN2YmV6Ymlvc3VvdXdtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODkzODc2NjAsImV4cCI6MjEwNDk2MzY2MH0.jlTyYWnf1TnvmwCa4NCc-hJ4wZgjWTuSc94DqvMTdNQ";
 const sb = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
+const params = new URLSearchParams(location.search);
+const ALLOWED_NEXT = new Set([
+  "index.html",
+  "performance.html",
+  "scanner.html",
+  "setups.html",
+  "gex.html",
+  "funds/index.html",
+  "funds/funds.html",
+  "funds/compare.html",
+  "funds/calculators.html",
+  "funds/methodology.html",
+  "funds/legal.html",
+]);
+
+// Shared portal logout clears the lightweight local stamp first and lands here.
+// Finish the real Supabase sign-out in one place so every page logs out equally.
+if (params.get("signout") === "1") {
+  try { await sb.auth.signOut(); } catch (e) {}
+  try { window.LfcAuth && LfcAuth.clear(); } catch (e) {}
+}
+
+
 const $ = id => document.getElementById(id);
 const msg = $("msg");
 
@@ -90,8 +164,9 @@ $("loginBtn").onclick = async () => {
       return;
     }
     stamp(uRow);
-    // successful sign-in goes to the real journal shell
-    location.replace("index.html");
+    // Return to the requested internal page when present; otherwise dashboard.
+    const next = params.get("next");
+    location.replace(next && ALLOWED_NEXT.has(next) ? next : "index.html");
   } catch (e) {
     msg.textContent = "Sign-in failed: " + e.message;
     $("loginBtn").disabled = false;

@@ -1,13 +1,8 @@
-// ── HTML/JS contract checks ──
-// Exit 0 = clean, 1 = fail. Used by the pre-push guard locally and in CI.
-//
-//   1. selector-prefix misuse: $("#id")  (getElementById with a # prefix) must be gone
-//   2. duplicate const / let / var declarations in inline scripts
-//   3. $( "id" ) references to element ids that do not exist in that page
-
+// HTML/JS contract checks for the journal pages.
+// With page args: checks only those pages. With no args: checks all journal pages.
 import { readFileSync } from "node:fs";
 
-const pages = [
+const defaults = [
   "index.html",
   "signin.html",
   "performance.html",
@@ -15,46 +10,46 @@ const pages = [
   "setups.html",
   "gex.html",
 ];
+const pages = process.argv.slice(2).length ? process.argv.slice(2) : defaults;
 
 let fail = 0;
 
 for (const page of pages) {
   const html = readFileSync(page, "utf8");
 
-  // 1. selector-prefix misuse
-  const anti = html.match(/\$\("#/g) || [];
+  const anti = html.match(/\$\(\s*["']#/g) || [];
   if (anti.length) {
-    console.error(`FAIL ${page}: selector-prefix misuse — replace ($("#") with $(("`);
+    console.error(`FAIL ${page}: selector-prefix misuse — $() wraps getElementById, so do not pass #id`);
     fail = 1;
   }
 
-  // 2. duplicate const / let / var in inline scripts
   const seen = new Map();
-  for (const m of html.matchAll(/<script(?![^>]*src=)[^>]*>([\s\S]*?)<\/script>/g)) {
-    const src = m[1].trim();
+  for (const script of html.matchAll(/<script(?![^>]*src=)[^>]*>([\s\S]*?)<\/script>/g)) {
+    const src = script[1].trim();
     if (!src) continue;
-    for (const d of src.matchAll(/^(?:const|let|var)\s+([A-Za-z_$][\w$]*)/gm)) {
-      const name = d[1];
+    for (const declaration of src.matchAll(/^(?:const|let|var)\s+([A-Za-z_$][\w$]*)/gm)) {
+      const name = declaration[1];
       if (seen.has(name)) {
-        console.error(`FAIL ${page}: duplicate declaration ${name} in an inline script`);
+        console.error(`FAIL ${page}: duplicate top-level declaration ${name} in inline scripts`);
         fail = 1;
       }
       seen.set(name, true);
     }
   }
 
-  // 3. $( "id" ) references to undefined element ids
   const defined = new Set([...html.matchAll(/id="([^"]+)"/g)].map((m) => m[1]));
-  const used = new Set([...html.matchAll(/\$\(("|")([a-zA-Z][\w-]*)\1\)/g)].map((m) => m[2]));
+  const used = new Set(
+    [...html.matchAll(/\$\(\s*["']([A-Za-z][\w-]*)["']\s*\)/g)].map((m) => m[1])
+  );
   const missing = [...used].filter((id) => !defined.has(id));
   if (missing.length) {
-    console.error(`FAIL ${page}: $( "id" ) references undefined elements: ${missing.join(", ")}`);
+    console.error(`FAIL ${page}: $() references undefined element ids: ${missing.join(", ")}`);
     fail = 1;
   }
 }
 
 if (fail) {
-  console.log("HTML/JS contract violated — push blocked.");
+  console.error("HTML/JS contract violated.");
   process.exit(1);
 }
-console.log(`HTML/JS contract OK (${pages.length} pages).`);
+console.log(`HTML/JS contract OK (${pages.length} page(s)).`);

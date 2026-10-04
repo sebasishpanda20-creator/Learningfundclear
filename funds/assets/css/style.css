@@ -1,28 +1,37 @@
 
-/* ── Light default (production) ── */
+/* ── Light default (production) ──
+ * The Funds module consumes the root design tokens directly. These aliases
+ * deliberately map only to token names that exist in assets/css/tokens.css.
+ */
 :root {
-  --bg: var(--lfc-bg); --surface: var(--lfc-surface); --surface-2: var(--lfc-surface-2);
-  --line: var(--lfc-line); --line-soft: var(--lfc-line-soft);
-  --ink: var(--lfc-ink); --ink-strong: var(--lfc-ink-strong);
-  --muted: var(--lfc-muted); --muted-2: var(--lfc-muted-2);
-  --brand: var(--lfc-brand); --brand-ink: var(--lfc-brand-ink); --brand-soft: var(--lfc-brand-soft);
-  --warn: var(--lfc-warn); --warn-soft: var(--lfc-warn-soft);
-  --danger: var(--lfc-danger); --up: var(--lfc-up); --down: var(--lfc-down);
-  --radius: var(--lfc-radius); --radius-sm: var(--lfc-radius-sm); --maxw: var(--lfc-maxw);
+  --bg: var(--lfc-bg);
+  --surface: var(--lfc-surface);
+  --surface-2: var(--lfc-surface-soft);
+  --line: var(--lfc-border);
+  --line-soft: var(--lfc-border-soft);
+  --ink: var(--lfc-text);
+  --ink-strong: var(--lfc-text-strong);
+  --muted: var(--lfc-muted);
+  --muted-2: var(--lfc-muted-soft);
+  --brand: var(--lfc-primary);
+  --brand-ink: var(--lfc-primary-hover);
+  --brand-soft: var(--lfc-primary-soft);
+  --warn: var(--lfc-warning);
+  --warn-soft: var(--lfc-warning-soft);
+  --danger: var(--lfc-negative);
+  --up: var(--lfc-positive);
+  --down: var(--lfc-negative);
+  --radius: var(--lfc-radius);
+  --radius-sm: var(--lfc-radius-sm);
+  --maxw: 1240px;
   --shadow: var(--lfc-shadow);
-  --sans: var(--lfc-sans); --mono: var(--lfc-mono);
+  --sans: var(--lfc-font-sans);
+  --mono: var(--lfc-font-mono);
 }
 
-/* ── Dark opt-in (explicit override) ── */
-.theme-dark {
-  --bg: var(--lfc-bg-dark); --surface: var(--lfc-surface-dark); --surface-2: var(--lfc-surface-2-dark);
-  --line: var(--lfc-line-dark); --line-soft: var(--lfc-line-soft-dark);
-  --ink: var(--lfc-ink-dark); --ink-strong: var(--lfc-ink-strong-dark);
-  --muted: var(--lfc-muted-dark); --muted-2: var(--lfc-muted-2-dark);
-  --brand: var(--lfc-brand-dark); --brand-ink: var(--lfc-brand-ink-dark); --brand-soft: var(--lfc-brand-soft-dark);
-  --warn: var(--lfc-warn-dark); --warn-soft: var(--lfc-warn-soft-dark);
-  --danger: var(--lfc-danger-dark); --up: var(--lfc-up-dark); --down: var(--lfc-down-dark);
-}
+/* Dark mode needs no duplicate palette here: the root .theme-dark token
+ * overrides automatically flow through the aliases above.
+ */
 
 /* 2. Reset & base ---------------------------------------------------- */
 * { box-sizing: border-box; }
@@ -70,11 +79,11 @@ main { flex: 1 0 auto; padding: 18px 0 44px; }
 .site-nav { display: flex; gap: 2px; margin-left: auto; overflow-x: auto; }
 .site-nav a { color: var(--muted); padding: 7px 9px; border-radius: var(--radius-sm); font-size: 14px; white-space: nowrap; text-decoration: none; }
 .site-nav a:hover { background: var(--surface-2); color: var(--ink); }
-.site-nav a.nav-portal { color: #f3d992; border: 1px solid rgba(228, 196, 124, 0.35); background: rgba(228, 196, 124, 0.08); font-weight: 600; }
-.site-nav a.nav-portal:hover { background: rgba(228, 196, 124, 0.16); color: #f8e3ae; }
+.site-nav a.nav-portal { color: var(--brand); border: 1px solid var(--line); background: var(--brand-soft); font-weight: 600; }
+.site-nav a.nav-portal:hover { background: var(--brand-soft); color: var(--brand-ink); }
 .site-nav a[aria-current="page"] { color: var(--ink-strong); background: var(--brand-soft); font-weight: 600; }
-.data-strip { background: rgba(228, 196, 124, 0.08); border-bottom: 1px solid var(--line); font-size: 12.5px; color: var(--brand); }
-.data-strip strong { color: #f3d992; }
+.data-strip { background: var(--brand-soft); border-bottom: 1px solid var(--line); font-size: 12.5px; color: var(--brand); }
+.data-strip strong { color: var(--brand-ink); }
 .data-strip .wrap { display: flex; gap: 14px; flex-wrap: wrap; padding: 7px 14px; }
 
 /* 5. Hero ------------------------------------------------------------ */
@@ -138,7 +147,7 @@ input[type="number"] { font-variant-numeric: tabular-nums; }
   border-radius: var(--radius-sm); padding: 8px 13px; font: inherit; font-size: 14px; text-decoration: none;
 }
 .btn:hover { border-color: var(--muted-2); text-decoration: none; }
-.btn-primary { background: var(--brand); border-color: var(--brand); color: #052e1c; font-weight: 600; }
+.btn-primary { background: var(--brand); border-color: var(--brand); color: #FFFFFF; font-weight: 600; }
 .btn-primary:hover { background: var(--brand-ink); }
 .btn-sm { padding: 5px 10px; font-size: 13px; }
 .btn[disabled] { opacity: 0.5; cursor: not-allowed; }
