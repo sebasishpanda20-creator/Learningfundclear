@@ -141,6 +141,19 @@
     if (userDisplay && user && (user.n || user.u)) {
       userDisplay.textContent = user.n || user.u;
     }
+
+    function syncActiveState() {
+      var activePage = currentPage();
+      userbar.querySelectorAll("[data-nav]").forEach(function (btn) {
+        var active = btn.getAttribute("data-nav") === activePage;
+        btn.classList.toggle("active", active);
+        if (active) btn.setAttribute("aria-current", "page");
+        else btn.removeAttribute("aria-current");
+      });
+    }
+
+    window.addEventListener("hashchange", syncActiveState);
+    syncActiveState();
   }
 
   function wireMobileMenu(header, userbar) {
