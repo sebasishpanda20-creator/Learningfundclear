@@ -4,11 +4,13 @@
 }
 
 #dashboard,
+#performance,
 #admin {
   overflow: hidden;
 }
 
 #dashboard > h2,
+#performance > h2,
 #admin > h2 {
   margin: 0;
   padding: 15px 18px;
@@ -19,11 +21,53 @@
 }
 
 #dashboard .content,
+#performance .content,
 #admin .content {
   padding: 16px;
   display: grid;
   gap: 16px;
 }
+
+#performance .method {
+  margin: 0;
+  color: var(--lfc-muted);
+  font-size: 11.5px;
+  line-height: 1.55;
+}
+
+#performance .periods {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
+#performance .periods button {
+  min-height: 38px;
+  padding: 8px 13px;
+  border: 1px solid var(--lfc-border);
+  border-radius: 999px;
+  background: var(--lfc-surface-soft);
+  color: var(--lfc-text);
+  font: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+#performance .periods button.active {
+  border-color: var(--lfc-primary);
+  background: var(--lfc-primary);
+  color: #fff;
+}
+
+#performance .periods select {
+  width: auto;
+  min-width: 120px;
+}
+
+#performance .positive { color: var(--lfc-positive); }
+#performance .negative { color: var(--lfc-negative); }
 
 #dashboard .filters {
   display: grid;
@@ -220,6 +264,7 @@
 
 @media (max-width: 767px) {
   #dashboard .content,
+  #performance .content,
   #admin .content {
     padding: 12px;
   }
