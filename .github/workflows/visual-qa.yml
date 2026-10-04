@@ -1,0 +1,34 @@
+name: visual portal QA
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "index.html"
+      - "signin.html"
+      - "performance.html"
+      - "scanner.html"
+      - "setups.html"
+      - "gex.html"
+      - "funds/**"
+      - "assets/css/**"
+      - "assets/js/**"
+      - ".ci/visual-qa.sh"
+      - ".github/workflows/visual-qa.yml"
+
+permissions: read-all
+
+jobs:
+  screenshots:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Capture desktop and mobile screenshots
+        run: bash .ci/visual-qa.sh
+      - name: Upload visual QA artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: portal-visual-qa
+          path: visual-qa-artifacts
+          if-no-files-found: error
+          retention-days: 7
