@@ -10,16 +10,7 @@
 <link rel="stylesheet" href="assets/css/portal-shell.css">
 <script src="assets/js/theme.js"></script>
 <script defer src="assets/js/portal-shell.js"></script>
-<style>
-:root { color-scheme: light; }
-/* ── LIGHT default (production theme) ── */
-* { box-sizing: border-box; margin: 0; }
-body { min-height: 100vh; background: var(--lfc-bg); color: var(--lfc-text); padding: 22px; font-family: "Segoe UI", system-ui, -apple-system, sans-serif; }
-a.back { color: var(--lfc-primary); text-decoration: none; font-size: 13px; }
-h1 { font-size: 24px; margin: 10px 0 2px; color: var(--lfc-text-strong); }
-.sub { color: var(--lfc-muted); font-size: 13px; margin-bottom: 18px; }
-.card { background: var(--lfc-surface); border: 1px solid var(--lfc-border); border-radius: 12px; padding: 18px; margin-bottom: 18px; }
-</style>
+<link rel="stylesheet" href="assets/css/scanner.css">
 </head>
 <body data-page="scanner">
 
@@ -46,58 +37,112 @@ h1 { font-size: 24px; margin: 10px 0 2px; color: var(--lfc-text-strong); }
       <button class="nav-btn" id="logoutBtn">Logout</button>
     </div>
 </header>
+<main class="scanner-main">
 <a class="back" href="index.html">← Back to journal</a>
 <h1>Demand Zone Scanner</h1>  <p class="sub">End-of-day NSE/BSE + global commodity futures scan · independent pivot-based zone approximation · private page — same sign-in as the journal</p>
 
-<div class="card">
-  <div class="row">
-    <div><label>Pivot left bars</label><input id="pLeft" type="number" min="1" max="10" value="3" style="width:70px"></div>
-    <div><label>Pivot right bars</label><input id="pRight" type="number" min="1" max="10" value="3" style="width:70px"></div>
-    <div><label>Timeframes</label>
-      <div style="display:flex;gap:10px;flex-wrap:wrap;font-size:12px;color:#93a39a">
-        <label style="margin:0"><input type="checkbox" id="tfDaily" checked> Daily</label>
-        <label style="margin:0"><input type="checkbox" id="tfWeekly"> Weekly</label>
-        <label style="margin:0"><input type="checkbox" id="tfMonthly"> Monthly</label>
-        <label style="margin:0"><input type="checkbox" id="tfHourly"> Hourly</label>
-        <label style="margin:0"><input type="checkbox" id="tf15"> 15m (MIS)</label>
-      </div>
+<section class="scan-card" aria-labelledby="scan-config-title">
+  <div class="scan-card-head">
+    <div>
+      <h2 id="scan-config-title">Scan Configuration</h2>
+      <p>Choose the detection settings, timeframes and filters before running the watchlist.</p>
     </div>
-    <div><label>Daily history</label>
-      <select id="days" style="width:110px">
+  </div>
+
+  <div class="scan-settings-grid">
+    <div class="scan-field">
+      <label for="pLeft">Pivot Left</label>
+      <input id="pLeft" type="number" min="1" max="10" value="3">
+    </div>
+    <div class="scan-field">
+      <label for="pRight">Pivot Right</label>
+      <input id="pRight" type="number" min="1" max="10" value="3">
+    </div>
+    <div class="scan-field">
+      <label for="days">History</label>
+      <select id="days">
         <option value="365">1 year</option>
         <option value="730" selected>2 years</option>
         <option value="1095">3 years</option>
       </select>
     </div>
-    <div><label><input id="trendFilter" type="checkbox"> Require bullish EMA trend</label></div>
-    <div><label><input id="showTouching" type="checkbox" checked> Include candles touching a zone</label></div>
-    <div><label><input id="volFilter" type="checkbox"> Volume above 20-day average</label></div>
-    <div><button class="primary" id="scanBtn">Scan watchlist</button></div>
   </div>
-  <div class="row" style="margin-top:12px">
-    <div style="flex:1;min-width:260px"><label>Watchlist (one NSE/BSE symbol or futures like GC=F per line, e.g. COALINDIA.NS)</label>
-      <input id="watchInput" style="width:100%" placeholder="COALINDIA.NS, ASHOKLEY.NS, RELIANCE.NS, GC=F, CL=F">
+  <p class="scan-helper">Higher pivot values usually produce fewer, stronger pivot zones. Existing scanner calculations are unchanged.</p>
+
+  <div class="scan-section">
+    <div class="scan-section-title">Timeframes</div>
+    <div class="timeframe-options" role="group" aria-label="Scan timeframes">
+      <label><input type="checkbox" id="tfDaily" checked><span>Daily</span></label>
+      <label><input type="checkbox" id="tfWeekly"><span>Weekly</span></label>
+      <label><input type="checkbox" id="tfMonthly"><span>Monthly</span></label>
+      <label><input type="checkbox" id="tfHourly"><span>Hourly</span></label>
+      <label><input type="checkbox" id="tf15"><span>15m MIS</span></label>
+    </div>
+  </div>
+
+  <div class="scan-section">
+    <div class="scan-section-title">Signal Filters</div>
+    <div class="filter-options">
+      <label class="filter-option">
+        <input id="trendFilter" type="checkbox">
+        <span><strong>Bullish EMA trend</strong><small>Only show symbols aligned with the existing EMA trend filter.</small></span>
+      </label>
+      <label class="filter-option">
+        <input id="showTouching" type="checkbox" checked>
+        <span><strong>Include zone touches</strong><small>Include candles touching a zone as well as those closing inside it.</small></span>
+      </label>
+      <label class="filter-option">
+        <input id="volFilter" type="checkbox">
+        <span><strong>Above-average volume</strong><small>Require volume above the existing 20-day average filter.</small></span>
+      </label>
+    </div>
+  </div>
+
+  <div class="scan-action">
+    <div class="scan-action-copy">
+      <strong>Ready to scan the selected timeframes</strong>
+      <span>Settings and watchlist are preserved using the existing portal logic.</span>
+    </div>
+    <button class="primary" id="scanBtn">Scan Watchlist</button>
+  </div>
+</section>
+
+<section class="scan-card" aria-labelledby="watchlist-title">
+  <div class="scan-card-head">
+    <div>
+      <h2 id="watchlist-title">Watchlist</h2>
+      <p>Symbols to scan. NSE, BSE and supported futures formats remain unchanged.</p>
+    </div>
+  </div>
+
+  <div class="watchlist-row">
+    <div class="scan-field">
+      <label for="watchInput">Symbols to scan</label>
+      <input class="watchlist-input" id="watchInput" placeholder="RELIANCE.NS, TCS.NS, COALINDIA.NS, GC=F, CL=F">
+      <p class="scan-helper">NSE: RELIANCE.NS · BSE: 500325.BO · Futures: GC=F</p>
     </div>
     <button class="ghost" id="saveWatch">Save list</button>
-    <button class="ghost" id="importToggle">Import list…</button>
-    <button class="ghost" id="addCommodities" title="Adds gold, silver, crude, natgas, copper, zinc, aluminium — the global futures MCX tracks (MCX codes themselves aren't on Yahoo)">Add commodities</button>
+    <button class="ghost" id="importToggle">Import</button>
+    <button class="ghost" id="addCommodities" title="Adds supported global futures proxies for MCX-tracked commodities">Add commodities</button>
   </div>
-  <div class="row hidden" id="importRow" style="margin-top:12px">
-    <div style="flex:1;min-width:260px"><label>Paste symbols — CSV, one per line, or comma/semicolon separated (bare symbol → NSE, bare number → BSE)</label>
-      <textarea id="importBox" rows="6" style="width:100%;padding:9px 10px;border-radius:8px;border:1px solid #2c3a33;background:#0d1310;color:#e8efe9;font-size:12px;font-family:monospace" placeholder="RELIANCE.NS, TCS.NS
-ASHOKLEY.NS, Coal India
-500325"></textarea>
+
+  <div class="hidden" id="importRow">
+    <div class="scan-field">
+      <label for="importBox">Paste or import symbols</label>
+      <textarea id="importBox" rows="6" placeholder="RELIANCE.NS, TCS.NS&#10;ASHOKLEY.NS, Coal India&#10;500325"></textarea>
+      <p class="scan-helper">CSV, one per line, comma/semicolon separated, bare NSE symbol or bare BSE code.</p>
     </div>
-    <div style="display:flex;flex-direction:column;gap:8px">
-      <button class="ghost" id="importFileBtn">Load from file…</button>
-      <input type="file" id="importFile" accept=".csv,.txt,text/csv,text/plain" style="display:none">
+    <div class="import-actions">
+      <button class="ghost" id="importFileBtn">Load from file</button>
+      <input type="file" id="importFile" accept=".csv,.txt,text/csv,text/plain" hidden>
       <button class="ghost" id="importReplace">Replace list</button>
       <button class="ghost" id="importMerge">Merge into list</button>
       <button class="ghost" id="importDefaults">Use default list</button>
     </div>
   </div>
-  <p class="msg" id="msg"></p>
-</div>
+
+  <p class="msg" id="msg" aria-live="polite"></p>
+</section>
 
 <div class="stats">
   <div class="stat"><b id="stScanned">—</b><span>scanned</span></div>
@@ -106,30 +151,34 @@ ASHOKLEY.NS, Coal India
   <div class="stat"><b id="stSkipped">—</b><span>failed / skipped</span></div>
 </div>
 
-<div class="card" id="resultsCard" style="display:none">
+<section class="scan-card" id="resultsCard" style="display:none">
   <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;gap:10px;flex-wrap:wrap">
     <h3 style="font-size:15px">Scan results</h3>
     <button class="ghost" id="downloadBtn">Download Results (CSV)</button>
   </div>
+  <div class="scan-table-wrap">
   <table>
     <thead><tr>
       <th>Symbol</th><th>TF</th><th>Price ₹</th><th>Trend</th><th>Demand zone</th><th>Position</th><th>Dist to zone</th><th>Zone from</th><th>Vol vs 20d</th><th></th>
     </tr></thead>
     <tbody id="resultsBody"></tbody>
   </table>
-</div>
+  </div>
+</section>
 
-<div class="card" id="chartCard" style="display:none">
+<section class="scan-card" id="chartCard" style="display:none">
   <h3 id="chartTitle" style="font-size:15px;margin-bottom:8px"></h3>
   <div id="chartWrap"><canvas id="chart" width="900" height="340"></canvas></div>
   <p class="mut" id="chartNote"></p>
-</div>
+</section>
 
 <p class="disclaimer"><strong>Private Research Journal:</strong> independent pivot-based demand-zone
 approximation on end-of-day data from Yahoo Finance. Free data sources may have missing, delayed or
 inconsistent NSE/BSE data. This is not the invite-only indicator, and it is not investment advice —
 verify every chart on your broker or exchange platform before acting. Consult a SEBI-registered
 professional before making an investment decision.</p>
+
+</main>
 
 <script src="auth-guard.js"></script>
 <script src="scanner-logic.js"></script>
