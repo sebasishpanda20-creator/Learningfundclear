@@ -143,6 +143,19 @@ const SUPABASE_URL = "https://chbtjicvbezbiosuouwm.supabase.co";
 const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNoYnRqaWN2YmV6Ymlvc3VvdXdtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODkzODc2NjAsImV4cCI6MjEwNDk2MzY2MH0.jlTyYWnf1TnvmwCa4NCc-hJ4wZgjWTuSc94DqvMTdNQ";
 const sb = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 const params = new URLSearchParams(location.search);
+const ALLOWED_NEXT = new Set([
+  "index.html",
+  "performance.html",
+  "scanner.html",
+  "setups.html",
+  "gex.html",
+  "funds/index.html",
+  "funds/funds.html",
+  "funds/compare.html",
+  "funds/calculators.html",
+  "funds/methodology.html",
+  "funds/legal.html",
+]);
 
 // DOM refs
 const $ = id => document.getElementById(id);
@@ -198,12 +211,9 @@ async function activeUser(session) {
       await window.LfcDashboard.init({ sb, user: u });
     }
 
-    // honour same-site ?next= (e.g. ?next=performance.html); otherwise stay on the journal
+    // Honour only known internal return targets; never construct an origin-level URL.
     const next = params.get("next");
-    if (next && !/^https?:\/\//.test(next) && !next.startsWith("//")) {
-      const u2 = new URL(next, location.origin);
-      if (u2.origin === location.origin) location.replace(u2.pathname + u2.search + u2.hash);
-    }
+    if (next && ALLOWED_NEXT.has(next)) location.replace(next);
   } catch (e) {
     // session gone / database stale: clear the local flag so the visitor is
     // bounced to the clean login page by auth-guard.js on the way out
@@ -237,9 +247,8 @@ $("loginBtn").onclick = async () => {
     }
     stamp(uRow);
     const next = params.get("next");
-    if (next && !/^https?:\/\//.test(next) && !next.startsWith("//")) {
-      const u2 = new URL(next, location.origin);
-      if (u2.origin === location.origin) location.replace(u2.pathname + u2.search + u2.hash);
+    if (next && ALLOWED_NEXT.has(next)) {
+      location.replace(next);
       return;
     }
     location.replace("index.html");
