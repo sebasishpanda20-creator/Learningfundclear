@@ -200,13 +200,16 @@
     letter-spacing: 0.16em;
   }
 
-  .portal-menu-toggle {
+  .portal-shell-ready .portal-menu-toggle {
     display: inline-flex;
   }
 
   .userbar {
     order: 3;
     width: 100%;
+  }
+
+  .portal-shell-ready .userbar {
     display: none;
     grid-template-columns: 1fr;
     gap: 6px;
@@ -216,7 +219,7 @@
     overflow-y: auto;
   }
 
-  .userbar.is-open {
+  .portal-shell-ready .userbar.is-open {
     display: grid;
   }
 
