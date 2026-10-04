@@ -842,38 +842,8 @@ professional before making an investment decision.</p>
     location.replace("signin.html?next=scanner.html");
   }
 
-  // ── shared navigation: one data-nav system, active tab, admin-only tab, logout ──
-  var adminBtn = $("adminBtn");
-  try {
-    var rec = window.LfcAuth && LfcAuth.current();
-    if (adminBtn) adminBtn.classList.toggle("hidden", !(rec && rec.a));
-  } catch (e) {}
-  document.querySelectorAll("[data-nav]").forEach(function (btn) {
-    btn.addEventListener("click", function () {
-      var page = btn.dataset.nav;
-      var routes = {
-        dashboard: "index.html",
-        performance: "performance.html",
-        funds: "funds/index.html",
-        scanner: "scanner.html",
-        setups: "setups.html",
-        gex: "gex.html",
-        admin: "index.html#admin"
-      };
-      if (page === "admin") {
-        var r2 = window.LfcAuth && LfcAuth.current();
-        if (!(r2 && r2.a)) return; // admin-only
-      }
-      if (routes[page]) location.href = routes[page];
-    });
-  });
-  var logoutBtn = $("logoutBtn");
-  if (logoutBtn) {
-    logoutBtn.addEventListener("click", function () {
-      try { window.LfcAuth && LfcAuth.clear(); } catch (e) {}
-      location.replace("signin.html");
-    });
-  }
+  // Global navigation, admin visibility, theme and logout are owned by portal-shell.js.
+
 })();
 </script>
 </body>
