@@ -179,25 +179,11 @@
   }
 }
 
-@media (max-width: 767px) {
+@media (max-width: 900px) {
   header {
     padding: 10px 12px;
     align-items: center;
     flex-wrap: wrap;
-  }
-
-  .header-brand {
-    min-width: 0;
-  }
-
-  .header-brand h1 {
-    font-size: 12px;
-    letter-spacing: 0.16em;
-  }
-
-  .header-brand small {
-    font-size: 9px;
-    letter-spacing: 0.16em;
   }
 
   .portal-shell-ready .portal-menu-toggle {
@@ -233,6 +219,22 @@
 
   .userbar #userDisplay {
     padding: 7px 4px;
+  }
+}
+
+@media (max-width: 767px) {
+  .header-brand {
+    min-width: 0;
+  }
+
+  .header-brand h1 {
+    font-size: 12px;
+    letter-spacing: 0.16em;
+  }
+
+  .header-brand small {
+    font-size: 9px;
+    letter-spacing: 0.16em;
   }
 }
 
