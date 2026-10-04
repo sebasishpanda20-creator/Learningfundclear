@@ -99,7 +99,7 @@
       empty.classList.toggle("hidden", rows.length > 0);
 
       rows.forEach(function (idea) {
-        var inWatch = watch.has(idea.id);
+        var inWatch = watch.has(String(idea.id));
         var watchHidden = $("watchHead") && $("watchHead").classList.contains("hidden");
 
         var tr = document.createElement("tr");
@@ -166,13 +166,13 @@
         console.error(result.error);
         watch = new Set();
       } else {
-        watch = new Set((result.data || []).map(function (row) { return row.idea_id; }));
+        watch = new Set((result.data || []).map(function (row) { return String(row.idea_id); }));
       }
       renderIdeas();
     }
 
     async function toggleWatch(id) {
-      var has = watch.has(id);
+      id = String(id);\n      var has = watch.has(id);
       var query = has
         ? sb.from("user_watchlist").delete().eq("user_id", me.id).eq("idea_id", id)
         : sb.from("user_watchlist").insert({ user_id: me.id, idea_id: id });
