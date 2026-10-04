@@ -54,6 +54,10 @@ for (const [page, expected] of Object.entries(pageSpecs)) {
   const html = read(page);
   if (!html) continue;
 
+  if (!html.includes('name="viewport"')) {
+    fail(page + " missing responsive viewport meta");
+  }
+
   const nav = [...html.matchAll(/data-nav="([^"]+)"/g)].map((m) => m[1]);
   const uniqueNav = [...new Set(nav)];
   if (JSON.stringify(uniqueNav) !== JSON.stringify(canonicalNav)) {
@@ -101,6 +105,24 @@ for (const [page, expected] of Object.entries(pageSpecs)) {
   requireText(html, "data-lfc-theme-toggle", page + " theme contract");
   requireText(html, 'id="adminBtn"', page + " admin contract");
 }
+
+for (const [page, cssPath] of [
+  ["scanner.html", "assets/css/scanner.css"],
+  ["setups.html", "assets/css/setups.css"],
+  ["gex.html", "assets/css/gex.css"],
+]) {
+  const html = read(page);
+  if (/<style>[\s\S]*?<\/style>/.test(html)) {
+    fail(page + " contains page-local style block; module styling must stay external");
+  }
+  const css = read(cssPath);
+  requireText(css, "@media (max-width: 767px)", cssPath + " mobile breakpoint");
+}
+
+const shellCss = read("assets/css/portal-shell.css");
+requireText(shellCss, "@media (max-width: 767px)", "portal shell mobile breakpoint");
+requireText(shellCss, ".portal-menu-toggle", "portal shell mobile menu");
+requireText(shellCss, ".portal-shell-ready .userbar.is-open", "portal shell mobile open state");
 
 const signin = read("signin.html");
 for (const id of ["authPending", "login", "loginUser", "loginPass", "loginBtn"]) {
@@ -157,6 +179,9 @@ for (const id of ["sym", "exp", "load", "auto", "mkt", "stamp", "stats", "bars",
 }
 requireText(gex, '<script src="auth-guard.js"></script>', "GEX auth gate");
 requireText(gex, "assets/css/gex.css", "GEX module stylesheet");
+
+requireText(read("assets/js/portal-shell.js"), 'signin.html?signout=1', "canonical logout handoff");
+requireText(read("assets/js/portal-shell.js"), 'location.hash === "#admin"', "admin active-tab routing");
 
 const tokens = read("assets/css/tokens.css");
 const fundCss = read("funds/assets/css/style.css");
