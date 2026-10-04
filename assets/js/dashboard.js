@@ -172,7 +172,8 @@
     }
 
     async function toggleWatch(id) {
-      id = String(id);\n      var has = watch.has(id);
+      id = String(id);
+      var has = watch.has(id);
       var query = has
         ? sb.from("user_watchlist").delete().eq("user_id", me.id).eq("idea_id", id)
         : sb.from("user_watchlist").insert({ user_id: me.id, idea_id: id });
