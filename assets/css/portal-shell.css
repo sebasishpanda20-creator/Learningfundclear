@@ -1,3 +1,134 @@
+/* Canonical shell primitives */
+.portal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 20px;
+  background: var(--lfc-surface-raised);
+  border-bottom: 1px solid var(--lfc-border);
+  position: sticky;
+  top: 0;
+  z-index: 30;
+}
+
+.portal-header .header-brand {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  min-width: 0;
+}
+
+.portal-header .header-logo {
+  width: 40px;
+  height: 40px;
+  display: grid;
+  place-items: center;
+  flex: 0 0 40px;
+  border-radius: var(--lfc-radius-lg);
+  background: var(--lfc-primary-soft);
+  color: var(--lfc-primary);
+  box-shadow: var(--lfc-shadow);
+}
+
+.portal-header .header-logo svg {
+  width: 22px;
+  height: 22px;
+  display: block;
+}
+
+.portal-header .header-brand h1 {
+  margin: 0;
+  font-family: var(--lfc-font-sans);
+  font-size: 14px;
+  line-height: 1.2;
+  letter-spacing: 0.22em;
+  font-weight: 800;
+  color: var(--lfc-text-strong);
+}
+
+.portal-header .header-brand small {
+  display: block;
+  margin-top: 2px;
+  color: var(--lfc-muted);
+  font-family: var(--lfc-font-sans);
+  font-size: 10px;
+  letter-spacing: 0.2em;
+}
+
+.portal-header .userbar {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+  margin-left: auto;
+}
+
+.portal-header .userbar > span {
+  color: var(--lfc-muted);
+  font-family: var(--lfc-font-sans);
+  font-size: 12.5px;
+}
+
+.portal-header .nav-btn,
+.portal-header .portal-menu-toggle {
+  min-height: 44px;
+  padding: 10px 15px;
+  border: 1px solid var(--lfc-border);
+  border-radius: var(--lfc-radius-control);
+  background: var(--lfc-surface);
+  color: var(--lfc-text);
+  font-family: var(--lfc-font-sans);
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: border-color .18s, background .18s, filter .18s;
+}
+
+.portal-header .nav-btn:hover,
+.portal-header .nav-btn:focus-visible {
+  border-color: var(--lfc-primary);
+  background: var(--lfc-primary-soft);
+}
+
+.portal-header .nav-btn.active,
+.portal-header .nav-btn[aria-current="page"] {
+  background: var(--lfc-primary);
+  border-color: var(--lfc-primary);
+  color: #fff;
+}
+
+.funds-subnav {
+  display: flex;
+  gap: 6px;
+  overflow-x: auto;
+  padding: 10px max(14px, calc((100vw - 1080px) / 2 + 14px));
+  background: var(--lfc-surface);
+  border-bottom: 1px solid var(--lfc-border);
+  scrollbar-width: thin;
+}
+
+.funds-subnav a {
+  flex: 0 0 auto;
+  padding: 7px 10px;
+  border-radius: var(--lfc-radius-sm);
+  color: var(--lfc-muted);
+  font-family: var(--lfc-font-sans);
+  font-size: 13px;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.funds-subnav a:hover {
+  background: var(--lfc-primary-soft);
+  color: var(--lfc-primary);
+}
+
+.funds-subnav a[aria-current="page"] {
+  background: var(--lfc-primary-soft);
+  color: var(--lfc-primary);
+}
+
 /* Canonical LearningFundClear portal shell.
  * Shared responsive header/nav behavior for authenticated application pages.
  */
