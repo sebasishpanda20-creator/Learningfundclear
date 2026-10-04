@@ -80,6 +80,9 @@ for (const [page, expected] of Object.entries(pageSpecs)) {
   }
 
   const prefix = page.startsWith("funds/") ? "../" : "";
+  if (countScript(html, prefix + "assets/js/theme.js") !== 1) {
+    fail(page + " must load theme.js exactly once");
+  }
   if (countScript(html, prefix + "assets/js/portal-shell.js") !== 1) {
     fail(page + " must load portal-shell.js exactly once");
   }
