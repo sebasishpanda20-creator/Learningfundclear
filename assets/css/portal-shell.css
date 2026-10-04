@@ -232,3 +232,6 @@
     padding: 7px 4px;
   }
 }
+
+
+.portal-header .hidden { display: none !important; }
