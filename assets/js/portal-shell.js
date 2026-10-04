@@ -15,6 +15,7 @@
   ];
 
   function currentPage() {
+    if (location.hash === "#admin") return "admin";
     var explicit = document.body && document.body.dataset.page;
     if (explicit) return explicit;
     var p = (location.pathname || "").toLowerCase();
