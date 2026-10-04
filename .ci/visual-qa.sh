@@ -45,10 +45,19 @@ python3 -m http.server "$PORT" --bind 127.0.0.1 --directory "$SITE" >"$QA_DIR/se
 SERVER_PID=$!
 trap 'kill "$SERVER_PID" >/dev/null 2>&1 || true; rm -rf "$QA_DIR"' EXIT
 
-for _ in $(seq 1 30); do
-  if curl -fsS "http://127.0.0.1:$PORT/signin.html" >/dev/null; then break; fi
+ready=0
+for _ in $(seq 1 50); do
+  if curl -fsS "http://127.0.0.1:$PORT/signin.html" >/dev/null; then
+    ready=1
+    break
+  fi
   sleep 0.2
 done
+if [ "$ready" -ne 1 ]; then
+  echo "QA server did not become ready."
+  cat "$QA_DIR/server.log" || true
+  exit 1
+fi
 
 PAGES=(
   "signin.html"
@@ -64,8 +73,8 @@ capture() {
   local width="$1"
   local height="$2"
   local page="$3"
-  local slug="\${page//\//-}"
-  slug="\${slug%.html}"
+  local slug="${page//\//-}"
+  slug="${slug%.html}"
   "$BROWSER" \
     --headless=new \
     --no-sandbox \
@@ -73,11 +82,11 @@ capture() {
     --hide-scrollbars \
     --force-device-scale-factor=1 \
     --window-size="$width,$height" \
-    --screenshot="$OUT/\${slug}-\${width}px.png" \
+    --screenshot="$OUT/${slug}-${width}px.png" \
     "http://127.0.0.1:$PORT/$page" >/dev/null 2>&1
 }
 
-for page in "\${PAGES[@]}"; do
+for page in "${PAGES[@]}"; do
   capture 390 2200 "$page"
   capture 768 2400 "$page"
   capture 1440 2600 "$page"
