@@ -31,6 +31,8 @@ for rel in pages:
     text = re.sub(r'<script(?![^>]*\bsrc=)[^>]*>[\s\S]*?</script>', '', text, flags=re.I)
     if rel in {"index.html", "performance.html"}:
         text = text.replace('id="appShell" class="hidden"', 'id="appShell"')
+    if rel == "signin.html":
+        text = text.replace('id="authPending" class="hidden"', 'id="authPending"')
     p.write_text(text, encoding="utf-8")
 
 (site / "auth-guard.js").write_text(
@@ -81,6 +83,7 @@ capture() {
     --disable-gpu \
     --hide-scrollbars \
     --force-device-scale-factor=1 \
+    --virtual-time-budget=1000 \
     --window-size="$width,$height" \
     --screenshot="$OUT/${slug}-${width}px.png" \
     "http://127.0.0.1:$PORT/$page" >/dev/null 2>&1
