@@ -1,4 +1,5 @@
 import { existsSync, readFileSync } from "node:fs";
+import path from "node:path";
 
 let failed = 0;
 
@@ -123,6 +124,29 @@ const shellCss = read("assets/css/portal-shell.css");
 requireText(shellCss, "@media (max-width: 767px)", "portal shell mobile breakpoint");
 requireText(shellCss, ".portal-menu-toggle", "portal shell mobile menu");
 requireText(shellCss, ".portal-shell-ready .userbar.is-open", "portal shell mobile open state");
+
+
+const allHtmlPages = [
+  "index.html", "signin.html", "performance.html", "scanner.html", "setups.html", "gex.html",
+  "funds/index.html", "funds/funds.html", "funds/compare.html", "funds/calculators.html",
+  "funds/methodology.html", "funds/legal.html",
+];
+
+for (const page of allHtmlPages) {
+  const html = read(page);
+  const refs = [
+    ...[...html.matchAll(/(?:href|src)="([^"]+)"/g)].map((m) => m[1]),
+  ];
+  for (const raw of refs) {
+    if (!raw || raw.startsWith("#") || /^(?:https?:|mailto:|tel:|data:|javascript:)/i.test(raw)) continue;
+    const clean = raw.split("#")[0].split("?")[0];
+    if (!clean) continue;
+    if (!/\.(?:html|css|js|json|svg)$/i.test(clean)) continue;
+    const target = path.normalize(path.join(path.dirname(page), clean));
+    if (!existsSync(target)) fail(page + " local reference does not resolve: " + raw + " -> " + target);
+  }
+}
+pass("local links and assets resolve");
 
 const signin = read("signin.html");
 for (const id of ["authPending", "login", "loginUser", "loginPass", "loginBtn"]) {
