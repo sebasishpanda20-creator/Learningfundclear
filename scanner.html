@@ -185,6 +185,10 @@ professional before making an investment decision.</p>
 (function () {
   "use strict";
   var $ = function (id) { return document.getElementById(id); };
+  if (!window.LfcAuth || !window.LfcAuth.current()) {
+    location.replace("signin.html?next=scanner.html");
+    return;
+  }
   var lastRows = [];
   var cacheHits = 0;
 
@@ -837,10 +841,6 @@ professional before making an investment decision.</p>
     reader.readAsText(f);
     ev.target.value = "";   // allow re-selecting the same file
   };
-  if (!window.LfcAuth || !window.LfcAuth.current()) {
-    location.replace("signin.html?next=scanner.html");
-  }
-
   // Global navigation, admin visibility, theme and logout are owned by portal-shell.js.
 
 })();
