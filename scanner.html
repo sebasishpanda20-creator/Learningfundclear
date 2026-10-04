@@ -7,7 +7,9 @@
 <title>Demand Zone Scanner — Private Research Journal</title>
 <link rel="stylesheet" href="assets/css/tokens.css">
 <link rel="stylesheet" href="assets/css/app.css">
+<link rel="stylesheet" href="assets/css/portal-shell.css">
 <script src="assets/js/theme.js"></script>
+<script defer src="assets/js/portal-shell.js"></script>
 <style>
 :root { color-scheme: light; }
 /* ── LIGHT default (production theme) ── */
@@ -19,7 +21,7 @@ h1 { font-size: 24px; margin: 10px 0 2px; color: var(--lfc-text-strong); }
 .card { background: var(--lfc-surface); border: 1px solid var(--lfc-border); border-radius: 12px; padding: 18px; margin-bottom: 18px; }
 </style>
 </head>
-<body>
+<body data-page="scanner">
 
 <header id="header">
   <div class="header-brand">
@@ -32,16 +34,17 @@ h1 { font-size: 24px; margin: 10px 0 2px; color: var(--lfc-text-strong); }
     </div>
   </div>
   <div class="userbar">
-    <button class="nav-btn" data-nav="dashboard">Dashboard</button>
-    <button class="nav-btn" data-nav="performance">Performance</button>
-    <button class="nav-btn" data-nav="funds">Mutual Funds</button>
-    <button class="nav-btn active" data-nav="scanner">Scanner</button>
-    <button class="nav-btn" data-nav="setups">Setups</button>
-    <button class="nav-btn" data-nav="gex">GEX</button>
-    <button class="nav-btn hidden" id="adminBtn" data-nav="admin">Admin</button>
-    <button class="nav-btn" id="themeToggle" data-lfc-theme-toggle style="margin-left:auto;" aria-pressed="false">Dark</button>
-    <button class="nav-btn" id="logoutBtn" style="margin-left:4px;">Logout</button>
-  </div>
+      <span id="userDisplay">—</span>
+      <button class="nav-btn" data-nav="dashboard">Dashboard</button>
+      <button class="nav-btn" data-nav="performance">Performance</button>
+      <button class="nav-btn" data-nav="funds">Mutual Funds</button>
+      <button class="nav-btn active" data-nav="scanner" aria-current="page">Scanner</button>
+      <button class="nav-btn" data-nav="setups">Setups</button>
+      <button class="nav-btn" data-nav="gex">GEX</button>
+      <button class="nav-btn hidden" id="adminBtn" data-nav="admin">Admin</button>
+      <button class="nav-btn" id="themeToggle" data-lfc-theme-toggle aria-pressed="false">🌙 Dark</button>
+      <button class="nav-btn" id="logoutBtn">Logout</button>
+    </div>
 </header>
 <a class="back" href="index.html">← Back to journal</a>
 <h1>Demand Zone Scanner</h1>  <p class="sub">End-of-day NSE/BSE + global commodity futures scan · independent pivot-based zone approximation · private page — same sign-in as the journal</p>
