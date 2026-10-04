@@ -8,6 +8,7 @@
 <link rel="stylesheet" href="assets/css/tokens.css">
 <link rel="stylesheet" href="assets/css/app.css">
 <link rel="stylesheet" href="assets/css/portal-shell.css">
+<link rel="stylesheet" href="assets/css/dashboard.css">
 <style>
 /* ── Performance page (light token-driven) ── */
 #performance h2.card-head {
@@ -59,7 +60,6 @@
         <small>Performance</small>
       </div>
     </div>
-    </div>
     <div class="userbar">
       <span id="userDisplay">—</span>
       <button class="nav-btn" data-nav="dashboard">Dashboard</button>
@@ -74,21 +74,11 @@
     </div>
   </header>
   <main>
-    <section id="dashboard" class="card" style="padding:22px;">
-      <header class="card-head"><span>Dashboard · All ideas</span></header>
-      <div class="card-body">
-        <p class="muted" style="margin:0;">Authenticated research dashboard.</p>
-      </div>
-    </section>
-    <section id="performance" class="card" style="padding:22px;">
-      <header class="card-head"><span>Performance</span></header>
-      <div class="card-body">
-        <p class="muted" style="margin:0;">Research performance data.</p>
-      </div>
-    </section>
-  </main>
+<section id="performance" class="card"><h2>Research Outcome Tracker</h2><div class="content"><p class="method">Closed ideas only. Results use the recorded entry and exit prices.</p><div class="periods"><button class="active" data-period="weekly">Weekly</button><button data-period="monthly">Monthly</button><button data-period="quarterly">Quarterly</button><button data-period="yearly">Yearly</button><button data-period="all">All time</button><select id="perfYear"><option value="all">All years</option></select></div><div class="summary-grid"><div class="metric"><span>Closed ideas</span><strong id="closedCount">0</strong></div><div class="metric"><span>Positive</span><strong id="positiveCount" class="positive">0</strong></div><div class="metric"><span>Negative</span><strong id="negativeCount" class="negative">0</strong></div><div class="metric"><span>Average return</span><strong id="averageReturn">—</strong></div></div><div class="table-wrap"><table><thead><tr><th>Ticker</th><th>Entry</th><th>Exit</th><th>Closed</th><th>Outcome</th><th>P&amp;L/share</th><th>Return</th><th>Reason</th></tr></thead><tbody id="performanceBody"></tbody></table></div><div id="performanceEmpty" class="empty hidden">No closed ideas for this period.</div><p class="method">This is a research tracker, not individual user performance. It excludes brokerage, taxes, slippage, liquidity limits, and execution differences. Past outcomes do not guarantee future results.</p></div></section>
+</main>
 </div>
 
+<script src="assets/js/performance.js"></script>
 <script src="auth-guard.js"></script>
 <script type="module">
 import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm";
@@ -148,6 +138,9 @@ async function activeUser(session) {
     if (adminBtn) adminBtn.classList.toggle("hidden", !isAdmin);
 
     showShell(u);
+    if (window.LfcPerformance) {
+      await window.LfcPerformance.init({ sb, user: u });
+    }
   } catch (e) {
     showLogin();
   }
