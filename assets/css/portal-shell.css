@@ -1,0 +1,103 @@
+/* Canonical LearningFundClear portal shell.
+ * Shared responsive header/nav behavior for authenticated application pages.
+ */
+
+.portal-menu-toggle {
+  display: none;
+  align-items: center;
+  gap: 7px;
+  min-height: 44px;
+  padding: 9px 12px;
+  margin-left: auto;
+  border: 1px solid var(--lfc-border);
+  border-radius: var(--lfc-radius-control);
+  background: var(--lfc-surface);
+  color: var(--lfc-text);
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.portal-menu-toggle:hover,
+.portal-menu-toggle:focus-visible {
+  border-color: var(--lfc-primary);
+  background: var(--lfc-primary-soft);
+}
+
+.userbar {
+  align-items: center;
+}
+
+.userbar .nav-btn {
+  white-space: nowrap;
+}
+
+.userbar #userDisplay {
+  flex: 0 1 auto;
+}
+
+@media (max-width: 1100px) {
+  header {
+    align-items: flex-start;
+    flex-wrap: wrap;
+  }
+
+  .userbar {
+    width: 100%;
+    justify-content: flex-start;
+  }
+}
+
+@media (max-width: 767px) {
+  header {
+    padding: 10px 12px;
+    align-items: center;
+    flex-wrap: wrap;
+  }
+
+  .header-brand {
+    min-width: 0;
+  }
+
+  .header-brand h1 {
+    font-size: 12px;
+    letter-spacing: 0.16em;
+  }
+
+  .header-brand small {
+    font-size: 9px;
+    letter-spacing: 0.16em;
+  }
+
+  .portal-menu-toggle {
+    display: inline-flex;
+  }
+
+  .userbar {
+    order: 3;
+    width: 100%;
+    display: none;
+    grid-template-columns: 1fr;
+    gap: 6px;
+    align-items: stretch;
+    padding-top: 8px;
+    max-height: calc(100vh - 82px);
+    overflow-y: auto;
+  }
+
+  .userbar.is-open {
+    display: grid;
+  }
+
+  .userbar .nav-btn,
+  .userbar button {
+    width: 100%;
+    margin-left: 0 !important;
+    justify-content: flex-start;
+    text-align: left;
+  }
+
+  .userbar #userDisplay {
+    padding: 7px 4px;
+  }
+}
