@@ -7,35 +7,46 @@
 <title>All schemes — LearningFundClear</title>
 <meta name="description" content="Search open-ended Indian mutual fund schemes by name, fund house, category or AMFI code, with the latest published NAV for every one of them.">
 <link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="../assets/css/tokens.css">
 <link rel="stylesheet" href="assets/css/style.css">
+<link rel="stylesheet" href="../assets/css/portal-shell.css">
+<script src="../assets/js/theme.js"></script>
+<script defer src="../assets/js/portal-shell.js"></script>
 </head>
-<body>
+<body data-page="funds" data-root="../">
 <a class="skip" href="#main">Skip to content</a>
 
-<header class="site-header">
-  <div class="wrap">
-    <a class="brand" href="index.html">
-      <svg width="24" height="24" viewBox="0 0 24 24" aria-hidden="true">
-        <rect x="2" y="13" width="4" height="9" rx="1.2" fill="#0f6a4f"></rect>
-        <rect x="8" y="9" width="4" height="13" rx="1.2" fill="#2a9d78"></rect>
-        <rect x="14" y="5" width="4" height="17" rx="1.2" fill="#5bbf99"></rect>
-        <rect x="20" y="10" width="2.5" height="12" rx="1.2" fill="#8ad6b8"></rect>
-      </svg>
-      <span>LearningFundClear<small>data, not advice</small></span>
-    </a>
-    <nav class="site-nav" aria-label="Primary">
-      <a class="nav-portal" href="../index.html">← Journal</a>
-      <a class="nav-portal" href="../scanner.html">Scanner</a>
-      <a class="nav-portal" href="../setups.html">Setups</a>
-      <a href="index.html">Home</a>
-      <a href="funds.html">Schemes</a>
-      <a href="compare.html">Compare</a>
-      <a href="calculators.html">Calculators</a>
-      <a href="methodology.html">Methodology</a>
-      <a href="legal.html">Legal</a>
-    </nav>
+<header class="portal-header">
+  <div class="header-brand">
+    <div class="header-logo" aria-hidden="true">
+      <svg viewBox="0 0 24 24" fill="none"><path d="M4 17.5 9.5 12l4 3.5L20 7" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/><path d="M14.5 7H20v5.5" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    </div>
+    <div>
+      <h1>LearningFundClear</h1>
+      <small>Research portal</small>
+    </div>
+  </div>
+  <div class="userbar">
+    <span id="userDisplay">—</span>
+    <button class="nav-btn" data-nav="dashboard">Dashboard</button>
+    <button class="nav-btn" data-nav="performance">Performance</button>
+    <button class="nav-btn active" data-nav="funds" aria-current="page">Mutual Funds</button>
+    <button class="nav-btn" data-nav="scanner">Scanner</button>
+    <button class="nav-btn" data-nav="setups">Setups</button>
+    <button class="nav-btn" data-nav="gex">GEX</button>
+    <button class="nav-btn hidden" id="adminBtn" data-nav="admin">Admin</button>
+    <button class="nav-btn" id="themeToggle" data-lfc-theme-toggle aria-pressed="false">🌙 Dark</button>
+    <button class="nav-btn" id="logoutBtn">Logout</button>
   </div>
 </header>
+<nav class="funds-subnav" aria-label="Mutual Funds">
+  <a href="index.html">Overview</a>
+  <a href="funds.html" aria-current="page">Schemes</a>
+  <a href="compare.html">Compare</a>
+  <a href="calculators.html">Calculators</a>
+  <a href="methodology.html">Methodology</a>
+  <a href="legal.html">Legal</a>
+</nav>
 
 <div class="data-strip">
   <div class="wrap">
