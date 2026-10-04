@@ -1,0 +1,253 @@
+/* Dashboard / Admin module styles */
+#appShell > main {
+  max-width: 1440px;
+}
+
+#dashboard,
+#admin {
+  overflow: hidden;
+}
+
+#dashboard > h2,
+#admin > h2 {
+  margin: 0;
+  padding: 15px 18px;
+  border-bottom: 1px solid var(--lfc-border-soft);
+  background: var(--lfc-surface);
+  color: var(--lfc-text-strong);
+  font-size: 15px;
+}
+
+#dashboard .content,
+#admin .content {
+  padding: 16px;
+  display: grid;
+  gap: 16px;
+}
+
+#dashboard .filters {
+  display: grid;
+  grid-template-columns: minmax(220px, 1.6fr) repeat(4, minmax(145px, 1fr)) auto;
+  gap: 8px;
+  align-items: center;
+}
+
+#dashboard .filters input,
+#dashboard .filters select {
+  min-width: 0;
+  background: var(--lfc-surface-soft);
+}
+
+.table-wrap {
+  width: 100%;
+  overflow-x: auto;
+  border: 1px solid var(--lfc-border);
+  border-radius: var(--lfc-radius);
+  background: var(--lfc-surface);
+}
+
+.table-wrap table {
+  width: 100%;
+  min-width: 900px;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.table-wrap th,
+.table-wrap td {
+  padding: 10px 11px;
+  text-align: left;
+  border-bottom: 1px solid var(--lfc-border-soft);
+  vertical-align: top;
+  white-space: nowrap;
+}
+
+.table-wrap th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: var(--lfc-surface-soft);
+  color: var(--lfc-muted);
+  font-size: 10.5px;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+
+.table-wrap tbody tr:hover {
+  background: var(--lfc-surface-soft);
+}
+
+.table-wrap td.notes {
+  min-width: 240px;
+  max-width: 360px;
+  white-space: normal;
+}
+
+.mobile-list {
+  display: none;
+  gap: 12px;
+}
+
+.idea-card {
+  padding: 15px;
+  border: 1px solid var(--lfc-border);
+  border-radius: var(--lfc-radius);
+  background: var(--lfc-surface);
+}
+
+.idea-card-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.idea-card h3 {
+  margin: 0;
+  font-size: 16px;
+}
+
+.idea-card p {
+  margin: 8px 0;
+}
+
+.idea-card .prices {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+  margin: 12px 0;
+}
+
+.idea-card .prices > div {
+  padding: 9px;
+  border: 1px solid var(--lfc-border-soft);
+  border-radius: var(--lfc-radius-sm);
+  background: var(--lfc-surface-soft);
+}
+
+.idea-card .prices span {
+  display: block;
+  color: var(--lfc-muted);
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: .08em;
+}
+
+.idea-card .prices b {
+  display: block;
+  margin-top: 4px;
+  color: var(--lfc-text-strong);
+}
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  min-height: 26px;
+  padding: 4px 9px;
+  border: 1px solid var(--lfc-border);
+  border-radius: 999px;
+  background: var(--lfc-neutral-soft);
+  color: var(--lfc-text);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.empty {
+  padding: 22px;
+  text-align: center;
+  color: var(--lfc-muted);
+}
+
+#admin .section-title {
+  margin-top: 4px;
+  color: var(--lfc-text-strong);
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+}
+
+#admin .grid2,
+#admin .grid3 {
+  display: grid;
+  gap: 10px;
+}
+
+#admin .grid2 {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+#admin .grid3 {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+#admin label {
+  display: grid;
+  gap: 5px;
+  color: var(--lfc-muted);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+#admin textarea {
+  min-height: 92px;
+  resize: vertical;
+}
+
+#admin .actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+#admin hr {
+  width: 100%;
+  margin: 2px 0;
+  border: 0;
+  border-top: 1px solid var(--lfc-border);
+}
+
+#dashboard button,
+#admin button {
+  min-height: 38px;
+}
+
+@media (max-width: 1100px) {
+  #dashboard .filters {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 767px) {
+  #dashboard .content,
+  #admin .content {
+    padding: 12px;
+  }
+
+  #dashboard .filters {
+    grid-template-columns: 1fr;
+  }
+
+  .desktop-table {
+    display: none;
+  }
+
+  .mobile-list {
+    display: grid;
+  }
+
+  #admin .grid2,
+  #admin .grid3 {
+    grid-template-columns: 1fr;
+  }
+
+  #admin .table-wrap {
+    margin-inline: 0;
+  }
+}
+
+@media (max-width: 430px) {
+  .idea-card .prices {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
