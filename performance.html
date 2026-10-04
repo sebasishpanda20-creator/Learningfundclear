@@ -169,7 +169,7 @@ $("loginBtn").onclick = async () => {
       return;
     }
     stamp(uRow);
-    location.replace(params.get("next") || "./");
+    location.replace("performance.html");
   } catch (e) {
     msg.textContent = "Sign-in failed: " + e.message;
     $("loginBtn").disabled = false;
