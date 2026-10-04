@@ -218,12 +218,14 @@ async function load() {
   }
 }
 
-$("load").onclick = load;
-$("sym").onchange = () => { $("exp").innerHTML = "<option>loading\u2026</option>"; load(); };
-$("exp").onchange = load;
-setInterval(() => { if ($("auto").checked && !document.hidden) load(); }, 60000);
-setInterval(tick, 1000);
-load();
+if (window.LfcAuth && LfcAuth.current()) {
+  $("load").onclick = load;
+  $("sym").onchange = () => { $("exp").innerHTML = "<option>loading\u2026</option>"; load(); };
+  $("exp").onchange = load;
+  setInterval(() => { if ($("auto").checked && !document.hidden) load(); }, 60000);
+  setInterval(tick, 1000);
+  load();
+}
 </script>
 </body>
 </html>
