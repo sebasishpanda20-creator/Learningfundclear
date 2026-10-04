@@ -158,12 +158,15 @@
 
   function wireMobileMenu(header, userbar) {
     var toggle = header.querySelector(".portal-menu-toggle");
+    if (!userbar.id) userbar.id = "portalNav";
+
     if (!toggle) {
       toggle = document.createElement("button");
       toggle.type = "button";
       toggle.className = "portal-menu-toggle";
       toggle.setAttribute("aria-label", "Open navigation");
       toggle.setAttribute("aria-expanded", "false");
+      toggle.setAttribute("aria-controls", userbar.id);
       toggle.innerHTML = '<span aria-hidden="true">☰</span><span>Menu</span>';
       header.insertBefore(toggle, userbar);
     }
