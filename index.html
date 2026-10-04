@@ -160,18 +160,21 @@ const userDisplay = $("userDisplay");
 const adminBtn = $("adminBtn");
 let isAdmin = false;
 
-function hidePending() { pending.classList.add("hidden"); }
+// auth-guard.js local-session stamp (convenience flag for the static fund pages)
+const stamp = u => { try { window.LfcAuth && LfcAuth.stamp({ u: u.username || u.id, n: u.display_name || u.username || "", a: !!u.is_admin }); } catch (e) {} };
+
 function showLoginOnly() {
-  // login card visible; shell hidden. Nothing private flashes.
-  loginCard.classList.remove("hidden");
+  // top-level containers: #authPending holds the login UI, so it must be VISIBLE
+  // for the signed-out state; the shell stays hidden. Nothing private flashes.
+  pending.classList.remove("hidden");
   shell.classList.add("hidden");
   userDisplay.textContent = "—";
   if (adminBtn) adminBtn.classList.add("hidden");
 }
 function showShell() {
   // authenticated: shell visible, login card hidden, nothing private flashes.
+  pending.classList.add("hidden");
   shell.classList.remove("hidden");
-  loginCard.classList.add("hidden");
 }
 
 async function activeUser(session) {
@@ -182,7 +185,6 @@ async function activeUser(session) {
 
 // ── Auth state machine ──
 (async function initAuth() {
-  hidePending();
   showLoginOnly();
 
   try {
@@ -299,25 +301,7 @@ document.querySelectorAll("[data-nav]").forEach(btn => {
   });
 });
 
-// ── Logout: independent of navigation handler ──
-const logoutBtn = document.getElementById("logoutBtn");
-if (logoutBtn) {
-  logoutBtn.addEventListener("click", async () => {
-    logoutBtn.disabled = true;
-    try {
-      if (window.LfcAuth) LfcAuth.clear();
-      await sb.auth.signOut();
-    } catch (err) {
-      console.error("Logout error:", err);
-    } finally {
-      // clean login-only state; Back must not restore private page
-      window.location.replace("index.html");
-    }
-  });
-}
-
-// Login form focus / enter-to-submit
-$("#loginPass").addEventListener("keydown", e => { if (e.key === "Enter") $("#loginBtn").click(); });
+  $("loginPass").addEventListener("keydown", e => { if (e.key === "Enter") $("loginBtn").click(); });
 
 // Login form field focus / enter-to-submit
 

@@ -40,6 +40,7 @@
       </label>
       <button class="primary" id="loginBtn" style="width:100%;margin-top:16px;padding:12px;border:0;border-radius:10px;background:var(--lfc-primary);color:#FFFFFF;font-size:15px;font-weight:600;cursor:pointer;">Sign in</button>
       <p class="muted" style="margin:14px 0 0;font-size:12.5px;">Private portal. Use the credentials provided by the administrator.</p>
+      <p id="loginMsg" class="muted" style="min-height:18px;font-size:13px;color:var(--lfc-positive);margin-top:10px;"></p>
     </section>
   </main>
 </div>
@@ -52,18 +53,19 @@
       </div>
       <div>
         <h1>LearningFundClear</h1>
-        <small>Research dashboard</small>
+        <small>Performance</small>
       </div>
+    </div>
     </div>
     <div class="userbar">
       <span id="userDisplay">—</span>
-      <button class="nav-btn active" data-nav="dashboard">Dashboard</button>
-      <button class="nav-btn" data-nav="performance">Performance</button>
-      <button class="nav-btn" data-nav="funds">Funds</button>
+      <button class="nav-btn active" data-nav="performance">Performance</button>
+      <button class="nav-btn" data-nav="funds">Mutual Funds</button>
       <button class="nav-btn" data-nav="scanner">Scanner</button>
       <button class="nav-btn" data-nav="setups">Setups</button>
       <button class="nav-btn" data-nav="gex">GEX</button>
-      <button class="nav-btn" id="themeToggle" data-lfc-theme-toggle style="margin-left:auto;" aria-pressed="false">🌙 Dark</button>
+      <button class="nav-btn hidden" id="adminBtn" data-nav="admin">Admin</button>
+      <button class="nav-btn" id="themeToggle" data-lfc-theme-toggle style="margin-left:auto;" aria-pressed="false">Dark</button>
       <button class="nav-btn" id="logoutBtn" style="margin-left:4px;">Logout</button>
     </div>
   </header>
@@ -92,20 +94,25 @@ const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBh
 const $ = id => document.getElementById(id);
 const sb = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 const params = new URLSearchParams(location.search);
-const pending = $("#authPending");
-const shell = $("#appShell");
-const loginCard = $("#loginCard");
-const msg = $("#msg");
-const userDisplay = $("#userDisplay");
+const pending = $("authPending");
+const shell = $("appShell");
+const loginCard = $("login");
+const msg = $("loginMsg");
+const userDisplay = $("userDisplay");
+const adminBtn = $("adminBtn");
+let isAdmin = false;
+
+// auth-guard.js local-session stamp (convenience flag for the static fund pages)
+const stamp = u => { try { window.LfcAuth && LfcAuth.stamp({ u: u.username || u.id, n: u.display_name || u.username || "", a: !!u.is_admin }); } catch (e) {} };
 
 function showLogin() {
-  loginCard.classList.remove("hidden");
+  pending.classList.remove("hidden");
   shell.classList.add("hidden");
   userDisplay.textContent = "—";
+  if (adminBtn) adminBtn.classList.add("hidden");
 }
 function showShell(u) {
-  pending.classList.remove("hidden");
-  loginCard.classList.add("hidden");
+  pending.classList.add("hidden");
   shell.classList.remove("hidden");
   userDisplay.textContent = u.display_name || u.username || "";
 }
@@ -122,27 +129,30 @@ async function activeUser(session) {
     localStorage.removeItem("lfc.auth");
     showLogin();
     return;
-  }
-  hidePending();
-  showLogin();
+  }  showLogin();
 
   try {
     const { data: { session } } = await sb.auth.getSession();
     const u = await activeUser(session);
     if (!u) { showLogin(); return; }
+
+    isAdmin = !!u.is_admin;
     stamp(u);
     userDisplay.textContent = u.display_name || u.username || "";
-    if (u.is_admin) { showLogin(); return; }
+
+    // only admins see Admin controls
+    if (adminBtn) adminBtn.classList.toggle("hidden", !isAdmin);
+
     showShell(u);
   } catch (e) {
     showLogin();
   }
 })();
 
-$("#loginBtn").onclick = async () => {
-  const u = $("#loginUser").value.trim(), p = $("#loginPass").value;
+$("loginBtn").onclick = async () => {
+  const u = $("loginUser").value.trim(), p = $("loginPass").value;
   if (!u || !p) { msg.textContent = "Enter username and password."; return; }
-  $("#loginBtn").disabled = true;
+  $("loginBtn").disabled = true;
   msg.textContent = "Signing in…";
   try {
     const { error } = await sb.auth.signInWithPassword({
@@ -150,7 +160,7 @@ $("#loginBtn").onclick = async () => {
     });
     if (error) {
       msg.textContent = "Sign-in failed: " + error.message;
-      $("#loginBtn").disabled = false;
+      $("loginBtn").disabled = false;
       return;
     }
     const { data: { session } } = await sb.auth.getSession();
@@ -158,21 +168,21 @@ $("#loginBtn").onclick = async () => {
     if (!uRow) {
       await sb.auth.signOut();
       msg.textContent = "This account is not active.";
-      $("#loginBtn").disabled = false;
+      $("loginBtn").disabled = false;
       return;
     }
     stamp(uRow);
     location.replace(params.get("next") || "./");
   } catch (e) {
     msg.textContent = "Sign-in failed: " + e.message;
-    $("#loginBtn").disabled = false;
+    $("loginBtn").disabled = false;
   }
 };
 
-$("#logoutBtn").onclick = async () => {
+$("logoutBtn").onclick = async () => {
   try { await sb.auth.signOut(); } catch (e) {}
-  localStorage.removeItem("lfc.auth");
-  showLogin();
+  try { window.LfcAuth && LfcAuth.clear(); } catch (e) {}
+  location.replace("index.html");
 };
 
 sb.auth.onAuthStateChange(e => { if (e === "SIGNED_OUT") location.reload(); });
@@ -186,11 +196,12 @@ document.querySelectorAll("[data-nav]").forEach(btn => {
     else if (target === "setups") { location.href = "setups.html"; }
     else if (target === "gex") { location.href = "gex.html"; }
     else if (target === "funds") { location.href = "funds/index.html"; }
-    else if (target === "log-out") { $("#logoutBtn").click(); }
+    else if (target === "admin") { if (isAdmin) location.href = "index.html#admin"; }
+    else if (target === "log-out") { $("logoutBtn").click(); }
   });
 });
 
-$("#loginPass").addEventListener("keydown", e => { if (e.key === "Enter") $("#loginBtn").click(); });
+$("loginPass").addEventListener("keydown", e => { if (e.key === "Enter") $("loginBtn").click(); });
 </script>
 </body>
 </html>

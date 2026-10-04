@@ -14,7 +14,7 @@
 </head>
 <body>
 
-<!-- ═══ Unauthenticated shell (only ever shown before auth resolves) ═══ -->
+<!-- ═══ Login-only page: no authenticated shell, no placeholder content ═══ -->
 <div id="authPending" class="hidden">
   <div class="brand-block">
     <div class="brand-logo" aria-hidden="true">
@@ -25,7 +25,7 @@
       <small style="font-size:10px;letter-spacing:.22em;">Research portal</small>
     </div>
   </div>
-  <div class="card" style="max-width:400px;padding:28px;">
+  <div class="card" id="login" style="max-width:400px;padding:28px;">
     <h2 style="font-size:20px;margin:0 0 6px;">Welcome back</h2>
     <p class="sub" style="font-size:13px;margin-bottom:18px;">Sign in with the credentials your administrator issued.</p>
     <label>Username
@@ -40,83 +40,24 @@
   <p class="disclaimer" style="max-width:560px;text-align:center;font-size:11px;color:var(--lfc-muted);"><strong>Private Research Journal:</strong> this portal contains educational and informational material, market observations, source references and research hypotheses. It is not investment advice, a research recommendation, a solicitation, an offer, or an inducement to buy, sell, hold or deal in any security. Content is not tailored to any user's objectives, financial circumstances or risk profile. Data and AI-assisted summaries may be incomplete, delayed or inaccurate and must be independently verified. Investments in securities are subject to market risk. Consult a SEBI-registered professional before making an investment decision.</p>
 </div>
 
-<!-- ═══ Authenticated app shell (hidden until auth resolves, then revealed) ═══ -->
-<div id="appShell" class="hidden">
-  <header id="header">
-    <div class="header-brand">
-      <div class="header-logo" aria-hidden="true">
-        <svg viewBox="0 0 24 24" fill="none"><path d="M4 17.5 9.5 12l4 3.5L20 7" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/><path d="M14.5 7H20v5.5" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
-      </div>
-      <div>
-        <h1>LearningFundClear</h1>
-        <small>Research portal</small>
-      </div>
-    </div>
-    <div class="userbar">
-      <span id="userDisplay">—</span>
-      <button class="nav-btn active" data-nav="dashboard">Dashboard</button>
-      <button class="nav-btn" data-nav="performance">Performance</button>
-      <button class="nav-btn" data-nav="funds">Mutual Funds</button>
-      <button class="nav-btn" data-nav="scanner">Scanner</button>
-      <button class="nav-btn" data-nav="setups">Setups</button>
-      <button class="nav-btn" data-nav="gex">GEX</button>
-      <button class="nav-btn hidden" id="adminBtn" data-nav="admin">Admin</button>
-      <button class="nav-btn" id="themeToggle" data-lfc-theme-toggle style="margin-left:auto;" aria-pressed="false">Dark</button>
-        </div>
-  </header>
-  <main id="appMain">
-    <section id="dashboard" class="card" style="padding:22px;">
-      <header class="card-head"><span>Dashboard</span></header>
-      <div class="card-body">
-        <p class="muted" style="margin:0;">Authenticated dashboard content.</p>
-      </div>
-    </section>
-    <section id="performance" class="card hidden" style="padding:22px;">
-      <header class="card-head"><span>Performance</span></header>
-      <div class="card-body">
-        <p class="muted" style="margin:0;">Performance data.</p>
-      </div>
-    </section>
-    <section id="setups" class="card hidden" style="padding:22px;">
-      <header class="card-head"><span>Setups</span></header>
-      <div class="card-body">
-        <p class="muted" style="margin:0;">Setups.</p>
-      </div>
-    </section>
-    <section id="gex" class="card hidden" style="padding:22px;">
-      <header class="card-head"><span>GEX</span></header>
-      <div class="card-body">
-        <p class="muted" style="margin:0;">GEX.</p>
-      </div>
-    </section>
-  </main>
-</div><script src="auth-guard.js"></script>
+<script>
+// The login UI lives inside #authPending, so reveal it immediately — no flash,
+// no blank page, and nothing authenticated exists on this page at all.
+document.getElementById("authPending").classList.remove("hidden");
+</script>
+<script src="auth-guard.js"></script>
 <script type="module">
 import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm";
 
 const SUPABASE_URL = "https://chbtjicvbezbiosuouwm.supabase.co";
 const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNoYnRqaWN2YmV6Ymlvc3VvdXdtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODkzODc2NjAsImV4cCI6MjEwNDk2MzY2MH0.jlTyYWnf1TnvmwCa4NCc-hJ4wZgjWTuSc94DqvMTdNQ";
 const sb = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-const params = new URLSearchParams(location.search);
 
-// DOM refs
 const $ = id => document.getElementById(id);
-const pending = $("authPending");
-const loginCard = $("login");
 const msg = $("msg");
-const userDisplay = $("userDisplay");
-const adminBtn = $("adminBtn");
-let isAdmin = false;
 
 function stamp(u) {
-  window.LfcAuth && LfcAuth.stamp({ u: u.username || u.id, n: u.display_name || u.username || "", a: !!u.is_admin, t: Date.now() });
-}
-function hidePending() { pending.classList.add("hidden"); }
-function showLoginOnly() {
-  // login card visible; app shell hidden. Nothing private flashes.
-  loginCard.classList.remove("hidden");
-  userDisplay.textContent = "—";
-  if (adminBtn) adminBtn.classList.add("hidden");
+  window.LfcAuth && LfcAuth.stamp({ u: u.username || u.id, n: u.display_name || u.username || "", a: !!u.is_admin });
 }
 
 async function activeUser(session) {
@@ -124,28 +65,6 @@ async function activeUser(session) {
   const { data: u } = await sb.from("app_users").select("*").eq("id", session.user.id).single();
   return u && u.is_active ? u : null;
 }
-
-// ── Auth state machine ──
-(async function initAuth() {
-  hidePending();
-  showLoginOnly();
-
-  try {
-    const { data: { session } } = await sb.auth.getSession();
-    const u = await activeUser(session);
-    if (!u) { showLoginOnly(); return; }
-
-    isAdmin = !!u.is_admin;
-    stamp(u);
-    userDisplay.textContent = u.display_name || u.username || "";
-    if (adminBtn) adminBtn.classList.toggle("hidden", !isAdmin);
-
-    // authenticated: land on the journal shell
-    location.replace("index.html");
-  } catch (e) {
-    showLoginOnly();
-  }
-})();
 
 // ── Login form ──
 $("loginBtn").onclick = async () => {
@@ -171,7 +90,7 @@ $("loginBtn").onclick = async () => {
       return;
     }
     stamp(uRow);
-    // admins sign in through the same form; the journal's shell decides
+    // successful sign-in goes to the real journal shell
     location.replace("index.html");
   } catch (e) {
     msg.textContent = "Sign-in failed: " + e.message;
@@ -179,7 +98,7 @@ $("loginBtn").onclick = async () => {
   }
 };
 
-// Login form field focus / enter-to-submit
+// Enter-to-submit
 $("loginPass").addEventListener("keydown", e => { if (e.key === "Enter") $("loginBtn").click(); });
 </script>
 </body>
