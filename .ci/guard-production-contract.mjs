@@ -106,7 +106,7 @@ const signin = read("signin.html");
 for (const id of ["authPending", "login", "loginUser", "loginPass", "loginBtn"]) {
   if (!signin.includes('id="' + id + '"')) fail("signin.html missing #" + id);
 }
-if (!signin.includes('id="loginMsg"')) fail("signin.html missing #loginMsg");
+if (!signin.includes('id="loginMsg"') && !signin.includes('id="msg"')) fail("signin.html missing login message element");
 requireText(signin, "await sb.auth.signOut()", "signin Supabase logout completion");
 requireText(signin, "max-width: 460px", "signin centered layout");
 
