@@ -1,0 +1,34 @@
+[
+  {
+    "name": "valid completed feed, signal and chart 1440",
+    "status": "PASS"
+  },
+  {
+    "name": "short cache and explicit bypass 1440",
+    "status": "PASS"
+  },
+  {
+    "name": "stale candles excluded 1440",
+    "status": "PASS"
+  },
+  {
+    "name": "source age and contract failure do not show wrong quotes 1440",
+    "status": "PASS"
+  },
+  {
+    "name": "valid completed feed, signal and chart 390",
+    "status": "PASS"
+  },
+  {
+    "name": "short cache and explicit bypass 390",
+    "status": "PASS"
+  },
+  {
+    "name": "stale candles excluded 390",
+    "status": "PASS"
+  },
+  {
+    "name": "source age and contract failure do not show wrong quotes 390",
+    "status": "PASS"
+  }
+]

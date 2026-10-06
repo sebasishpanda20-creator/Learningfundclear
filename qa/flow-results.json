@@ -1,0 +1,90 @@
+[
+  {
+    "name": "journal search and watchlist 1440",
+    "status": "PASS"
+  },
+  {
+    "name": "performance periods 1440",
+    "status": "PASS"
+  },
+  {
+    "name": "manual setup, invalid risk, open/close paper trade 1440",
+    "status": "PASS"
+  },
+  {
+    "name": "scanner import and validation 1440",
+    "status": "PASS"
+  },
+  {
+    "name": "fund search, comparison, scheme details 1440",
+    "status": "PASS"
+  },
+  {
+    "name": "calculator zero-return arithmetic 1440",
+    "status": "PASS"
+  },
+  {
+    "name": "options failure recovery 1440",
+    "status": "PASS"
+  },
+  {
+    "name": "navigation, theme, logout and back 1440",
+    "status": "PASS"
+  },
+  {
+    "name": "zero runtime errors 1440",
+    "status": "PASS"
+  },
+  {
+    "name": "journal search and watchlist 390",
+    "status": "PASS"
+  },
+  {
+    "name": "performance periods 390",
+    "status": "PASS"
+  },
+  {
+    "name": "manual setup, invalid risk, open/close paper trade 390",
+    "status": "PASS"
+  },
+  {
+    "name": "scanner import and validation 390",
+    "status": "PASS"
+  },
+  {
+    "name": "fund search, comparison, scheme details 390",
+    "status": "PASS"
+  },
+  {
+    "name": "calculator zero-return arithmetic 390",
+    "status": "PASS"
+  },
+  {
+    "name": "options failure recovery 390",
+    "status": "PASS"
+  },
+  {
+    "name": "navigation, theme, logout and back 390",
+    "status": "PASS"
+  },
+  {
+    "name": "zero runtime errors 390",
+    "status": "PASS"
+  },
+  {
+    "name": "sign in honors next; stale stamp cannot authenticate",
+    "status": "PASS"
+  },
+  {
+    "name": "non-admin route and menu",
+    "status": "PASS"
+  },
+  {
+    "name": "cross-tab sign out",
+    "status": "PASS"
+  },
+  {
+    "name": "failed revoke still clears local session",
+    "status": "PASS"
+  }
+]

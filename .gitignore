@@ -11,3 +11,8 @@ Thumbs.db
 
 # Supabase CLI link/state cache — machine-local, holds the project ref only
 supabase/.temp/
+
+dist/
+
+qa/*.png
+visual-qa-artifacts/

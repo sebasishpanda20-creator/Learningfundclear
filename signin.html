@@ -1,180 +1,92 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en-IN">
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<meta name="robots" content="noindex">
-<title>Sign in — LearningFundClear</title>
-<link rel="stylesheet" href="assets/css/tokens.css">
-<link rel="stylesheet" href="assets/css/app.css">
-<script src="assets/js/theme.js"></script>
-<style>
-:root { color-scheme: light; }
-
-html, body { min-height: 100%; }
-body { min-height: 100vh; }
-
-#authPending {
-  min-height: 100vh;
-  width: 100%;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  align-items: center;
-  padding: 32px 20px;
-}
-
-.brand-block {
-  width: 100%;
-  max-width: 460px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 12px;
-  margin-bottom: 20px;
-}
-
-#login {
-  width: 100%;
-  max-width: 460px !important;
-  padding: 30px !important;
-}
-
-.disclaimer {
-  width: 100%;
-  max-width: 560px !important;
-  margin: 18px auto 0;
-  text-align: center;
-}
-
-@media (max-width: 560px) {
-  #authPending {
-    justify-content: flex-start;
-    padding: 48px 16px 24px;
-  }
-
-  .brand-block {
-    justify-content: flex-start;
-  }
-
-  #login {
-    padding: 22px !important;
-  }
-}
-</style>
-</head>
-<body>
-
-<!-- ═══ Login-only page: no authenticated shell, no placeholder content ═══ -->
-<div id="authPending" class="hidden">
-  <div class="brand-block">
-    <div class="brand-logo" aria-hidden="true">
-      <svg viewBox="0 0 24 24" fill="none" width="44" height="44" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M4 17.5 9.5 12l4 3.5L20 7"/><path d="M14.5 7H20v5.5"/></svg>
-    </div>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <meta name="robots" content="noindex,nofollow" />
+    <title>Sign in · LearningFundClear</title>
+    <link rel="stylesheet" href="assets/css/tokens.css" />
+    <link rel="stylesheet" href="assets/css/app.css" />
+    <script src="assets/vendor/supabase.js"></script>
+    <script src="assets/js/config.js"></script>
+    <script src="auth-guard.js"></script>
+    <script src="assets/js/theme.js"></script>
+  </head>
+  <body class="signin-page">
     <div>
-      <h1 style="font-size:22px;margin:8px 0 0;letter-spacing:.22em;">LearningFundClear</h1>
-      <small style="font-size:10px;letter-spacing:.22em;">Research portal</small>
+      <main class="signin-layout" id="main" style="padding: 0">
+        <section class="signin-story">
+          <a class="portal-brand" href="signin.html"
+            ><span class="brand-mark"
+              ><svg
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="1.8"
+              >
+                <path d="M3 16l6-5 5 3 7-10M15 4h6v6" /></svg></span
+            ><span
+              >Learning<span class="brand-clear">FundClear</span
+              ><small>RESEARCH WORKSPACE</small></span
+            ></a
+          >
+          <div>
+            <h1>Clear thinking.<br /><em>Better research.</em></h1>
+            <p>
+              Your journal, market tools, and mutual fund research. Together in
+              one focused workspace.
+            </p>
+          </div>
+          <div class="story-bottom">
+            JOURNAL &nbsp; / &nbsp; SCANNER &nbsp; / &nbsp; FUNDS
+          </div>
+        </section>
+        <section class="signin-form">
+          <p class="eyebrow">YOUR PRIVATE WORKSPACE</p>
+          <h2>Welcome back</h2>
+          <p class="sub">Sign in to pick up where you left off.</p>
+          <form id="loginForm">
+            <label for="loginUser">Username or email</label
+            ><input
+              id="loginUser"
+              required
+              autocomplete="username"
+              placeholder="Enter your username"
+              autocapitalize="none"
+              spellcheck="false"
+            /><label for="loginPass">Password</label>
+            <div class="password-field">
+              <input
+                id="loginPass"
+                type="password"
+                required
+                autocomplete="current-password"
+                placeholder="Enter your password"
+              /><button
+                id="showPassword"
+                type="button"
+                aria-label="Show password"
+              >
+                Show
+              </button>
+            </div>
+            <button class="primary" type="submit" id="loginBtn">
+              Sign in <span aria-hidden="true">→</span>
+            </button>
+            <p class="msg" id="msg" role="status" aria-live="polite"></p>
+          </form>
+          <p class="signin-note">
+            Access is managed by your portal administrator. Use your existing
+            LearningFundClear credentials.
+          </p>
+        </section>
+      </main>
+      <p class="signin-disclaimer">
+        Private research and educational information only. This portal does not
+        provide investment advice. Market data may be delayed or incomplete;
+        verify it independently. Investments are subject to market risk.
+      </p>
     </div>
-  </div>
-  <div class="card" id="login" style="max-width:400px;padding:28px;">
-    <h2 style="font-size:20px;margin:0 0 6px;">Welcome back</h2>
-    <p class="sub" style="font-size:13px;margin-bottom:18px;">Sign in with the credentials your administrator issued.</p>
-    <label>Username
-      <input id="loginUser" type="text" autocomplete="username" placeholder="you@portal.local" style="width:100%;padding:11px 12px;border-radius:9px;border:1px solid var(--lfc-border);background:var(--lfc-surface-soft);color:var(--lfc-text);font-size:14px;">
-    </label>
-    <label>Password
-      <input id="loginPass" type="password" autocomplete="current-password" placeholder="••••••••" style="width:100%;padding:11px 12px;border-radius:9px;border:1px solid var(--lfc-border);background:var(--lfc-surface-soft);color:var(--lfc-text);font-size:14px;">
-    </label>
-    <button class="primary" id="loginBtn" style="width:100%;margin-top:16px;padding:12px;border:0;border-radius:10px;background:var(--lfc-primary);color:#FFFFFF;font-size:15px;font-weight:600;cursor:pointer;">Sign in</button>
-    <p class="msg" id="msg" style="min-height:18px;font-size:13px;color:var(--lfc-positive);margin-top:10px;"></p>
-  </div>
-  <p class="disclaimer" style="max-width:560px;text-align:center;font-size:11px;color:var(--lfc-muted);"><strong>Private Research Journal:</strong> this portal contains educational and informational material, market observations, source references and research hypotheses. It is not investment advice, a research recommendation, a solicitation, an offer, or an inducement to buy, sell, hold or deal in any security. Content is not tailored to any user's objectives, financial circumstances or risk profile. Data and AI-assisted summaries may be incomplete, delayed or inaccurate and must be independently verified. Investments in securities are subject to market risk. Consult a SEBI-registered professional before making an investment decision.</p>
-</div>
-
-<script>
-// The login UI lives inside #authPending, so reveal it immediately — no flash,
-// no blank page, and nothing authenticated exists on this page at all.
-document.getElementById("authPending").classList.remove("hidden");
-</script>
-<script src="auth-guard.js"></script>
-<script type="module">
-import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm";
-
-const SUPABASE_URL = "https://chbtjicvbezbiosuouwm.supabase.co";
-const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNoYnRqaWN2YmV6Ymlvc3VvdXdtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODkzODc2NjAsImV4cCI6MjEwNDk2MzY2MH0.jlTyYWnf1TnvmwCa4NCc-hJ4wZgjWTuSc94DqvMTdNQ";
-const sb = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-
-const params = new URLSearchParams(location.search);
-const ALLOWED_NEXT = new Set([
-  "index.html",
-  "performance.html",
-  "scanner.html",
-  "setups.html",
-  "gex.html",
-  "funds/index.html",
-  "funds/funds.html",
-  "funds/compare.html",
-  "funds/calculators.html",
-  "funds/methodology.html",
-  "funds/legal.html",
-]);
-
-// Shared portal logout clears the lightweight local stamp first and lands here.
-// Finish the real Supabase sign-out in one place so every page logs out equally.
-if (params.get("signout") === "1") {
-  try { await sb.auth.signOut(); } catch (e) {}
-  try { window.LfcAuth && LfcAuth.clear(); } catch (e) {}
-}
-
-
-const $ = id => document.getElementById(id);
-const msg = $("msg");
-
-function stamp(u) {
-  window.LfcAuth && LfcAuth.stamp({ u: u.username || u.id, n: u.display_name || u.username || "", a: !!u.is_admin });
-}
-
-async function activeUser(session) {
-  if (!session?.user?.id) return null;
-  const { data: u } = await sb.from("app_users").select("*").eq("id", session.user.id).single();
-  return u && u.is_active ? u : null;
-}
-
-// ── Login form ──
-$("loginBtn").onclick = async () => {
-  const u = $("loginUser").value.trim(), p = $("loginPass").value;
-  if (!u || !p) { msg.textContent = "Enter username and password."; return; }
-  $("loginBtn").disabled = true;
-  msg.textContent = "Signing in…";
-  try {
-    const { error } = await sb.auth.signInWithPassword({
-      email: (u.includes("@") ? u : u + "@portal.local").toLowerCase(), password: p,
-    });
-    if (error) {
-      msg.textContent = "Sign-in failed: " + error.message;
-      $("loginBtn").disabled = false;
-      return;
-    }
-    const { data: { session } } = await sb.auth.getSession();
-    const uRow = await activeUser(session);
-    if (!uRow) {
-      await sb.auth.signOut();
-      msg.textContent = "This account is not active.";
-      $("loginBtn").disabled = false;
-      return;
-    }
-    stamp(uRow);
-    // Return to the requested internal page when present; otherwise dashboard.
-    const next = params.get("next");
-    location.replace(next && ALLOWED_NEXT.has(next) ? next : "index.html");
-  } catch (e) {
-    msg.textContent = "Sign-in failed: " + e.message;
-    $("loginBtn").disabled = false;
-  }
-};
-
-// Enter-to-submit
-$("loginPass").addEventListener("keydown", e => { if (e.key === "Enter") $("loginBtn").click(); });
-</script>
-</body>
+    <script src="assets/js/signin.js"></script>
+  </body>
 </html>
