@@ -1,6 +1,18 @@
+# Personal-use bhavcopy CSVs: exchange data licensed for personal analysis
+# only — never publish. They live in the PRIVATE bhavcopy-data repo instead.
+data/
+bhavcopy-data/
+
+# tooling noise
 __pycache__/
 *.pyc
-cookies.txt
-.opt-expiry-cache/
-node_modules/
-.wrangler/
+.DS_Store
+Thumbs.db
+
+# Supabase CLI link/state cache — machine-local, holds the project ref only
+supabase/.temp/
+
+dist/
+
+qa/*.png
+visual-qa-artifacts/

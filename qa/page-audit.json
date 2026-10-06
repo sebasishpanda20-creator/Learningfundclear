@@ -1,0 +1,506 @@
+[
+  {
+    "page": "index.html",
+    "width": 1440,
+    "overflow": false,
+    "title": "Dashboard · LearningFundClear",
+    "activeNav": 1,
+    "visible": 1196,
+    "errors": []
+  },
+  {
+    "page": "performance.html",
+    "width": 1440,
+    "overflow": false,
+    "title": "Performance · LearningFundClear",
+    "activeNav": 1,
+    "visible": 1196,
+    "errors": []
+  },
+  {
+    "page": "admin.html",
+    "width": 1440,
+    "overflow": false,
+    "title": "Administration · LearningFundClear",
+    "activeNav": 1,
+    "visible": 1196,
+    "errors": []
+  },
+  {
+    "page": "scanner.html",
+    "width": 1440,
+    "overflow": false,
+    "title": "Demand zone scanner · LearningFundClear",
+    "activeNav": 1,
+    "visible": 1196,
+    "errors": []
+  },
+  {
+    "page": "setups.html",
+    "width": 1440,
+    "overflow": false,
+    "title": "Setups & paper trades · LearningFundClear",
+    "activeNav": 1,
+    "visible": 1196,
+    "errors": []
+  },
+  {
+    "page": "gex.html",
+    "width": 1440,
+    "overflow": false,
+    "title": "Options overview · LearningFundClear",
+    "activeNav": 1,
+    "visible": 1196,
+    "errors": []
+  },
+  {
+    "page": "crypto.html",
+    "width": 1440,
+    "overflow": false,
+    "title": "Crypto markets · LearningFundClear",
+    "activeNav": 1,
+    "visible": 1196,
+    "errors": []
+  },
+  {
+    "page": "funds/index.html",
+    "width": 1440,
+    "overflow": false,
+    "title": "LearningFundClear — mutual fund NAVs, plans and honest arithmetic",
+    "activeNav": 1,
+    "visible": 1196,
+    "errors": []
+  },
+  {
+    "page": "funds/funds.html",
+    "width": 1440,
+    "overflow": false,
+    "title": "All schemes — LearningFundClear",
+    "activeNav": 1,
+    "visible": 1196,
+    "errors": []
+  },
+  {
+    "page": "funds/compare.html",
+    "width": 1440,
+    "overflow": false,
+    "title": "Compare schemes — LearningFundClear",
+    "activeNav": 1,
+    "visible": 1196,
+    "errors": []
+  },
+  {
+    "page": "funds/calculators.html",
+    "width": 1440,
+    "overflow": false,
+    "title": "Calculators — LearningFundClear",
+    "activeNav": 1,
+    "visible": 1196,
+    "errors": []
+  },
+  {
+    "page": "funds/methodology.html",
+    "width": 1440,
+    "overflow": false,
+    "title": "Methodology — LearningFundClear",
+    "activeNav": 1,
+    "visible": 1196,
+    "errors": []
+  },
+  {
+    "page": "funds/legal.html",
+    "width": 1440,
+    "overflow": false,
+    "title": "Legal, privacy and grievance — LearningFundClear",
+    "activeNav": 1,
+    "visible": 1196,
+    "errors": []
+  },
+  {
+    "page": "funds/scheme.html?code=119551",
+    "width": 1440,
+    "overflow": false,
+    "title": "Scheme details — LearningFundClear",
+    "activeNav": 1,
+    "visible": 1196,
+    "errors": []
+  },
+  {
+    "page": "index.html",
+    "width": 390,
+    "overflow": false,
+    "title": "Dashboard · LearningFundClear",
+    "activeNav": 1,
+    "visible": 390,
+    "errors": []
+  },
+  {
+    "page": "performance.html",
+    "width": 390,
+    "overflow": false,
+    "title": "Performance · LearningFundClear",
+    "activeNav": 1,
+    "visible": 390,
+    "errors": []
+  },
+  {
+    "page": "admin.html",
+    "width": 390,
+    "overflow": false,
+    "title": "Administration · LearningFundClear",
+    "activeNav": 1,
+    "visible": 390,
+    "errors": []
+  },
+  {
+    "page": "scanner.html",
+    "width": 390,
+    "overflow": false,
+    "title": "Demand zone scanner · LearningFundClear",
+    "activeNav": 1,
+    "visible": 390,
+    "errors": []
+  },
+  {
+    "page": "setups.html",
+    "width": 390,
+    "overflow": false,
+    "title": "Setups & paper trades · LearningFundClear",
+    "activeNav": 1,
+    "visible": 390,
+    "errors": []
+  },
+  {
+    "page": "gex.html",
+    "width": 390,
+    "overflow": false,
+    "title": "Options overview · LearningFundClear",
+    "activeNav": 1,
+    "visible": 390,
+    "errors": []
+  },
+  {
+    "page": "crypto.html",
+    "width": 390,
+    "overflow": false,
+    "title": "Crypto markets · LearningFundClear",
+    "activeNav": 1,
+    "visible": 390,
+    "errors": []
+  },
+  {
+    "page": "funds/index.html",
+    "width": 390,
+    "overflow": false,
+    "title": "LearningFundClear — mutual fund NAVs, plans and honest arithmetic",
+    "activeNav": 1,
+    "visible": 390,
+    "errors": []
+  },
+  {
+    "page": "funds/funds.html",
+    "width": 390,
+    "overflow": false,
+    "title": "All schemes — LearningFundClear",
+    "activeNav": 1,
+    "visible": 390,
+    "errors": []
+  },
+  {
+    "page": "funds/compare.html",
+    "width": 390,
+    "overflow": false,
+    "title": "Compare schemes — LearningFundClear",
+    "activeNav": 1,
+    "visible": 390,
+    "errors": []
+  },
+  {
+    "page": "funds/calculators.html",
+    "width": 390,
+    "overflow": false,
+    "title": "Calculators — LearningFundClear",
+    "activeNav": 1,
+    "visible": 390,
+    "errors": []
+  },
+  {
+    "page": "funds/methodology.html",
+    "width": 390,
+    "overflow": false,
+    "title": "Methodology — LearningFundClear",
+    "activeNav": 1,
+    "visible": 390,
+    "errors": []
+  },
+  {
+    "page": "funds/legal.html",
+    "width": 390,
+    "overflow": false,
+    "title": "Legal, privacy and grievance — LearningFundClear",
+    "activeNav": 1,
+    "visible": 390,
+    "errors": []
+  },
+  {
+    "page": "funds/scheme.html?code=119551",
+    "width": 390,
+    "overflow": false,
+    "title": "Scheme details — LearningFundClear",
+    "activeNav": 1,
+    "visible": 390,
+    "errors": []
+  },
+  {
+    "page": "index.html",
+    "width": 768,
+    "overflow": false,
+    "title": "Dashboard · LearningFundClear",
+    "activeNav": 1,
+    "visible": 768,
+    "errors": []
+  },
+  {
+    "page": "performance.html",
+    "width": 768,
+    "overflow": false,
+    "title": "Performance · LearningFundClear",
+    "activeNav": 1,
+    "visible": 768,
+    "errors": []
+  },
+  {
+    "page": "admin.html",
+    "width": 768,
+    "overflow": false,
+    "title": "Administration · LearningFundClear",
+    "activeNav": 1,
+    "visible": 768,
+    "errors": []
+  },
+  {
+    "page": "scanner.html",
+    "width": 768,
+    "overflow": false,
+    "title": "Demand zone scanner · LearningFundClear",
+    "activeNav": 1,
+    "visible": 768,
+    "errors": []
+  },
+  {
+    "page": "setups.html",
+    "width": 768,
+    "overflow": false,
+    "title": "Setups & paper trades · LearningFundClear",
+    "activeNav": 1,
+    "visible": 768,
+    "errors": []
+  },
+  {
+    "page": "gex.html",
+    "width": 768,
+    "overflow": false,
+    "title": "Options overview · LearningFundClear",
+    "activeNav": 1,
+    "visible": 768,
+    "errors": []
+  },
+  {
+    "page": "crypto.html",
+    "width": 768,
+    "overflow": false,
+    "title": "Crypto markets · LearningFundClear",
+    "activeNav": 1,
+    "visible": 768,
+    "errors": []
+  },
+  {
+    "page": "funds/index.html",
+    "width": 768,
+    "overflow": false,
+    "title": "LearningFundClear — mutual fund NAVs, plans and honest arithmetic",
+    "activeNav": 1,
+    "visible": 768,
+    "errors": []
+  },
+  {
+    "page": "funds/funds.html",
+    "width": 768,
+    "overflow": false,
+    "title": "All schemes — LearningFundClear",
+    "activeNav": 1,
+    "visible": 768,
+    "errors": []
+  },
+  {
+    "page": "funds/compare.html",
+    "width": 768,
+    "overflow": false,
+    "title": "Compare schemes — LearningFundClear",
+    "activeNav": 1,
+    "visible": 768,
+    "errors": []
+  },
+  {
+    "page": "funds/calculators.html",
+    "width": 768,
+    "overflow": false,
+    "title": "Calculators — LearningFundClear",
+    "activeNav": 1,
+    "visible": 768,
+    "errors": []
+  },
+  {
+    "page": "funds/methodology.html",
+    "width": 768,
+    "overflow": false,
+    "title": "Methodology — LearningFundClear",
+    "activeNav": 1,
+    "visible": 768,
+    "errors": []
+  },
+  {
+    "page": "funds/legal.html",
+    "width": 768,
+    "overflow": false,
+    "title": "Legal, privacy and grievance — LearningFundClear",
+    "activeNav": 1,
+    "visible": 768,
+    "errors": []
+  },
+  {
+    "page": "funds/scheme.html?code=119551",
+    "width": 768,
+    "overflow": false,
+    "title": "Scheme details — LearningFundClear",
+    "activeNav": 1,
+    "visible": 768,
+    "errors": []
+  },
+  {
+    "page": "index.html",
+    "width": 320,
+    "overflow": false,
+    "title": "Dashboard · LearningFundClear",
+    "activeNav": 1,
+    "visible": 320,
+    "errors": []
+  },
+  {
+    "page": "performance.html",
+    "width": 320,
+    "overflow": false,
+    "title": "Performance · LearningFundClear",
+    "activeNav": 1,
+    "visible": 320,
+    "errors": []
+  },
+  {
+    "page": "admin.html",
+    "width": 320,
+    "overflow": false,
+    "title": "Administration · LearningFundClear",
+    "activeNav": 1,
+    "visible": 320,
+    "errors": []
+  },
+  {
+    "page": "scanner.html",
+    "width": 320,
+    "overflow": false,
+    "title": "Demand zone scanner · LearningFundClear",
+    "activeNav": 1,
+    "visible": 320,
+    "errors": []
+  },
+  {
+    "page": "setups.html",
+    "width": 320,
+    "overflow": false,
+    "title": "Setups & paper trades · LearningFundClear",
+    "activeNav": 1,
+    "visible": 320,
+    "errors": []
+  },
+  {
+    "page": "gex.html",
+    "width": 320,
+    "overflow": false,
+    "title": "Options overview · LearningFundClear",
+    "activeNav": 1,
+    "visible": 320,
+    "errors": []
+  },
+  {
+    "page": "crypto.html",
+    "width": 320,
+    "overflow": false,
+    "title": "Crypto markets · LearningFundClear",
+    "activeNav": 1,
+    "visible": 320,
+    "errors": []
+  },
+  {
+    "page": "funds/index.html",
+    "width": 320,
+    "overflow": false,
+    "title": "LearningFundClear — mutual fund NAVs, plans and honest arithmetic",
+    "activeNav": 1,
+    "visible": 320,
+    "errors": []
+  },
+  {
+    "page": "funds/funds.html",
+    "width": 320,
+    "overflow": false,
+    "title": "All schemes — LearningFundClear",
+    "activeNav": 1,
+    "visible": 320,
+    "errors": []
+  },
+  {
+    "page": "funds/compare.html",
+    "width": 320,
+    "overflow": false,
+    "title": "Compare schemes — LearningFundClear",
+    "activeNav": 1,
+    "visible": 320,
+    "errors": []
+  },
+  {
+    "page": "funds/calculators.html",
+    "width": 320,
+    "overflow": false,
+    "title": "Calculators — LearningFundClear",
+    "activeNav": 1,
+    "visible": 320,
+    "errors": []
+  },
+  {
+    "page": "funds/methodology.html",
+    "width": 320,
+    "overflow": false,
+    "title": "Methodology — LearningFundClear",
+    "activeNav": 1,
+    "visible": 320,
+    "errors": []
+  },
+  {
+    "page": "funds/legal.html",
+    "width": 320,
+    "overflow": false,
+    "title": "Legal, privacy and grievance — LearningFundClear",
+    "activeNav": 1,
+    "visible": 320,
+    "errors": []
+  },
+  {
+    "page": "funds/scheme.html?code=119551",
+    "width": 320,
+    "overflow": false,
+    "title": "Scheme details — LearningFundClear",
+    "activeNav": 1,
+    "visible": 320,
+    "errors": []
+  }
+]

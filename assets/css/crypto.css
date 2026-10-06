@@ -1,0 +1,3 @@
+.crypto-stats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:16px}.crypto-stats .card{margin:0 0 20px;min-width:0}.crypto-stats h2{font-variant-numeric:tabular-nums;overflow-wrap:anywhere}.crypto-chart{min-height:220px}.crypto-chart svg{display:block;width:100%;height:auto;color:var(--accent,#168a78)}.crypto-chart text{fill:currentColor;font:14px system-ui}.crypto-stats small{overflow-wrap:anywhere}#expiryField[hidden]{display:none}
+@media(max-width:900px){.crypto-stats{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:420px){.crypto-stats{grid-template-columns:1fr}.crypto-chart{min-height:150px}}

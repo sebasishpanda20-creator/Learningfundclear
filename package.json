@@ -1,0 +1,18 @@
+{
+  "name": "learningfundclear-private-rebuild",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "test:pages": "node qa/audit.cjs",
+    "test:flows": "node qa/flows.cjs",
+    "test:guards": "node .ci/guard-html-checks.mjs",
+    "test:scanner": "node --test qa/scanner-data.test.cjs",
+    "test:feeds": "node qa/feed-flows.cjs",
+    "test:public-data": "node --test qa/public-data.test.cjs",
+    "test:crypto": "node qa/crypto-flows.cjs"
+  },
+  "devDependencies": {
+    "playwright": "1.51.1"
+  }
+}
