@@ -1,570 +1,982 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en-IN">
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<meta name="robots" content="noindex">
-<title>Setups — Private Research Journal</title>
-<link rel="stylesheet" href="assets/css/tokens.css">
-<link rel="stylesheet" href="assets/css/app.css">
-<link rel="stylesheet" href="assets/css/portal-shell.css">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <meta name="robots" content="noindex,nofollow" />
+    <title>Setups & paper trades · LearningFundClear</title>
+    <link rel="stylesheet" href="assets/css/tokens.css" />
 
-<script src="assets/js/theme.js"></script>
-<script defer src="assets/js/portal-shell.js"></script>
-<link rel="stylesheet" href="assets/css/setups.css">
-</head>
-<body data-page="setups">
+    <link rel="stylesheet" href="assets/css/app.css" />
+    <script src="assets/vendor/supabase.js"></script>
+    <script src="assets/js/config.js"></script>
+    <script src="auth-guard.js"></script>
+    <script src="assets/js/theme.js"></script>
+  </head>
+  <body data-page="setups">
+    <main id="main">
+      <p class="eyebrow">RESEARCH TOOLS</p>
+      <h1>Setups & paper trades</h1>
+      <p class="sub">
+        TradingView signals → risk sizing → manual execution → paper-trade
+        ledger · private page, same sign-in as the journal
+      </p>
 
-<header class="portal-header" id="header">
-  <div class="header-brand">
-    <div class="header-logo" aria-hidden="true">
-      <svg viewBox="0 0 24 24" fill="none"><path d="M4 17.5 9.5 12l4 3.5L20 7" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/><path d="M14.5 7H20v5.5" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
-    </div>
-    <div>
-      <h1>LearningFundClear</h1>
-      <small>Research portal</small>
-    </div>
-  </div>
-  <div class="userbar">
-      <span id="userDisplay">—</span>
-      <button class="nav-btn" data-nav="dashboard">Dashboard</button>
-      <button class="nav-btn" data-nav="performance">Performance</button>
-      <button class="nav-btn" data-nav="funds">Mutual Funds</button>
-      <button class="nav-btn" data-nav="scanner">Scanner</button>
-      <button class="nav-btn active" data-nav="setups" aria-current="page">Setups</button>
-      <button class="nav-btn" data-nav="gex">GEX</button>
-      <button class="nav-btn hidden" id="adminBtn" data-nav="admin">Admin</button>
-      <button class="nav-btn" id="themeToggle" data-lfc-theme-toggle aria-pressed="false">🌙 Dark</button>
-      <button class="nav-btn" id="logoutBtn">Logout</button>
-    </div>
-</header>
-<main class="setups-main">
-<h1>SMC Setups &amp; Paper Trades</h1>
-<p class="sub">TradingView signals → risk sizing → manual execution → paper-trade ledger · private page, same sign-in as the journal</p>
+      <div class="card">
+        <h3>Signals</h3>
+        <div class="row" style="margin-bottom: 10px">
+          <label style="margin: 0"
+            ><input type="checkbox" id="tvEnable" checked /> Pull TradingView
+            alerts from Supabase (needs webhook, see setup note below)</label
+          >
+          <label style="margin: 0; display: flex; align-items: center; gap: 6px"
+            >Side
+            <select
+              id="sideFilter"
+              style="width: auto; min-height: 0; padding: 6px 8px"
+            >
+              <option value="ALL">All</option>
+              <option value="LONG">Long only</option>
+              <option value="SHORT">Short only</option>
+            </select>
+          </label>
+          <label style="margin: 0; display: flex; align-items: center; gap: 6px"
+            >Symbol
+            <input
+              id="sigSearch"
+              type="search"
+              placeholder="e.g. RELIANCE"
+              autocomplete="off"
+              style="width: 150px; min-height: 0; padding: 6px 8px"
+            />
+          </label>
+          <button class="ghost" id="refreshSigs">Refresh</button>
+        </div>
+        <div
+          class="table-scroll"
+          role="region"
+          aria-label="Scrollable data table"
+          tabindex="0"
+        >
+          <table id="sigTable">
+            <thead>
+              <tr>
+                <th>When</th>
+                <th>Symbol</th>
+                <th>Action</th>
+                <th>Price</th>
+                <th>Details</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody id="sigBody"></tbody>
+          </table>
+        </div>
+        <p class="mut" id="sigEmpty">
+          No signals yet. TradingView alerts land here via a Supabase
+          edge-function webhook; you can also log a setup manually below.
+        </p>
+      </div>
 
-<div class="card">
-  <h3>Signals</h3>
-  <div class="row" style="margin-bottom:10px">
-    <label style="margin:0"><input type="checkbox" id="tvEnable" checked> Pull TradingView alerts from Supabase (needs webhook, see setup note below)</label>
-    <label style="margin:0;display:flex;align-items:center;gap:6px">Side
-      <select id="sideFilter" style="width:auto;min-height:0;padding:6px 8px">
-        <option value="ALL">All</option>
-        <option value="LONG">Long only</option>
-        <option value="SHORT">Short only</option>
-      </select>
-    </label>
-    <label style="margin:0;display:flex;align-items:center;gap:6px">Symbol
-      <input id="sigSearch" type="search" placeholder="e.g. RELIANCE" autocomplete="off"
-             style="width:150px;min-height:0;padding:6px 8px">
-    </label>
-    <button class="ghost" id="refreshSigs">Refresh</button>
-  </div>
-  <div class="table-scroll"><table id="sigTable">
-    <thead><tr><th>When</th><th>Symbol</th><th>Action</th><th>Price</th><th>Details</th><th></th></tr></thead>
-    <tbody id="sigBody"></tbody>
-  </table></div>
-  <p class="mut" id="sigEmpty">No signals yet. TradingView alerts land here via a Supabase edge-function webhook; you can also log a setup manually below.</p>
-</div>
+      <div class="card">
+        <h3>Nightly scan list</h3>
+        <p class="mut" style="margin-top: 0">
+          What the 18:00 IST GitHub Actions scan checks (daily, weekly and
+          monthly zones). Uncheck a symbol to pause it — the list is saved to
+          Supabase and tonight's run picks up the change.
+        </p>
+        <div class="row" style="margin-bottom: 10px">
+          <input
+            id="scanAdd"
+            placeholder="Add symbol, e.g. IRCTC or GC=F"
+            style="width: 220px"
+          />
+          <button class="ghost" id="scanAddBtn">Add</button>
+          <span class="mut" id="scanCount"></span>
+        </div>
+        <div
+          id="scanList"
+          style="display: flex; flex-wrap: wrap; gap: 6px"
+        ></div>
+        <p class="msg" id="scanMsg"></p>
+        <p class="mut" style="margin-bottom: 0">
+          <b>Yahoo symbol shapes:</b> NSE equity <code>RELIANCE.NS</code> · BSE
+          <code>500325.BO</code> · commodity futures <code>GC=F</code> (gold),
+          <code>CL=F</code> (crude) — MCX tracks these global contracts; MCX
+          codes themselves are not on Yahoo.
+        </p>
+      </div>
 
-<div class="card">
-  <h3>Nightly scan list</h3>
-  <p class="mut" style="margin-top:0">What the 18:00 IST GitHub Actions scan checks (daily, weekly and monthly zones). Uncheck a symbol to pause it — the list is saved to Supabase and tonight's run picks up the change.</p>
-  <div class="row" style="margin-bottom:10px">
-    <input id="scanAdd" placeholder="Add symbol, e.g. IRCTC or GC=F" style="width:220px">
-    <button class="ghost" id="scanAddBtn">Add</button>
-    <span class="mut" id="scanCount"></span>
-  </div>
-  <div id="scanList" style="display:flex;flex-wrap:wrap;gap:6px"></div>
-  <p class="msg" id="scanMsg"></p>
-  <p class="mut" style="margin-bottom:0"><b>Yahoo symbol shapes:</b> NSE equity <code>RELIANCE.NS</code> · BSE <code>500325.BO</code> · commodity futures <code>GC=F</code> (gold), <code>CL=F</code> (crude) — MCX tracks these global contracts; MCX codes themselves are not on Yahoo.</p>
-</div>
+      <div class="card">
+        <h3>Log a setup manually</h3>
+        <div class="row">
+          <div>
+            <label for="mSym">Symbol</label
+            ><input id="mSym" placeholder="COALINDIA" style="width: 120px" />
+          </div>
+          <div>
+            <label for="mSide">Direction</label
+            ><select id="mSide" style="width: 90px">
+              <option value="LONG">Long</option>
+              <option value="SHORT">Short</option>
+            </select>
+          </div>
+          <div>
+            <label for="mEntry">Entry</label
+            ><input id="mEntry" type="number" step="0.01" style="width: 90px" />
+          </div>
+          <div>
+            <label for="mStop">Stop</label
+            ><input id="mStop" type="number" step="0.01" style="width: 90px" />
+          </div>
+          <div>
+            <label for="mTarget">Target</label
+            ><input
+              id="mTarget"
+              type="number"
+              step="0.01"
+              style="width: 90px"
+            />
+          </div>
+          <div>
+            <label for="mNote">Setup note</label
+            ><input
+              id="mNote"
+              placeholder="BOS + OB retest, 15m"
+              style="width: 220px"
+            />
+          </div>
+          <button class="primary" id="addManual">Add setup</button>
+        </div>
+        <p class="msg" id="msg"></p>
+      </div>
 
-<div class="card">
-  <h3>Log a setup manually</h3>
-  <div class="row">
-    <div><label>Symbol</label><input id="mSym" placeholder="COALINDIA" style="width:120px"></div>
-    <div><label>Direction</label>
-      <select id="mSide" style="width:90px"><option value="LONG">Long</option><option value="SHORT">Short</option></select>
-    </div>
-    <div><label>Entry</label><input id="mEntry" type="number" step="0.01" style="width:90px"></div>
-    <div><label>Stop</label><input id="mStop" type="number" step="0.01" style="width:90px"></div>
-    <div><label>Target</label><input id="mTarget" type="number" step="0.01" style="width:90px"></div>
-    <div><label>Setup note</label><input id="mNote" placeholder="BOS + OB retest, 15m" style="width:220px"></div>
-    <button class="primary" id="addManual">Add setup</button>
-  </div>
-  <p class="msg" id="msg"></p>
-</div>
+      <div class="card" id="riskCard" style="display: none">
+        <h3>Risk sizing — <span id="riskSym"></span></h3>
+        <div class="row">
+          <div>
+            <label for="rCapital">Account (₹)</label
+            ><input
+              id="rCapital"
+              type="number"
+              value="100000"
+              style="width: 120px"
+            />
+          </div>
+          <div>
+            <label for="rRisk">Risk per trade (%)</label
+            ><input
+              id="rRisk"
+              type="number"
+              step="0.1"
+              value="1"
+              style="width: 80px"
+            />
+          </div>
+          <div>
+            <label for="rLev">Leverage×</label
+            ><input
+              id="rLev"
+              type="number"
+              step="0.5"
+              value="1"
+              style="width: 70px"
+            />
+          </div>
+        </div>
+        <div class="stats">
+          <div class="riskout">
+            <b id="oRiskAmt">—</b><span>₹ at risk</span>
+          </div>
+          <div class="riskout">
+            <b id="oQty">—</b><span>position size</span>
+          </div>
+          <div class="riskout">
+            <b id="oNotional">—</b><span>notional ₹</span>
+          </div>
+          <div class="riskout"><b id="oRR">—</b><span>reward : risk</span></div>
+          <div class="riskout"><b id="oTarget">—</b><span>target ₹</span></div>
+        </div>
+        <div class="row">
+          <button class="primary" id="paperOpen">Open paper trade</button>
+          <span class="mut" id="riskMsg"></span>
+        </div>
+      </div>
 
-<div class="card" id="riskCard" style="display:none">
-  <h3>Risk sizing — <span id="riskSym"></span></h3>
-  <div class="row">
-    <div><label>Account (₹)</label><input id="rCapital" type="number" value="100000" style="width:120px"></div>
-    <div><label>Risk per trade (%)</label><input id="rRisk" type="number" step="0.1" value="1" style="width:80px"></div>
-    <div><label>Leverage×</label><input id="rLev" type="number" step="0.5" value="1" style="width:70px"></div>
-  </div>
-  <div class="stats">
-    <div class="riskout"><b id="oRiskAmt">—</b><span>₹ at risk</span></div>
-    <div class="riskout"><b id="oQty">—</b><span>position size</span></div>
-    <div class="riskout"><b id="oNotional">—</b><span>notional ₹</span></div>
-    <div class="riskout"><b id="oRR">—</b><span>reward : risk</span></div>
-    <div class="riskout"><b id="oTarget">—</b><span>target ₹</span></div>
-  </div>
-  <div class="row">
-    <button class="primary" id="paperOpen">Open paper trade</button>
-    <span class="mut" id="riskMsg"></span>
-  </div>
-</div>
+      <div class="card">
+        <h3>Paper-trade ledger</h3>
+        <div class="stats" id="ledgerStats"></div>
+        <div
+          class="table-scroll"
+          role="region"
+          aria-label="Scrollable data table"
+          tabindex="0"
+        >
+          <table>
+            <thead>
+              <tr>
+                <th>Opened</th>
+                <th>Symbol</th>
+                <th>Side</th>
+                <th>Qty</th>
+                <th>Entry</th>
+                <th>Stop</th>
+                <th>Target</th>
+                <th>R:R</th>
+                <th>Status</th>
+                <th>Exit</th>
+                <th>P&amp;L ₹</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody id="ledgerBody"></tbody>
+          </table>
+        </div>
+        <p class="mut" id="ledgerEmpty" style="display: none">
+          No paper trades yet. Pick a signal, size it, open one.
+        </p>
+      </div>
 
-<div class="card">
-  <h3>Paper-trade ledger</h3>
-  <div class="stats" id="ledgerStats"></div>
-  <div class="table-scroll"><table>
-    <thead><tr><th>Opened</th><th>Symbol</th><th>Side</th><th>Qty</th><th>Entry</th><th>Stop</th><th>Target</th><th>R:R</th><th>Status</th><th>Exit</th><th>P&amp;L ₹</th><th></th></tr></thead>
-    <tbody id="ledgerBody"></tbody>
-  </table></div>
-  <p class="mut" id="ledgerEmpty" style="display:none">No paper trades yet. Pick a signal, size it, open one.</p>
-</div>
+      <p class="disclaimer">
+        <strong>Private Research Journal:</strong> SMC setup notes and paper
+        trades are educational records, not investment advice or
+        recommendations. Signals come from your own TradingView alerts;
+        free/indicator logic can misfire. Paper-trade results do not represent
+        real performance. Verify every level on your broker platform before
+        placing any real order, and consult a SEBI-registered professional
+        before making an investment decision.
+      </p>
+    </main>
+    <script src="assets/js/shell.js"></script>
+    <script type="module">
+      const sb = LfcAuth.client;
+      const SUPABASE_URL = LFC_CONFIG.url,
+        SUPABASE_ANON_KEY = LFC_CONFIG.anonKey;
+      const account = await LfcAuth.ready;
+      const $ = (id) => document.getElementById(id);
+      const LS_TRADES = "lfc.papertrades." + account.id;
+      const LS_UI = "lfc.setups.ui." + account.id; // signals-card filter state (side / search / TV toggle)
+      const LS_SCAN = "lfc.setups.scanlist." + account.id; // last known scan list — offline mirror of scan_symbols
 
-<p class="disclaimer"><strong>Private Research Journal:</strong> SMC setup notes and paper trades are
-educational records, not investment advice or recommendations. Signals come from your own
-TradingView alerts; free/indicator logic can misfire. Paper-trade results do not represent real
-performance. Verify every level on your broker platform before placing any real order, and consult a
-SEBI-registered professional before making an investment decision.</p>
+      let signals = []; // unified: {id, ts, symbol, action, price, details, source, used}
 
-</main>
-
-<script src="auth-guard.js"></script>
-<script type="module">
-import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm";
-
-const SUPABASE_URL = "https://chbtjicvbezbiosuouwm.supabase.co";
-const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNoYnRqaWN2YmV6Ymlvc3VvdXdtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODkzODc2NjAsImV4cCI6MjEwNDk2MzY2MH0.jlTyYWnf1TnvmwCa4NCc-hJ4wZgjWTuSc94DqvMTdNQ";
-const $ = id => document.getElementById(id);
-const sb = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-const LS_TRADES = "lfc.papertrades";
-const LS_UI = "lfc.setups.ui";         // signals-card filter state (side / search / TV toggle)
-const LS_SCAN = "lfc.setups.scanlist"; // last known scan list — offline mirror of scan_symbols
-
-let signals = [];   // unified: {id, ts, symbol, action, price, details, source, used}
-
-// ---------- helpers ----------
-const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
-const money = v => (v == null || isNaN(v)) ? "—" : Number(v).toLocaleString("en-IN", { maximumFractionDigits: 2 });
-const dt = iso => { try { return new Date(iso).toLocaleString("en-IN", { dateStyle: "medium", timeStyle: "short" }); } catch (e) { return "—"; } };
-
-function loadTrades() { try { return JSON.parse(localStorage.getItem(LS_TRADES) || "[]"); } catch (e) { return []; } }
-function saveTrades(t) { try { localStorage.setItem(LS_TRADES, JSON.stringify(t)); } catch (e) {} }
-let trades = loadTrades();
-
-// Filter controls survive a reload; the scan list keeps a local mirror so a
-// Supabase hiccup shows your real list instead of the committed fallback.
-function loadUi() { try { return JSON.parse(localStorage.getItem(LS_UI) || "{}"); } catch (e) { return {}; } }
-function saveUi() {
-  try {
-    localStorage.setItem(LS_UI, JSON.stringify({
-      side: $("sideFilter").value, search: $("sigSearch").value, tv: $("tvEnable").checked,
-    }));
-  } catch (e) {}
-}
-function saveScanCache() { try { localStorage.setItem(LS_SCAN, JSON.stringify(scanSymbols)); } catch (e) {} }
-function loadScanCache() {
-  try { const v = JSON.parse(localStorage.getItem(LS_SCAN) || "null"); return Array.isArray(v) ? v : null; }
-  catch (e) { return null; }
-}
-
-// ---------- signals: Supabase (TV webhook) + manual ----------
-async function loadSignals() {
-  signals = [];
-  if ($("tvEnable").checked) {
-    try {
-      const { data, error } = await sb.from("signal_events").select("*").order("created_at", { ascending: false }).limit(25);
-      if (!error && data) {
-        data.forEach(r => signals.push({
-          id: "db-" + r.id, ts: r.created_at, symbol: r.symbol, action: r.action || "",
-          price: r.price, details: r.details || "", source: "TV", used: false
-        }));
-      }
-    } catch (e) { /* table not migrated yet — manual flow still works */ }
-  }
-  renderSignals();
-}
-
-function renderSignals() {
-  const b = $("sigBody");
-  b.innerHTML = "";
-  const side = ($("sideFilter").value || "ALL").toUpperCase();
-  const q = ($("sigSearch").value || "").trim().toUpperCase();
-  const shown = signals.filter(s =>
-    (side === "ALL" || String(s.action).toUpperCase().includes(side))
-    && (!q || String(s.symbol).toUpperCase().includes(q)));
-  $("sigEmpty").style.display = shown.length ? "none" : "";
-  if (!shown.length && signals.length) {
-    const sideMsg = side === "ALL" ? "" : ` — switch the side filter to All`;
-    $("sigEmpty").textContent = q
-      ? `No signals match “${q}”${side === "ALL" ? "" : " and the " + side + " filter"}. Clear the symbol search to see everything.`
-      : `No ${side === "LONG" ? "LONG" : "SHORT"} signals in the current list${sideMsg}.`;
-  }
-  else if (!signals.length) $("sigEmpty").textContent = "No signals yet. TradingView alerts land here via a Supabase edge-function webhook; you can also log a setup manually below.";
-  shown.forEach((s, i) => {
-    const tr = document.createElement("tr");
-    tr.innerHTML =
-      `<td>${esc(dt(s.ts))}</td>` +
-      `<td><b>${esc(s.symbol)}</b></td>` +
-      `<td>${s.action.toUpperCase().includes("SHORT") || s.action.toUpperCase().includes("SELL") ? '<span class="tag short">SHORT</span>' : '<span class="tag long">LONG</span>'}</td>` +
-      `<td>${s.price != null ? esc(s.price) : "—"}</td>` +
-      `<td class="mut">${esc(s.details)}</td>` +
-      `<td><span class="tag ${s.source === "TV" ? "src" : "manual"}">${esc(s.source)}</span> <button class="ghost" data-size="${i}">Size it</button></td>`;
-    b.appendChild(tr);
-  });
-  b.onclick = ev => {
-    const btn = ev.target.closest("[data-size]");
-    if (btn) primeRisk(shown[parseInt(btn.getAttribute("data-size"), 10)]);
-  };
-}
-
-// ---------- manual setup ----------
-$("addManual").onclick = () => {
-  const sym = $("mSym").value.trim().toUpperCase();
-  const entry = parseFloat($("mEntry").value), stop = parseFloat($("mStop").value), target = parseFloat($("mTarget").value);
-  if (!sym || isNaN(entry) || isNaN(stop)) { $("msg").textContent = "Symbol, entry and stop are required."; return; }
-  signals.unshift({
-    id: "man-" + Date.now(), ts: new Date().toISOString(), symbol: sym,
-    action: $("mSide").value, price: entry,
-    details: `stop ${isNaN(stop) ? "?" : stop}${!isNaN(target) ? " · target " + target : ""}${$("mNote").value.trim() ? " · " + $("mNote").value.trim() : ""}`,
-    source: "Manual", used: false
-  });
-  $("mSym").value = ""; $("mEntry").value = ""; $("mStop").value = ""; $("mTarget").value = ""; $("mNote").value = "";
-  $("msg").textContent = "Setup added to the signal list below.";
-  renderSignals();
-  primeRisk(signals[0]);
-};
-
-// ---------- risk ----------
-let riskCtx = null;
-function primeRisk(sig) {
-  riskCtx = sig;
-  $("riskCard").style.display = "";
-  $("riskSym").textContent = sig.symbol + " (" + sig.action + ")";
-  computeRisk();
-}
-["rCapital", "rRisk", "rLev"].forEach(id => { $(id).oninput = computeRisk; });
-
-function computeRisk() {
-  if (!riskCtx) return;
-  const cap = parseFloat($("rCapital").value), riskPct = parseFloat($("rRisk").value);
-  const lev = parseFloat($("rLev").value) || 1;
-  const entry = parseFloat(riskCtx.price);
-  // parse "stop 212.5 · target 230" out of the details
-  const stopM = /stop\s+([\d.]+)/i.exec(riskCtx.details || "");
-  const tgtM = /target\s+([\d.]+)/i.exec(riskCtx.details || "");
-  const stop = stopM ? parseFloat(stopM[1]) : NaN;
-  const target = tgtM ? parseFloat(tgtM[1]) : NaN;
-  const isShort = /SHORT|SELL/i.test(riskCtx.action || "");
-  const riskAmt = cap * (riskPct / 100);
-
-  if (isNaN(entry) || isNaN(stop) || stop === entry) {
-    ["oRiskAmt", "oQty", "oNotional", "oRR", "oTarget"].forEach(id => $(id).textContent = "—");
-    $("riskMsg").textContent = "This signal has no usable stop — edit it into a manual setup first.";
-    return;
-  }
-  const perUnit = Math.abs(entry - stop);
-  const qty = riskAmt / perUnit;
-  const rr = !isNaN(target) ? Math.abs(target - entry) / perUnit : NaN;
-
-  $("oRiskAmt").textContent = "₹" + money(riskAmt);
-  $("oQty").textContent = money(Math.floor(qty * 100) / 100);
-  $("oNotional").textContent = "₹" + money(entry * qty);
-  $("oRR").textContent = isNaN(rr) ? "—" : rr.toFixed(2) + " : 1";
-  $("oTarget").textContent = !isNaN(target) ? "₹" + money(Math.abs(target - entry) * qty) : "—";
-  $("riskMsg").textContent = isShort ? "Short setup — margin rules apply on the real order." :
-    (lev > 1 ? "Leverage " + lev + "× assumed for notional only; qty is risk-derived." : "");
-}
-
-$("paperOpen").onclick = () => {
-  if (!riskCtx) return;
-  const cap = parseFloat($("rCapital").value), riskPct = parseFloat($("rRisk").value);
-  const entry = parseFloat(riskCtx.price);
-  const stopM = /stop\s+([\d.]+)/i.exec(riskCtx.details || "");
-  const tgtM = /target\s+([\d.]+)/i.exec(riskCtx.details || "");
-  const stop = stopM ? parseFloat(stopM[1]) : NaN;
-  const target = tgtM ? parseFloat(tgtM[1]) : NaN;
-  const riskAmt = cap * (riskPct / 100);
-  if (isNaN(entry) || isNaN(stop) || stop === entry) { $("riskMsg").textContent = "Cannot open without a valid stop."; return; }
-  const qty = Math.floor((riskAmt / Math.abs(entry - stop)) * 100) / 100;
-  trades.unshift({
-    id: "pt-" + Date.now(), opened: new Date().toISOString(),
-    symbol: riskCtx.symbol,
-    side: /SHORT|SELL/i.test(riskCtx.action || "") ? "SHORT" : "LONG",
-    qty, entry, stop, target: isNaN(target) ? null : target,
-    note: riskCtx.details || "", source: riskCtx.source, status: "OPEN"
-  });
-  saveTrades(trades);
-  $("msg").textContent = "Paper trade opened for " + riskCtx.symbol + ". Place the real order manually on your broker.";
-  riskCtx = null;
-  $("riskCard").style.display = "none";
-  renderLedger();
-};
-
-// ---------- ledger ----------
-function pnl(t, exitPrice) {
-  return t.side === "SHORT" ? (t.entry - exitPrice) * t.qty : (exitPrice - t.entry) * t.qty;
-}
-
-function renderLedger() {
-  const b = $("ledgerBody");
-  b.innerHTML = "";
-  $("ledgerEmpty").style.display = trades.length ? "none" : "";
-
-  const closed = trades.filter(t => t.status === "CLOSED");
-  const wins = closed.filter(t => t.pnl > 0);
-  const gross = closed.reduce((a, t) => a + t.pnl, 0);
-  const stats = {
-    open: trades.filter(t => t.status === "OPEN").length,
-    closed: closed.length,
-    winRate: closed.length ? Math.round(wins.length / closed.length * 100) + "%" : "—",
-    netPnl: gross
-  };
-  $("ledgerStats").innerHTML =
-    `<div class="stat"><b>${stats.open}</b><span>open</span></div>` +
-    `<div class="stat"><b>${stats.closed}</b><span>closed</span></div>` +
-    `<div class="stat"><b>${stats.winRate}</b><span>win rate</span></div>` +
-    `<div class="stat"><b class="${gross >= 0 ? "pos" : "neg"}">${gross >= 0 ? "+" : ""}₹${money(gross)}</b><span>paper P&L (net)</span></div>`;
-
-  trades.forEach((t, i) => {
-    const tr = document.createElement("tr");
-    let status = t.status === "OPEN" ? '<span class="tag open">OPEN</span>' : (t.pnl >= 0 ? '<span class="tag win">WIN</span>' : '<span class="tag loss">LOSS</span>');
-    let exitCell, pnlCell;
-    if (t.status === "OPEN") {
-      exitCell = `<input type="number" step="0.01" placeholder="exit ₹" id="exit-${i}" style="width:90px"> <button class="ghost" data-close="${i}">Close</button>`;
-      pnlCell = "—";
-    } else {
-      exitCell = esc(t.exit);
-      pnlCell = `<span class="${t.pnl >= 0 ? "pos" : "neg"}">${t.pnl >= 0 ? "+" : ""}₹${money(t.pnl)}</span>`;
-    }
-    tr.innerHTML =
-      `<td>${esc(dt(t.opened))}</td>` +
-      `<td><b>${esc(t.symbol)}</b><div class="mut">${esc(t.note || "")}</div></td>` +
-      `<td>${t.side === "SHORT" ? '<span class="tag short">SHORT</span>' : '<span class="tag long">LONG</span>'}</td>` +
-      `<td>${money(t.qty)}</td><td>${money(t.entry)}</td><td>${money(t.stop)}</td><td>${t.target != null ? money(t.target) : "—"}</td>` +
-      `<td>${t.stop && t.target ? (Math.abs(t.target - t.entry) / Math.abs(t.entry - t.stop)).toFixed(2) : "—"}</td>` +
-      `<td>${status}</td><td>${exitCell}</td><td>${pnlCell}</td>` +
-      `<td><button class="ghost danger" data-del="${i}">✕</button></td>`;
-    b.appendChild(tr);
-  });
-
-  b.onclick = ev => {
-    const c = ev.target.closest("[data-close]");
-    if (c) {
-      const i = parseInt(c.getAttribute("data-close"), 10);
-      const exit = parseFloat($("exit-" + i).value);
-      if (isNaN(exit) || exit <= 0) { $("msg").textContent = "Enter the exit price to close."; return; }
-      const t = trades[i];
-      t.status = "CLOSED"; t.exit = exit; t.pnl = Math.round(pnl(t, exit) * 100) / 100;
-      t.closedAt = new Date().toISOString();
-      saveTrades(trades);
-      $("msg").textContent = t.symbol + " closed — paper P&L ₹" + t.pnl;
-      renderLedger();
-      return;
-    }
-    const d = ev.target.closest("[data-del]");
-    if (d) {
-      trades.splice(parseInt(d.getAttribute("data-del"), 10), 1);
-      saveTrades(trades);
-      renderLedger();
-    }
-  };
-}
-
-// ---------- nightly scan list (Supabase scan_symbols) ----------
-let scanSymbols = [];
-
-const SCAN_HINTS = {
-  "GC=F": "gold", "SI=F": "silver", "CL=F": "crude WTI", "BZ=F": "Brent",
-  "NG=F": "natgas", "HG=F": "copper", "ALI=F": "aluminium", "ZNC=F": "zinc", "PL=F": "platinum",
-};
-
-// True when the Supabase client currently holds a session — used by save
-// error messages so a signed-out visitor gets told the actual problem.
-function sbAuthUser() {
-  try {
-    const v = JSON.parse(localStorage.getItem("sb-chbtjicvbezbiosuouwm-auth-token") || "null");
-    return !!(v && (v.currentSession?.access_token || v.access_token));
-  } catch { return false; }
-}
-
-function normaliseScanSymbol(raw) {
-  const s = String(raw || "").trim().toUpperCase().replace(/["']/g, "");
-  if (!s || s === "SYMBOL") return null;
-  if (s.length < 2 || s.length > 20) return null;
-  if (!/^[A-Z0-9&\-\.=]+$/.test(s)) return null;
-  if (/=F$/.test(s)) return s;                       // futures contract, e.g. GC=F
-  if (/\.(NS|BO|MCX)$/i.test(s)) return s.replace(/\.(NS|BO|MCX)$/i, (m) => m.toUpperCase());
-  return s + ".NS";                                  // bare word assumes NSE
-}
-
-// Raw-REST fallback for writes that supabase-js reports as success but which
-// matched 0 rows. This bit commodity chips (ZNC=F etc.) for days: the builder
-// path can silently miss, while the encoded REST filter matches exactly one row.
-async function restWrite(method, symbol, body) {
-  const v = JSON.parse(localStorage.getItem("sb-chbtjicvbezbiosuouwm-auth-token") || "null");
-  const tok = v && (v.currentSession?.access_token || v.access_token);
-  if (!tok) throw new Error("no session — sign in via the journal page first");
-  const res = await fetch(SUPABASE_URL + "/rest/v1/scan_symbols?symbol=eq." + encodeURIComponent(symbol), {
-    method,
-    headers: { apikey: SUPABASE_ANON_KEY, Authorization: "Bearer " + tok, "Content-Type": "application/json" },
-    body: body ? JSON.stringify(body) : undefined,
-  });
-  if (!res.ok && res.status !== 204) {
-    const t = await res.text().catch(() => "");
-    throw new Error("REST " + method + " HTTP " + res.status + " " + t.slice(0, 200));
-  }
-  // confirm the effect server-side rather than trusting the status alone
-  const chk = await fetch(SUPABASE_URL + "/rest/v1/scan_symbols?select=*&symbol=eq." + encodeURIComponent(symbol), {
-    headers: { apikey: SUPABASE_ANON_KEY, Authorization: "Bearer " + tok },
-  });
-  return chk.json();
-}
-
-async function loadScanList() {
-  try {
-    const { data, error } = await sb.from("scan_symbols").select("*").order("position", { ascending: true });
-    if (error) throw error;
-    scanSymbols = (data || []).map((r) => ({ symbol: r.symbol, enabled: r.enabled, onServer: true }));
-    saveScanCache();   // refresh the offline mirror on every successful read
-  } catch (e) {
-    // Supabase unreachable (or migration missing): prefer the locally cached
-    // list from the last successful load so your view survives a reload;
-    // fall back to the committed JSON for a first-ever visit.
-    const cached = loadScanCache();
-    if (cached && cached.length) {
-      scanSymbols = cached;
-      $("scanMsg").textContent = "Showing your last known scan list (Supabase unreachable) — toggles here will not reach tonight's scan until it is back.";
-    } else {
-    try {
-      const res = await fetch("tools/signal-watchlist.json");
-      const j = await res.json();
-      scanSymbols = (j.symbols || []).map((s) => ({ symbol: s, enabled: true, onServer: false }));
-      saveScanCache();
-    } catch (e2) { scanSymbols = []; }
-    if (!scanSymbols.length) {
-      $("scanMsg").textContent = "Scan list unavailable (has scan-symbols-migration.sql been run in Supabase?).";
-    } else {
-      $("scanMsg").textContent = "Read-only preview — run scan-symbols-migration.sql in Supabase to enable editing.";
-    }
-    }
-  }
-  renderScanList();
-}
-
-function renderScanList() {
-  const wrap = $("scanList");
-  wrap.innerHTML = "";
-  const enabled = scanSymbols.filter((s) => s.enabled).length;
-  $("scanCount").textContent = scanSymbols.length ? `${enabled} of ${scanSymbols.length} enabled` : "";
-  scanSymbols.forEach((s, i) => {
-    const chip = document.createElement("span");
-    chip.style.cssText = "display:inline-flex;align-items:center;gap:5px;padding:3px 9px;border:1px solid var(--line,#ccc);border-radius:999px;font-size:12px" + (s.enabled ? "" : ";opacity:.45");
-    const hint = SCAN_HINTS[s.symbol] ? ` <i style="opacity:.6;font-style:normal">${SCAN_HINTS[s.symbol]}</i>` : "";
-    chip.innerHTML =
-      `<label style="margin:0;display:flex;align-items:center;gap:4px;cursor:pointer">` +
-      `<input type="checkbox" data-scan-toggle="${i}" ${s.enabled ? "checked" : ""}>` +
-      `<b style="font-weight:600">${esc(s.symbol)}</b>${hint}</label>` +
-      (s.onServer ? ` <button class="ghost danger" data-scan-del="${i}" title="Remove from the scan" style="padding:0 4px;border:none;background:none;cursor:pointer">✕</button>` : "");
-    wrap.appendChild(chip);
-  });
-}
-
-  // handler lives on the container, so it survives re-renders
-  $("scanList").onclick = async (ev) => {
-    const tog = ev.target.closest("[data-scan-toggle]");
-    const del = ev.target.closest("[data-scan-del]");
-    if (!tog && !del) return;
-    const i = parseInt((tog || del).getAttribute(tog ? "data-scan-toggle" : "data-scan-del"), 10);
-    const row = scanSymbols[i];
-    if (!row) return;
-    try {
-      if (tog) {
-        const { error } = await sb.from("scan_symbols").update({ enabled: !row.enabled, updated_at: new Date().toISOString() }).eq("symbol", row.symbol);
-        if (error) throw error;
-        // supabase-js reports success even when the filter matched 0 rows —
-        // verify the write actually landed, retry via raw REST if not.
-        const { data: chk } = await sb.from("scan_symbols").select("enabled").eq("symbol", row.symbol).maybeSingle();
-        if (!chk || chk.enabled !== !row.enabled) {
-          const after = await restWrite("PATCH", row.symbol, { enabled: !row.enabled, updated_at: new Date().toISOString() });
-          if (!after.length || after[0].enabled !== !row.enabled) throw new Error("both write paths failed to flip enabled — are you signed in as the admin user?");
+      // ---------- helpers ----------
+      const esc = (s) =>
+        String(s ?? "").replace(
+          /[&<>"']/g,
+          (c) =>
+            ({
+              "&": "&amp;",
+              "<": "&lt;",
+              ">": "&gt;",
+              '"': "&quot;",
+              "'": "&#39;",
+            })[c],
+        );
+      const money = (v) =>
+        v == null || isNaN(v)
+          ? "—"
+          : Number(v).toLocaleString("en-IN", { maximumFractionDigits: 2 });
+      const dt = (iso) => {
+        try {
+          return new Date(iso).toLocaleString("en-IN", {
+            dateStyle: "medium",
+            timeStyle: "short",
+          });
+        } catch (e) {
+          return "—";
         }
-        row.enabled = !row.enabled;
-        saveScanCache();
-        $("scanMsg").textContent = row.symbol + (row.enabled ? " back in tonight's scan." : " paused — the scan will skip it.");
-      } else {
-        const { error } = await sb.from("scan_symbols").delete().eq("symbol", row.symbol);
-        if (error) throw error;
-        // verify: a 0-row delete is a silent no-op (this bit commodity symbols
-        // like ZNC=F for days — the filter must match exactly one row).
-        // Retry once via the raw REST path before giving up.
-        const { data: gone } = await sb.from("scan_symbols").select("symbol").eq("symbol", row.symbol).maybeSingle();
-        if (gone) {
-          const after = await restWrite("DELETE", row.symbol);
-          if (after.length) throw new Error("both delete paths matched 0 rows — are you signed in as the admin user?");
+      };
+
+      function loadTrades() {
+        try {
+          return JSON.parse(localStorage.getItem(LS_TRADES) || "[]");
+        } catch (e) {
+          return [];
         }
-        scanSymbols.splice(i, 1);
-        saveScanCache();
-        $("scanMsg").textContent = row.symbol + " removed from the scan list.";
       }
-    } catch (e) {
-      $("scanMsg").textContent = "Save failed: " + (e.message || e)
-        + (e.details ? " [" + e.details + "]" : "")
-        + (e.hint ? " (hint: " + e.hint + ")" : "")
-        + (sbAuthUser() ? "" : " — you are NOT signed in; sign in via the journal page first.")
-        + " If it keeps failing, run scan-symbols-migration.sql in Supabase.";
-    }
-    renderScanList();
-  };
+      function saveTrades(t) {
+        try {
+          localStorage.setItem(LS_TRADES, JSON.stringify(t));
+        } catch (e) {}
+      }
+      let trades = loadTrades();
 
-$("scanAddBtn").onclick = async () => {
-  const sym = normaliseScanSymbol($("scanAdd").value);
-  if (!sym) { $("scanMsg").textContent = "That does not look like a Yahoo symbol (examples: IRCTC, RELIANCE.NS, GC=F)."; return; }
-  if (scanSymbols.some((s) => s.symbol === sym)) { $("scanMsg").textContent = sym + " is already on the list."; return; }
-  try {
-    const { data, error } = await sb.from("scan_symbols").insert({ symbol: sym, enabled: true, position: 1000 + scanSymbols.length });
-    if (error) throw error;
-    if (!data || !data.length) throw new Error("the insert returned no rows — write may not have landed; refresh and check");
-    scanSymbols.push({ symbol: sym, enabled: true, onServer: true });
-    saveScanCache();
-    $("scanMsg").textContent = sym + " added — tonight's scan will include it.";
-    $("scanAdd").value = "";
-  } catch (e) {
-    $("scanMsg").textContent = "Save failed: " + (e.message || e)
-      + (e.details ? " [" + e.details + "]" : "")
-      + (e.hint ? " (hint: " + e.hint + ")" : "")
-      + (sbAuthUser() ? "" : " — you are NOT signed in; sign in via the journal page first.")
-      + " If it keeps failing, run scan-symbols-migration.sql in Supabase.";
-  }
-  renderScanList();
-};
+      // Filter controls survive a reload; the scan list keeps a local mirror so a
+      // Supabase hiccup shows your real list instead of the committed fallback.
+      function loadUi() {
+        try {
+          return JSON.parse(localStorage.getItem(LS_UI) || "{}");
+        } catch (e) {
+          return {};
+        }
+      }
+      function saveUi() {
+        try {
+          localStorage.setItem(
+            LS_UI,
+            JSON.stringify({
+              side: $("sideFilter").value,
+              search: $("sigSearch").value,
+              tv: $("tvEnable").checked,
+            }),
+          );
+        } catch (e) {}
+      }
+      function saveScanCache() {
+        try {
+          localStorage.setItem(LS_SCAN, JSON.stringify(scanSymbols));
+        } catch (e) {}
+      }
+      function loadScanCache() {
+        try {
+          const v = JSON.parse(localStorage.getItem(LS_SCAN) || "null");
+          return Array.isArray(v) ? v : null;
+        } catch (e) {
+          return null;
+        }
+      }
 
-// ---------- boot ----------
-$("refreshSigs").onclick = loadSignals;
-$("sideFilter").onchange = () => { saveUi(); renderSignals(); };
-$("sigSearch").oninput = () => { saveUi(); renderSignals(); };
-$("tvEnable").onchange = saveUi;
+      // ---------- signals: Supabase (TV webhook) + manual ----------
+      async function loadSignals() {
+        signals = [];
+        if ($("tvEnable").checked) {
+          try {
+            const { data, error } = await sb
+              .from("signal_events")
+              .select("*")
+              .order("created_at", { ascending: false })
+              .limit(25);
+            if (error) {
+              $("msg").textContent =
+                "Signal feed unavailable. You can still log a setup manually.";
+            }
+            if (!error && data) {
+              data.forEach((r) =>
+                signals.push({
+                  id: "db-" + r.id,
+                  ts: r.created_at,
+                  symbol: r.symbol,
+                  action: r.action || "",
+                  price: r.price,
+                  details: r.details || "",
+                  source: "TV",
+                  used: false,
+                }),
+              );
+            }
+          } catch (e) {
+            $("msg").textContent =
+              "Signal feed unavailable. You can still log a setup manually.";
+          }
+        }
+        renderSignals();
+      }
 
-// restore the saved filter state before the first render
-(function restoreUi() {
-  const u = loadUi();
-  if (u.side) $("sideFilter").value = u.side;
-  if (typeof u.search === "string") $("sigSearch").value = u.search;
-  if (typeof u.tv === "boolean") $("tvEnable").checked = u.tv;
-})();
-(function boot() {
-  if (!window.LfcAuth || !window.LfcAuth.current()) {
-    location.replace("signin.html?next=setups.html");
-    return;
-  }
-  loadSignals();
-  renderLedger();
-  loadScanList();
-})();
-</script>
-</body>
+      function renderSignals() {
+        const b = $("sigBody");
+        b.innerHTML = "";
+        const side = ($("sideFilter").value || "ALL").toUpperCase();
+        const q = ($("sigSearch").value || "").trim().toUpperCase();
+        const shown = signals.filter(
+          (s) =>
+            (side === "ALL" || String(s.action).toUpperCase().includes(side)) &&
+            (!q || String(s.symbol).toUpperCase().includes(q)),
+        );
+        $("sigEmpty").style.display = shown.length ? "none" : "";
+        if (!shown.length && signals.length) {
+          const sideMsg =
+            side === "ALL" ? "" : ` — switch the side filter to All`;
+          $("sigEmpty").textContent = q
+            ? `No signals match “${q}”${side === "ALL" ? "" : " and the " + side + " filter"}. Clear the symbol search to see everything.`
+            : `No ${side === "LONG" ? "LONG" : "SHORT"} signals in the current list${sideMsg}.`;
+        } else if (!signals.length)
+          $("sigEmpty").textContent =
+            "No signals yet. TradingView alerts land here via a Supabase edge-function webhook; you can also log a setup manually below.";
+        shown.forEach((s, i) => {
+          const tr = document.createElement("tr");
+          tr.innerHTML =
+            `<td>${esc(dt(s.ts))}</td>` +
+            `<td><b>${esc(s.symbol)}</b></td>` +
+            `<td>${s.action.toUpperCase().includes("SHORT") || s.action.toUpperCase().includes("SELL") ? '<span class="tag short">SHORT</span>' : '<span class="tag long">LONG</span>'}</td>` +
+            `<td>${s.price != null ? esc(s.price) : "—"}</td>` +
+            `<td class="mut">${esc(s.details)}</td>` +
+            `<td><span class="tag ${s.source === "TV" ? "src" : "manual"}">${esc(s.source)}</span> <button class="ghost" data-size="${i}">Size it</button></td>`;
+          b.appendChild(tr);
+        });
+        b.onclick = (ev) => {
+          const btn = ev.target.closest("[data-size]");
+          if (btn)
+            primeRisk(shown[parseInt(btn.getAttribute("data-size"), 10)]);
+        };
+      }
+
+      // ---------- manual setup ----------
+      $("addManual").onclick = () => {
+        const sym = $("mSym").value.trim().toUpperCase();
+        const entry = parseFloat($("mEntry").value),
+          stop = parseFloat($("mStop").value),
+          target = parseFloat($("mTarget").value);
+        if (
+          !sym ||
+          !Number.isFinite(entry) ||
+          !Number.isFinite(stop) ||
+          entry <= 0 ||
+          stop <= 0
+        ) {
+          $("msg").textContent =
+            "Enter a symbol and positive entry and stop prices.";
+          return;
+        }
+        const short = $("mSide").value === "SHORT";
+        if (
+          (short && stop <= entry) ||
+          (!short && stop >= entry) ||
+          (Number.isFinite(target) &&
+            (short ? target >= entry || target <= 0 : target <= entry))
+        ) {
+          $("msg").textContent =
+            "Check direction: a long stop must be below entry and target above; reverse this for a short.";
+          return;
+        }
+        signals.unshift({
+          id: "man-" + Date.now(),
+          ts: new Date().toISOString(),
+          symbol: sym,
+          action: $("mSide").value,
+          price: entry,
+          details: `stop ${isNaN(stop) ? "?" : stop}${!isNaN(target) ? " · target " + target : ""}${$("mNote").value.trim() ? " · " + $("mNote").value.trim() : ""}`,
+          source: "Manual",
+          used: false,
+        });
+        $("mSym").value = "";
+        $("mEntry").value = "";
+        $("mStop").value = "";
+        $("mTarget").value = "";
+        $("mNote").value = "";
+        $("msg").textContent = "Setup added to the signal list below.";
+        renderSignals();
+        primeRisk(signals[0]);
+      };
+
+      // ---------- risk ----------
+      let riskCtx = null;
+      function primeRisk(sig) {
+        riskCtx = sig;
+        $("riskCard").style.display = "";
+        $("riskSym").textContent = sig.symbol + " (" + sig.action + ")";
+        computeRisk();
+      }
+      ["rCapital", "rRisk", "rLev"].forEach((id) => {
+        $(id).oninput = computeRisk;
+      });
+
+      function computeRisk() {
+        if (!riskCtx) return;
+        const cap = parseFloat($("rCapital").value),
+          riskPct = parseFloat($("rRisk").value);
+        const lev = parseFloat($("rLev").value) || 1;
+        const entry = parseFloat(riskCtx.price);
+        // parse "stop 212.5 · target 230" out of the details
+        const stopM = /stop\s+([\d.]+)/i.exec(riskCtx.details || "");
+        const tgtM = /target\s+([\d.]+)/i.exec(riskCtx.details || "");
+        const stop = stopM ? parseFloat(stopM[1]) : NaN;
+        const target = tgtM ? parseFloat(tgtM[1]) : NaN;
+        const isShort = /SHORT|SELL/i.test(riskCtx.action || "");
+        const riskAmt = cap * (riskPct / 100);
+
+        if (
+          !Number.isFinite(cap) ||
+          cap <= 0 ||
+          !Number.isFinite(riskPct) ||
+          riskPct <= 0 ||
+          riskPct > 100 ||
+          !Number.isFinite(entry) ||
+          entry <= 0 ||
+          !Number.isFinite(stop) ||
+          stop <= 0 ||
+          (isShort ? stop <= entry : stop >= entry)
+        ) {
+          ["oRiskAmt", "oQty", "oNotional", "oRR", "oTarget"].forEach(
+            (id) => ($(id).textContent = "—"),
+          );
+          $("riskMsg").textContent =
+            "Enter positive capital and risk (up to 100%), and a stop on the correct side of entry.";
+          $("paperOpen").disabled = true;
+          return;
+        }
+        $("paperOpen").disabled = false;
+        const perUnit = Math.abs(entry - stop);
+        const qty = riskAmt / perUnit;
+        const rr = !isNaN(target) ? Math.abs(target - entry) / perUnit : NaN;
+
+        $("oRiskAmt").textContent = "₹" + money(riskAmt);
+        $("oQty").textContent = money(Math.floor(qty * 100) / 100);
+        $("oNotional").textContent = "₹" + money(entry * qty);
+        $("oRR").textContent = isNaN(rr) ? "—" : rr.toFixed(2) + " : 1";
+        $("oTarget").textContent = !isNaN(target)
+          ? "₹" + money(Math.abs(target - entry) * qty)
+          : "—";
+        $("riskMsg").textContent = isShort
+          ? "Short setup — margin rules apply on the real order."
+          : lev > 1
+            ? "Leverage " +
+              lev +
+              "× assumed for notional only; qty is risk-derived."
+            : "";
+      }
+
+      $("paperOpen").onclick = () => {
+        if (!riskCtx) return;
+        const cap = parseFloat($("rCapital").value),
+          riskPct = parseFloat($("rRisk").value);
+        const entry = parseFloat(riskCtx.price);
+        const stopM = /stop\s+([\d.]+)/i.exec(riskCtx.details || "");
+        const tgtM = /target\s+([\d.]+)/i.exec(riskCtx.details || "");
+        const stop = stopM ? parseFloat(stopM[1]) : NaN;
+        const target = tgtM ? parseFloat(tgtM[1]) : NaN;
+        const riskAmt = cap * (riskPct / 100);
+        if (
+          !Number.isFinite(cap) ||
+          cap <= 0 ||
+          !Number.isFinite(riskPct) ||
+          riskPct <= 0 ||
+          riskPct > 100 ||
+          !Number.isFinite(entry) ||
+          entry <= 0 ||
+          !Number.isFinite(stop) ||
+          stop <= 0 ||
+          (/SHORT|SELL/i.test(riskCtx.action) ? stop <= entry : stop >= entry)
+        ) {
+          $("riskMsg").textContent = "Cannot open without a valid stop.";
+          return;
+        }
+        const qty = Math.floor((riskAmt / Math.abs(entry - stop)) * 100) / 100;
+        trades.unshift({
+          id: "pt-" + Date.now(),
+          opened: new Date().toISOString(),
+          symbol: riskCtx.symbol,
+          side: /SHORT|SELL/i.test(riskCtx.action || "") ? "SHORT" : "LONG",
+          qty,
+          entry,
+          stop,
+          target: isNaN(target) ? null : target,
+          note: riskCtx.details || "",
+          source: riskCtx.source,
+          status: "OPEN",
+        });
+        saveTrades(trades);
+        $("msg").textContent =
+          "Paper trade opened for " +
+          riskCtx.symbol +
+          ". Place the real order manually on your broker.";
+        riskCtx = null;
+        $("riskCard").style.display = "none";
+        renderLedger();
+      };
+
+      // ---------- ledger ----------
+      function pnl(t, exitPrice) {
+        return t.side === "SHORT"
+          ? (t.entry - exitPrice) * t.qty
+          : (exitPrice - t.entry) * t.qty;
+      }
+
+      function renderLedger() {
+        const b = $("ledgerBody");
+        b.innerHTML = "";
+        $("ledgerEmpty").style.display = trades.length ? "none" : "";
+
+        const closed = trades.filter((t) => t.status === "CLOSED");
+        const wins = closed.filter((t) => t.pnl > 0);
+        const gross = closed.reduce((a, t) => a + t.pnl, 0);
+        const stats = {
+          open: trades.filter((t) => t.status === "OPEN").length,
+          closed: closed.length,
+          winRate: closed.length
+            ? Math.round((wins.length / closed.length) * 100) + "%"
+            : "—",
+          netPnl: gross,
+        };
+        $("ledgerStats").innerHTML =
+          `<div class="stat"><b>${stats.open}</b><span>open</span></div>` +
+          `<div class="stat"><b>${stats.closed}</b><span>closed</span></div>` +
+          `<div class="stat"><b>${stats.winRate}</b><span>win rate</span></div>` +
+          `<div class="stat"><b class="${gross >= 0 ? "pos" : "neg"}">${gross >= 0 ? "+" : ""}₹${money(gross)}</b><span>paper P&L (net)</span></div>`;
+
+        trades.forEach((t, i) => {
+          const tr = document.createElement("tr");
+          let status =
+            t.status === "OPEN"
+              ? '<span class="tag open">OPEN</span>'
+              : t.pnl >= 0
+                ? '<span class="tag win">WIN</span>'
+                : '<span class="tag loss">LOSS</span>';
+          let exitCell, pnlCell;
+          if (t.status === "OPEN") {
+            exitCell = `<input type="number" step="0.01" placeholder="exit ₹" id="exit-${i}" style="width:90px"> <button class="ghost" data-close="${i}">Close</button>`;
+            pnlCell = "—";
+          } else {
+            exitCell = esc(t.exit);
+            pnlCell = `<span class="${t.pnl >= 0 ? "pos" : "neg"}">${t.pnl >= 0 ? "+" : ""}₹${money(t.pnl)}</span>`;
+          }
+          tr.innerHTML =
+            `<td>${esc(dt(t.opened))}</td>` +
+            `<td><b>${esc(t.symbol)}</b><div class="mut">${esc(t.note || "")}</div></td>` +
+            `<td>${t.side === "SHORT" ? '<span class="tag short">SHORT</span>' : '<span class="tag long">LONG</span>'}</td>` +
+            `<td>${money(t.qty)}</td><td>${money(t.entry)}</td><td>${money(t.stop)}</td><td>${t.target != null ? money(t.target) : "—"}</td>` +
+            `<td>${t.stop && t.target ? (Math.abs(t.target - t.entry) / Math.abs(t.entry - t.stop)).toFixed(2) : "—"}</td>` +
+            `<td>${status}</td><td>${exitCell}</td><td>${pnlCell}</td>` +
+            `<td><button class="ghost danger" data-del="${i}">✕</button></td>`;
+          b.appendChild(tr);
+        });
+
+        b.onclick = (ev) => {
+          const c = ev.target.closest("[data-close]");
+          if (c) {
+            const i = parseInt(c.getAttribute("data-close"), 10);
+            const exit = parseFloat($("exit-" + i).value);
+            if (isNaN(exit) || exit <= 0) {
+              $("msg").textContent = "Enter the exit price to close.";
+              return;
+            }
+            const t = trades[i];
+            t.status = "CLOSED";
+            t.exit = exit;
+            t.pnl = Math.round(pnl(t, exit) * 100) / 100;
+            t.closedAt = new Date().toISOString();
+            saveTrades(trades);
+            $("msg").textContent = t.symbol + " closed — paper P&L ₹" + t.pnl;
+            renderLedger();
+            return;
+          }
+          const d = ev.target.closest("[data-del]");
+          if (d) {
+            trades.splice(parseInt(d.getAttribute("data-del"), 10), 1);
+            saveTrades(trades);
+            renderLedger();
+          }
+        };
+      }
+
+      // ---------- nightly scan list (Supabase scan_symbols) ----------
+      let scanSymbols = [];
+
+      const SCAN_HINTS = {
+        "GC=F": "gold",
+        "SI=F": "silver",
+        "CL=F": "crude WTI",
+        "BZ=F": "Brent",
+        "NG=F": "natgas",
+        "HG=F": "copper",
+        "ALI=F": "aluminium",
+        "ZNC=F": "zinc",
+        "PL=F": "platinum",
+      };
+
+      // True when the Supabase client currently holds a session — used by save
+      // error messages so a signed-out visitor gets told the actual problem.
+      function sbAuthUser() {
+        try {
+          const v = JSON.parse(
+            localStorage.getItem("sb-chbtjicvbezbiosuouwm-auth-token") ||
+              "null",
+          );
+          return !!(v && (v.currentSession?.access_token || v.access_token));
+        } catch {
+          return false;
+        }
+      }
+
+      function normaliseScanSymbol(raw) {
+        const s = String(raw || "")
+          .trim()
+          .toUpperCase()
+          .replace(/["']/g, "");
+        if (!s || s === "SYMBOL") return null;
+        if (s.length < 2 || s.length > 20) return null;
+        if (!/^[A-Z0-9&\-\.=]+$/.test(s)) return null;
+        if (/=F$/.test(s)) return s; // futures contract, e.g. GC=F
+        if (/\.(NS|BO|MCX)$/i.test(s))
+          return s.replace(/\.(NS|BO|MCX)$/i, (m) => m.toUpperCase());
+        return s + ".NS"; // bare word assumes NSE
+      }
+
+      // Raw-REST fallback for writes that supabase-js reports as success but which
+      // matched 0 rows. This bit commodity chips (ZNC=F etc.) for days: the builder
+      // path can silently miss, while the encoded REST filter matches exactly one row.
+      async function restWrite(method, symbol, body) {
+        const v = JSON.parse(
+          localStorage.getItem("sb-chbtjicvbezbiosuouwm-auth-token") || "null",
+        );
+        const tok = v && (v.currentSession?.access_token || v.access_token);
+        if (!tok)
+          throw new Error("no session — sign in via the journal page first");
+        const res = await fetch(
+          SUPABASE_URL +
+            "/rest/v1/scan_symbols?symbol=eq." +
+            encodeURIComponent(symbol),
+          {
+            method,
+            headers: {
+              apikey: SUPABASE_ANON_KEY,
+              Authorization: "Bearer " + tok,
+              "Content-Type": "application/json",
+            },
+            body: body ? JSON.stringify(body) : undefined,
+          },
+        );
+        if (!res.ok && res.status !== 204) {
+          const t = await res.text().catch(() => "");
+          throw new Error(
+            "REST " + method + " HTTP " + res.status + " " + t.slice(0, 200),
+          );
+        }
+        // confirm the effect server-side rather than trusting the status alone
+        const chk = await fetch(
+          SUPABASE_URL +
+            "/rest/v1/scan_symbols?select=*&symbol=eq." +
+            encodeURIComponent(symbol),
+          {
+            headers: {
+              apikey: SUPABASE_ANON_KEY,
+              Authorization: "Bearer " + tok,
+            },
+          },
+        );
+        return chk.json();
+      }
+
+      async function loadScanList() {
+        try {
+          const { data, error } = await sb
+            .from("scan_symbols")
+            .select("*")
+            .order("position", { ascending: true });
+          if (error) throw error;
+          scanSymbols = (data || []).map((r) => ({
+            symbol: r.symbol,
+            enabled: r.enabled,
+            onServer: true,
+          }));
+          saveScanCache(); // refresh the offline mirror on every successful read
+        } catch (e) {
+          // Supabase unreachable (or migration missing): prefer the locally cached
+          // list from the last successful load so your view survives a reload;
+          // fall back to the committed JSON for a first-ever visit.
+          const cached = loadScanCache();
+          if (cached && cached.length) {
+            scanSymbols = cached;
+            $("scanMsg").textContent =
+              "Showing your last known scan list (Supabase unreachable) — toggles here will not reach tonight's scan until it is back.";
+          } else {
+            try {
+              const res = await fetch("tools/signal-watchlist.json");
+              const j = await res.json();
+              scanSymbols = (j.symbols || []).map((s) => ({
+                symbol: s,
+                enabled: true,
+                onServer: false,
+              }));
+              saveScanCache();
+            } catch (e2) {
+              scanSymbols = [];
+            }
+            if (!scanSymbols.length) {
+              $("scanMsg").textContent =
+                "Scan list unavailable (has scan-symbols-migration.sql been run in Supabase?).";
+            } else {
+              $("scanMsg").textContent =
+                "Read-only preview — run scan-symbols-migration.sql in Supabase to enable editing.";
+            }
+          }
+        }
+        renderScanList();
+      }
+
+      function renderScanList() {
+        const wrap = $("scanList");
+        wrap.innerHTML = "";
+        const enabled = scanSymbols.filter((s) => s.enabled).length;
+        $("scanCount").textContent = scanSymbols.length
+          ? `${enabled} of ${scanSymbols.length} enabled`
+          : "";
+        scanSymbols.forEach((s, i) => {
+          const chip = document.createElement("span");
+          chip.style.cssText =
+            "display:inline-flex;align-items:center;gap:5px;padding:3px 9px;border:1px solid var(--line,#ccc);border-radius:999px;font-size:12px" +
+            (s.enabled ? "" : ";opacity:.45");
+          const hint = SCAN_HINTS[s.symbol]
+            ? ` <i style="opacity:.6;font-style:normal">${SCAN_HINTS[s.symbol]}</i>`
+            : "";
+          chip.innerHTML =
+            `<label style="margin:0;display:flex;align-items:center;gap:4px;cursor:pointer">` +
+            `<input type="checkbox" data-scan-toggle="${i}" ${s.enabled ? "checked" : ""}>` +
+            `<b style="font-weight:600">${esc(s.symbol)}</b>${hint}</label>` +
+            (s.onServer
+              ? ` <button class="ghost danger" data-scan-del="${i}" title="Remove from the scan" style="padding:0 4px;border:none;background:none;cursor:pointer">✕</button>`
+              : "");
+          wrap.appendChild(chip);
+        });
+      }
+
+      // handler lives on the container, so it survives re-renders
+      $("scanList").onclick = async (ev) => {
+        const tog = ev.target.closest("[data-scan-toggle]");
+        const del = ev.target.closest("[data-scan-del]");
+        if (!tog && !del) return;
+        const i = parseInt(
+          (tog || del).getAttribute(tog ? "data-scan-toggle" : "data-scan-del"),
+          10,
+        );
+        const row = scanSymbols[i];
+        if (!row) return;
+        try {
+          if (tog) {
+            const { error } = await sb
+              .from("scan_symbols")
+              .update({
+                enabled: !row.enabled,
+                updated_at: new Date().toISOString(),
+              })
+              .eq("symbol", row.symbol);
+            if (error) throw error;
+            // supabase-js reports success even when the filter matched 0 rows —
+            // verify the write actually landed, retry via raw REST if not.
+            const { data: chk } = await sb
+              .from("scan_symbols")
+              .select("enabled")
+              .eq("symbol", row.symbol)
+              .maybeSingle();
+            if (!chk || chk.enabled !== !row.enabled) {
+              const after = await restWrite("PATCH", row.symbol, {
+                enabled: !row.enabled,
+                updated_at: new Date().toISOString(),
+              });
+              if (!after.length || after[0].enabled !== !row.enabled)
+                throw new Error(
+                  "both write paths failed to flip enabled — are you signed in as the admin user?",
+                );
+            }
+            row.enabled = !row.enabled;
+            saveScanCache();
+            $("scanMsg").textContent =
+              row.symbol +
+              (row.enabled
+                ? " back in tonight's scan."
+                : " paused — the scan will skip it.");
+          } else {
+            const { error } = await sb
+              .from("scan_symbols")
+              .delete()
+              .eq("symbol", row.symbol);
+            if (error) throw error;
+            // verify: a 0-row delete is a silent no-op (this bit commodity symbols
+            // like ZNC=F for days — the filter must match exactly one row).
+            // Retry once via the raw REST path before giving up.
+            const { data: gone } = await sb
+              .from("scan_symbols")
+              .select("symbol")
+              .eq("symbol", row.symbol)
+              .maybeSingle();
+            if (gone) {
+              const after = await restWrite("DELETE", row.symbol);
+              if (after.length)
+                throw new Error(
+                  "both delete paths matched 0 rows — are you signed in as the admin user?",
+                );
+            }
+            scanSymbols.splice(i, 1);
+            saveScanCache();
+            $("scanMsg").textContent =
+              row.symbol + " removed from the scan list.";
+          }
+        } catch (e) {
+          $("scanMsg").textContent =
+            "Save failed: " +
+            (e.message || e) +
+            (e.details ? " [" + e.details + "]" : "") +
+            (e.hint ? " (hint: " + e.hint + ")" : "") +
+            (sbAuthUser()
+              ? ""
+              : " — you are NOT signed in; sign in via the journal page first.") +
+            " If it keeps failing, run scan-symbols-migration.sql in Supabase.";
+        }
+        renderScanList();
+      };
+
+      $("scanAddBtn").onclick = async () => {
+        const sym = normaliseScanSymbol($("scanAdd").value);
+        if (!sym) {
+          $("scanMsg").textContent =
+            "That does not look like a Yahoo symbol (examples: IRCTC, RELIANCE.NS, GC=F).";
+          return;
+        }
+        if (scanSymbols.some((s) => s.symbol === sym)) {
+          $("scanMsg").textContent = sym + " is already on the list.";
+          return;
+        }
+        try {
+          const { data, error } = await sb
+            .from("scan_symbols")
+            .insert({
+              symbol: sym,
+              enabled: true,
+              position: 1000 + scanSymbols.length,
+            })
+            .select();
+          if (error) throw error;
+          if (!data || !data.length)
+            throw new Error(
+              "the insert returned no rows — write may not have landed; refresh and check",
+            );
+          scanSymbols.push({ symbol: sym, enabled: true, onServer: true });
+          saveScanCache();
+          $("scanMsg").textContent =
+            sym + " added — tonight's scan will include it.";
+          $("scanAdd").value = "";
+        } catch (e) {
+          $("scanMsg").textContent =
+            "Save failed: " +
+            (e.message || e) +
+            (e.details ? " [" + e.details + "]" : "") +
+            (e.hint ? " (hint: " + e.hint + ")" : "") +
+            (sbAuthUser()
+              ? ""
+              : " — you are NOT signed in; sign in via the journal page first.") +
+            " If it keeps failing, run scan-symbols-migration.sql in Supabase.";
+        }
+        renderScanList();
+      };
+
+      // ---------- boot ----------
+      $("refreshSigs").onclick = loadSignals;
+      $("sideFilter").onchange = () => {
+        saveUi();
+        renderSignals();
+      };
+      $("sigSearch").oninput = () => {
+        saveUi();
+        renderSignals();
+      };
+      $("tvEnable").onchange = saveUi;
+
+      // restore the saved filter state before the first render
+      (function restoreUi() {
+        const u = loadUi();
+        if (u.side) $("sideFilter").value = u.side;
+        if (typeof u.search === "string") $("sigSearch").value = u.search;
+        if (typeof u.tv === "boolean") $("tvEnable").checked = u.tv;
+      })();
+      (function boot() {
+        if (!window.LfcAuth || !window.LfcAuth.current()) {
+          location.replace("signin.html?next=setups.html");
+          return;
+        }
+        loadSignals();
+        renderLedger();
+        loadScanList();
+      })();
+    </script>
+  </body>
 </html>

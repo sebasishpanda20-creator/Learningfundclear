@@ -1,115 +1,197 @@
-/*!
- * LearningFundClear - shared sign-in gate
- * ========================================
- *
- * One small script, three jobs:
- *
- * 1. On the journal (index.html) and the sign-in page (signin.html): report whether a
- *    recent sign-in is known locally, and provide stamp()/clear() to manage it.
- *
- * 2. On every fund page (funds/*.html): bounce visitors without that local sign-in flag
- *    to signin.html?next=<this page>. The fund pages run under a strict CSP with
- *    connect-src 'none' - they cannot phone Supabase - so the gate is the same flag the
- *    sign-in page wrote after verifying the session. clearing it on sign-out keeps the
- *    two in step.
- *
- * 3. Session handoff: the ?next= target is only honoured if it stays on this site,
- *    so the redirect can never be abused to bounce someone to another domain.
- *
- * The flag is convenience, not cryptographic truth. Anyone can draw it in a console -
- * but all they unlock is the static fund pages, whose data comes from AMFI's public
- * file. The journal's real secrets stay behind Supabase RLS, which checks the session
- * on every request and knows nothing about this flag.
- */
+/* Shared authentication. The local stamp is a UI hint; Supabase + RLS authorize data. */
 (function (global) {
   "use strict";
-
-  var KEY = "lfc.auth";
-  var MAX_AGE_MS = 12 * 60 * 60 * 1000; // re-verify at least every 12 hours
-
-  function read() {
-    try {
-      var raw = global.localStorage.getItem(KEY);
-      if (!raw) return null;
-      var rec = JSON.parse(raw);
-      if (!rec || !rec.u || typeof rec.t !== "number") return null;
-      if (Date.now() - rec.t > MAX_AGE_MS) return null;
-      return rec;
-    } catch (e) {
-      return null;
-    }
-  }
-
-  function write(rec) {
-    try {
-      rec.t = Date.now();
-      global.localStorage.setItem(KEY, JSON.stringify(rec));
-    } catch (e) { /* storage unavailable - gate simply stays closed */ }
-  }
-
-  function clear() {
-    try { global.localStorage.removeItem(KEY); } catch (e) {}
-  }
-
-  function isJournalPage() {
-    return !/\/funds\//.test(global.location.pathname);
-  }
-
-  function onGatePage() {
-    return /\/signin\.html$/.test(global.location.pathname);
-  }
-
-  function sameOriginTarget(url) {
-    try {
-      var u = new URL(url, global.location.href);
-      // only ever bounce back to something on this site
-      if (u.origin !== global.location.origin) return null;
-      return u.pathname + u.search + u.hash;
-    } catch (e) {
-      return null;
-    }
-  }
-
-  function guard() {
-    var rec = read();
-    if (rec) return rec;
-    var path = global.location.pathname;
-    var parts = path.split("/").filter(Boolean);
-    // where to return after signing in, and where the sign-in page lives from here
-    var here = isJournalPage()
-      ? (path.slice(-1) === "/" ? "index.html" : parts[parts.length - 1])
-      : parts.slice(-2).join("/");
-    var prefix = isJournalPage() ? "" : "../";
-    var target = sameOriginTarget(prefix + "signin.html?next=" + encodeURIComponent(here));
-    global.location.replace(target || prefix + "signin.html");
-    return null;
-  }
-
-  // On the sign-in page itself, don't bounce a visitor who already has a live,
-  // locally-stamped session: land them on the authenticated shell instead.
-  if (onGatePage()) {
-    var gateRec = read();
-    if (gateRec) {
-      global.location.replace("index.html");
-    }
-  }
-  // On journal pages, bounce visitors without a locally-known session to sign-in.
-  if (isJournalPage() && !onGatePage()) {
-    guard();
-  }
-
-  var API = {
-    current: read,
-    stamp: write,
-    clear: clear,
-    /** Journal pages: run fn only with a locally-known session; else go to sign-in. */
-    require: function (fn) { return guard() && fn && fn(); },
-    /** Fund pages: call once on load; redirects when no local session is known. */
-    guard: guard,
+  const config = global.LFC_CONFIG;
+  const script = document.currentScript;
+  const base = new URL(".", script.src);
+  const isSignin = location.pathname.endsWith("/signin.html");
+  const KEY = "lfc.auth";
+  let user = null,
+    signingOut = false;
+  const storage = {
+    get(k) {
+      try {
+        return localStorage.getItem(k);
+      } catch {
+        return null;
+      }
+    },
+    remove(k) {
+      try {
+        localStorage.removeItem(k);
+      } catch {}
+    },
   };
-
-  global.LfcAuth = API;
-
-  // Auto-gate on fund pages (they include this script and do nothing else).
-  if (!isJournalPage() && !onGatePage()) guard();
+  const client = global.supabase.createClient(config.url, config.anonKey, {
+    auth: { storageKey: config.storageKey, detectSessionInUrl: false },
+    global: {
+      fetch: (url, options = {}) =>
+        fetch(url, {
+          ...options,
+          signal: options.signal || AbortSignal.timeout(12000),
+        }),
+    },
+  });
+  function safeTarget(raw) {
+    try {
+      const target = new URL(raw || "index.html", base);
+      const relative = target.pathname.slice(base.pathname.length);
+      const allowed =
+        /^(index|performance|admin|scanner|setups|gex|crypto)\.html$|^funds\/(index|funds|scheme|compare|calculators|methodology|legal)\.html$/;
+      return target.origin === base.origin &&
+        target.pathname.startsWith(base.pathname) &&
+        allowed.test(relative)
+        ? target.pathname + target.search + target.hash
+        : new URL("index.html", base).pathname;
+    } catch {
+      return new URL("index.html", base).pathname;
+    }
+  }
+  function clear() {
+    user = null;
+    storage.remove(KEY);
+    storage.remove(config.storageKey);
+    storage.remove(config.storageKey + "-code-verifier");
+  }
+  function redirect() {
+    const next =
+      location.pathname.slice(base.pathname.length) +
+      location.search +
+      location.hash;
+    location.replace(
+      new URL(
+        "signin.html" + (isSignin ? "" : "?next=" + encodeURIComponent(next)),
+        base,
+      ),
+    );
+  }
+  function stamp(u) {
+    try {
+      localStorage.setItem(
+        KEY,
+        JSON.stringify({
+          u: u.id,
+          n: u.display_name || u.username,
+          a: !!u.is_admin,
+          t: Date.now(),
+        }),
+      );
+    } catch {}
+  }
+  async function verify() {
+    const {
+      data: { session },
+      error,
+    } = await client.auth.getSession();
+    if (error) throw error;
+    if (!session) return null;
+    const checked = await client.auth.getUser();
+    if (checked.error || !checked.data.user) {
+      clear();
+      return null;
+    }
+    const { data, error: profileError } = await client
+      .from("app_users")
+      .select("id,username,display_name,is_admin,is_active")
+      .eq("id", checked.data.user.id)
+      .single();
+    if (profileError) throw profileError;
+    if (!data?.is_active) {
+      await logout(false);
+      return null;
+    }
+    user = data;
+    stamp(data);
+    return data;
+  }
+  async function logout(navigate = true) {
+    if (signingOut) return;
+    signingOut = true;
+    document.documentElement.classList.remove("auth-ready");
+    document.documentElement.classList.add("auth-pending");
+    // Start revocation while the client still has the session; clear local credentials immediately.
+    const revocation = client.auth.signOut({ scope: "local" }).catch(() => {});
+    clear();
+    try {
+      await Promise.race([
+        revocation,
+        new Promise((resolve) => setTimeout(resolve, 2500)),
+      ]);
+    } finally {
+      clear();
+      if (navigate) location.replace(new URL("signin.html?loggedOut=1", base));
+      else signingOut = false;
+    }
+  }
+  async function init() {
+    try {
+      const result = await verify();
+      if (!result && !isSignin) {
+        clear();
+        redirect();
+        return new Promise(() => {});
+      }
+      document.documentElement.classList.remove("auth-pending");
+      document.documentElement.classList.add("auth-ready");
+      return result;
+    } catch (error) {
+      if (isSignin) return null;
+      const showError = () => {
+        const panel = document.createElement("div");
+        panel.className = "auth-error";
+        panel.innerHTML =
+          '<h1>We couldn’t verify your session</h1><p>Please check your connection and try again.</p><button id="authRetry">Retry</button> <button id="authExit">Return to sign in</button>';
+        document.body.append(panel);
+        panel.querySelector("#authRetry").onclick = () => location.reload();
+        panel.querySelector("#authExit").onclick = () => logout();
+      };
+      if (document.readyState === "loading")
+        document.addEventListener("DOMContentLoaded", showError);
+      else showError();
+      return new Promise(() => {});
+    }
+  }
+  if (!isSignin) document.documentElement.classList.add("auth-pending");
+  const ready = init();
+  global.LfcAuth = {
+    client,
+    ready,
+    current: () => user,
+    stamp,
+    clear,
+    logout,
+    verify,
+    safeTarget,
+    base,
+    require: async (fn) => {
+      await ready;
+      return fn?.();
+    },
+    guard: () => ready,
+  };
+  client.auth.onAuthStateChange((event) => {
+    if (event === "SIGNED_OUT" && !signingOut && !isSignin) {
+      clear();
+      redirect();
+    }
+  });
+  addEventListener("storage", (event) => {
+    if (
+      (event.key === KEY || event.key === config.storageKey) &&
+      !event.newValue &&
+      !isSignin
+    ) {
+      clear();
+      redirect();
+    }
+  });
+  addEventListener("pageshow", (event) => {
+    if (event.persisted && !isSignin) {
+      document.documentElement.classList.add("auth-pending");
+      if (!storage.get(config.storageKey)) {
+        clear();
+        redirect();
+      } else location.reload();
+    }
+  });
 })(window);

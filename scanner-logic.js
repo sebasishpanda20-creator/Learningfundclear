@@ -47,11 +47,16 @@
    */
   function computeZones(bars, opts) {
     opts = opts || {};
-    var pivotLeft = opts.pivotLeft || 3;
-    var pivotRight = opts.pivotRight || 3;
+    var pivotLeft = Number.isInteger(opts.pivotLeft) ? opts.pivotLeft : 3;
+    var pivotRight = Number.isInteger(opts.pivotRight) ? opts.pivotRight : 3;
     var maxZones = opts.maxZones || 20;
 
-    if (!bars || bars.length < 100) return null;
+    if (pivotLeft < 1 || pivotRight < 1 || pivotLeft > 20 || pivotRight > 20) return null;
+    if (!Array.isArray(bars) || bars.length < Math.max(50, pivotLeft + pivotRight + 1)) return null;
+    if (bars.some(function (b) {
+      return !b || ![b.open,b.high,b.low,b.close].every(Number.isFinite) || b.low <= 0 ||
+        b.high < Math.max(b.open,b.close,b.low) || b.low > Math.min(b.open,b.close);
+    })) return null;
 
     var closes = bars.map(function (b) { return b.close; });
     var lows = bars.map(function (b) { return b.low; });
@@ -71,20 +76,22 @@
         var end = pivotIndex + pivotRight + 1;
         var candle = bars[pivotIndex];
 
-        if (lows[pivotIndex] === arrayMin(lows.slice(start, end))) {
+        if (lows[pivotIndex] === arrayMin(lows.slice(start, end)) && lows.slice(pivotIndex + 1, end).every(function (v) { return v > lows[pivotIndex]; })) {
           demand.unshift({
             top: Math.max(candle.open, candle.close),
             bottom: candle.low,
             created: bars[i].date,
-            pivotIndex: pivotIndex
+            pivotIndex: pivotIndex,
+            confirmedIndex: i
           });
         }
-        if (highs[pivotIndex] === arrayMax(highs.slice(start, end))) {
+        if (highs[pivotIndex] === arrayMax(highs.slice(start, end)) && highs.slice(pivotIndex + 1, end).every(function (v) { return v < highs[pivotIndex]; })) {
           supply.unshift({
             top: candle.high,
             bottom: Math.min(candle.open, candle.close),
             created: bars[i].date,
-            pivotIndex: pivotIndex
+            pivotIndex: pivotIndex,
+            confirmedIndex: i
           });
         }
       }
@@ -127,11 +134,12 @@
     //    wicks — prove traders are rejecting the level"). The latest bar's
     //    shape at the zone matters: a long lower wick reaching into a demand
     //    zone is the entry signal the book waits for.
-    function zoneTouches(zone, idx) {
-      var touches = 0;
-      for (var j = idx + 1; j < bars.length; j++) {
-        var b = bars[j];
-        if (b.low <= zone.top && b.high >= zone.bottom) touches++;
+    function zoneTouches(zone) {
+      var touches = 0, away = false;
+      for (var j = zone.confirmedIndex + 1; j < bars.length; j++) {
+        var overlaps = bars[j].low <= zone.top && bars[j].high >= zone.bottom;
+        if (overlaps && away) touches++;
+        away = !overlaps;
       }
       return touches;
     }
@@ -143,21 +151,26 @@
       out.fresh = out.touches <= 2;                    // rulebook: first 2-3 touches hold
       var e = ema20[ema20.length - 1], ePrev = ema20[ema20.length - 6];
       var emaRising = e > ePrev;
-      out.emaConfluence = isDemand ? emaRising : !emaRising;
+      out.emaConfluence = e >= zone.bottom && e <= zone.top && (isDemand ? emaRising : e < ePrev);
       out.emaDist = Math.abs(close - e) / close;       // how far the EMA sits from price
       return out;
     }
 
     demand = demand.map(function (z) { return decorate(z, true); });
     supply = supply.map(function (z) { return decorate(z, false); });
+    function distance(z) { return close < z.bottom ? z.bottom-close : close > z.top ? close-z.top : 0; }
+    latest = demand.find(function (z) { return close >= z.bottom && close <= z.top; }) ||
+      demand.find(function (z) { return low <= z.top && high >= z.bottom; }) ||
+      demand.reduce(function (a,b) { return !a || distance(b) < distance(a) ? b : a; }, null);
+
 
     // Rejection wick on the latest bar, measured against the nearest zone it
     // reached: wick = how far below the body price probed and came back from.
     // 20-day average volume — needed by the Kell volume confirmation below.
     var avgVol = null;
     if (bars.length >= 20) {
-      var vols = bars.slice(-21, -1).map(function (b) { return b.volume || 0; });
-      avgVol = vols.reduce(function (a, b) { return a + b; }, 0) / vols.length;
+      var vols = bars.slice(-21, -1).map(function (b) { return b.volume; });
+      avgVol = vols.every(function (v) {return Number.isFinite(v) && v >= 0;}) ? vols.reduce(function (a, b) { return a + b; }, 0) / vols.length : null;
     }
 
     var bodyTop = Math.max(last.open, last.close);
@@ -178,22 +191,38 @@
     //    Wick-only breaks are explicitly NOT structure ("fake BoS = inducement").
     var swingHigh = null, swingLow = null;             // most recent confirmed pivots
     for (var si = bars.length - 1 - pivotRight; si >= pivotLeft; si--) {
-      if (swingHigh === null && highs[si] === arrayMax(highs.slice(si - pivotLeft, si + pivotRight + 1))) swingHigh = bars[si].high;
-      if (swingLow === null && lows[si] === arrayMin(lows.slice(si - pivotLeft, si + pivotRight + 1))) swingLow = bars[si].low;
+      if (swingHigh === null && highs[si] === arrayMax(highs.slice(si - pivotLeft, si + pivotRight + 1)) && highs.slice(si+1,si+pivotRight+1).every(function(v){return v < highs[si];})) swingHigh = bars[si].high;
+      if (swingLow === null && lows[si] === arrayMin(lows.slice(si - pivotLeft, si + pivotRight + 1)) && lows.slice(si+1,si+pivotRight+1).every(function(v){return v > lows[si];})) swingLow = bars[si].low;
       if (swingHigh !== null && swingLow !== null) break;
     }
     var structureEvent = "NONE";
-    if (swingHigh !== null && swingLow !== null) {
-      var bodyBreakUp = bodyTop > swingHigh;           // body close above last swing high
-      var bodyBreakDown = bodyBottom < swingLow;       // body close below last swing low
+    if (swingHigh !== null || swingLow !== null) {
+      var bodyBreakUp = swingHigh !== null && close > swingHigh && closes[n - 1] <= swingHigh;           // body close above last swing high
+      var bodyBreakDown = swingLow !== null && close < swingLow && closes[n - 1] >= swingLow;       // body close below last swing low
       if (bodyBreakUp && bodyBreakDown) structureEvent = "WHIPSAW";
       else if (bodyBreakUp) structureEvent = trend === "UPTREND" ? "BoS" : "CHoCH";
       else if (bodyBreakDown) structureEvent = trend === "DOWNTREND" ? "BoS" : "CHoCH";
     }
 
-    // 2. FVG / IMBALANCE (book §6): three consecutive candles where candle i's
-    //    body gaps past candle i-2's body — institutions moved too fast. The    //    most RECENT unmitigated gap (price hasn't closed back through it)    //    is the magnet the book says will be revisited.    var fvg = null;    for (var fi = bars.length - 1; fi >= 2; fi--) {      var c3 = bars[fi], c1 = bars[fi - 2];      var top3 = Math.max(c3.open, c3.close), bot3 = Math.min(c3.open, c3.close);      var top1 = Math.max(c1.open, c1.close), bot1 = Math.min(c1.open, c1.close);      if (bot3 > top1) {                               // bullish gap (price gapped up)        if (close < bot3) { fvg = { bottom: top1, top: bot3, dir: "BULL", date: bars[fi - 1].date }; break; }      } else if (top3 < bot1) {                        // bearish gap        if (close > top3) { fvg = { bottom: top3, top: bot1, dir: "BEAR", date: bars[fi - 1].date }; break; }      }    }
-    // 3. PREMIUM / DISCOUNT (book §7.8): where price sits in the recent range.    //    Uptrend → buy in discount; downtrend → sell in premium.    var lookback = bars.slice(-Math.min(bars.length, 60));    var rangeHigh = arrayMax(lookback.map(function (b) { return b.high; }));    var rangeLow = arrayMin(lookback.map(function (b) { return b.low; }));    var rangePos = rangeHigh > rangeLow ? (close - rangeLow) / (rangeHigh - rangeLow) : 0.5;    var rangeZone = rangePos >= 0.7 ? "PREMIUM" : rangePos <= 0.3 ? "DISCOUNT" : "EQUILIBRIUM";    // 4. EQUAL HIGHS / LOWS (book §7.9): stops pile above/below levels touched
+    // Three-candle wick imbalance; reject gaps filled by ANY subsequent candle.
+    var fvg = null;
+    for (var fi = bars.length - 1; fi >= 2; fi--) {
+      var c3 = bars[fi], c1 = bars[fi - 2], candidate = null;
+      if (c3.low > c1.high) candidate = {bottom:c1.high, top:c3.low, dir:"BULL", date:c3.date};
+      else if (c3.high < c1.low) candidate = {bottom:c3.high, top:c1.low, dir:"BEAR", date:c3.date};
+      if (!candidate) continue;
+      var filled = bars.slice(fi+1).some(function (b) {
+        return candidate.dir === "BULL" ? b.low <= candidate.bottom : b.high >= candidate.top;
+      });
+      if (!filled) { fvg = candidate; break; }
+    }
+    // 3. PREMIUM / DISCOUNT (book §7.8): where price sits in the recent range.
+    //    Uptrend → buy in discount; downtrend → sell in premium.
+    var lookback = bars.slice(-Math.min(bars.length, 60));
+    var rangeHigh = arrayMax(lookback.map(function (b) { return b.high; }));
+    var rangeLow = arrayMin(lookback.map(function (b) { return b.low; }));
+    var rangePos = rangeHigh > rangeLow ? (close - rangeLow) / (rangeHigh - rangeLow) : 0.5;
+    var rangeZone = rangePos >= 0.7 ? "PREMIUM" : rangePos <= 0.3 ? "DISCOUNT" : "EQUILIBRIUM";    // 4. EQUAL HIGHS / LOWS (book §7.9): stops pile above/below levels touched
     //    twice at nearly the same price — liquidity the book says is a magnet.
     var eqTol = close * 0.0015;                        // "same price" = within 0.15%
     var eqHighs = 0, eqLows = 0;
@@ -214,8 +243,8 @@
     //    the next bar; mirrored for bearish; doji = neutral. Also the
     //    institutional hint (Rule 305): one-sided large wick = rejection,
     //    wicks both sides = retail chop, avoid.
-    var prev = bars[bars.length - 2];
-    var prev2 = bars[bars.length - 3];
+    var prev = last;
+    var prev2 = bars[bars.length - 2];
     var prevBody = Math.abs(prev.close - prev.open);
     var prevRange = prev.high - prev.low;
     var prevBodyPct = prevRange > 0 ? prevBody / prevRange : 0;
@@ -407,9 +436,7 @@
       demandBottom: latest ? latest.bottom : null,
       distDemand: distDemand,
       zoneCreated: latest ? latest.created : null,
-      nearestDemand: demand.length ? demand.reduce(function (a, b) {
-        return Math.abs(close - (a.top + a.bottom) / 2) <= Math.abs(close - (b.top + b.bottom) / 2) ? a : b;
-      }) : null,
+      nearestDemand: latest,
       nearestSupply: supply.length ? supply.reduce(function (a, b) {
         return Math.abs(close - (a.top + a.bottom) / 2) <= Math.abs(close - (b.top + b.bottom) / 2) ? a : b;
       }) : null,
@@ -434,6 +461,7 @@
       sma200: s200,
       above200: above200,               // price above the 200-SMA (Rule 03 long-term filter)
       sma200Rising: sma200Rising,
+      sma200Ready: s200 != null && s200Ref != null,
       volumeConfirm: volumeConfirm,     // signal bar >= 1.5x trailing 20-bar volume (Rule 02)
       emaCrossback: emaCrossback,       // pullback touched 10/20 EMA and closed back above (Rule 12)
       baseNBreak: baseNBreak,           // tight base + close above base top on volume (Rule 15)
@@ -465,49 +493,21 @@
       if (result.distDemand == null || result.distDemand > opts.maxDistPct) return false;
     }
     if (opts.minVolRatio != null) {
-      if (!result.avgVol20 || !result.lastVol || result.lastVol <= result.avgVol20) return false;
+      if (!result.avgVol20 || !result.lastVol || result.lastVol / result.avgVol20 < opts.minVolRatio) return false;
     }
     return include;
   }
 
-  /**
-   * Confluence score, 0-6 — MEASURED, not theorised.
-   *
-   * Five rulebooks' worth of candidate conditions were scored in one sum until
-   * tools/research-thin-commodities.js could bucket real signals by it. On a
-   * small first sample (4,245 signals, 60 NIFTY 500 names) the sum was FLAT,
-   * so the score was cut back to only the per-component winners. VALIDATED on
-   * the full board (30,456 signals, 420 symbols): the buckets now separate
-   * monotonically —
-   *
-   *   conf 0-1  10,697 sig · 36% · +0.08R   (−0.11R vs board)
-   *   conf 2    13,702 sig · 40% · +0.19R   (board)
-   *   conf 3-4   6,038 sig · 45% · +0.36R   (+0.17R)
-   *   conf 5-6      19 sig · 59% · +0.76R   (+0.58R)
-   *   board    30,456 sig · 40% · +0.19R
-   *
-   * Per-component Δ EV on the full board (fires vs does not, direction-aware):
-   *   above 200-SMA +0.16R → +2 · CHoCH +0.10R → +2 · EMA crossback +0.13R → +1
-   *   base n' break +0.01R (n=6, kept at +1 pending sample)
-   *   Everything else measured noise: BoS Δ−0.00 (the earlier −0.24 was sample
-   *   noise), FVG +0.03, volume +0.04, fresh zone −0.02, wick −0.00, bias −0.04,
-   *   ema20 slope −0.03, discount/premium +0.04.
-   *   Time-Price-Squaring layer (fifth rulebook), all NOISE or worse:
-   *   Square of 9 Δ−0.00 (n=8,284) · C.E. eighths Δ−0.00 (n=8,321) ·
-   *   time squares Δ+0.02 (n=14,116) · Gann 1×1 Δ−0.76 HURT (n=23) ·
-   *   narrow-range reversal Δ+0.31 but n=5. The astrology-adjacent modules
-   *   earn nothing; none score.
-   *
-   * Flags stay computed for display and future re-measurement; they just no
-   * longer move the score. Re-measure with:
-   *   node tools/research-thin-commodities.js <symbols...>
+  /** Heuristic 0–6 confluence ranking, not a probability or validated win rate.
+   * Rule corrections invalidate comparisons with older score backtests.
+   * Re-evaluate with held-out histories and execution costs before relying on it.
    */
   function confluenceScore(result, action) {
     var score = 0;
     var long = action === "LONG";
     // 200-SMA trend filter (Kell Rule 03) — the strongest measured factor.
     if (long && result.above200 && result.sma200Rising) score += 2;
-    if (!long && !result.above200 && !result.sma200Rising) score += 2;
+    if (!long && result.sma200Ready && !result.above200 && !result.sma200Rising) score += 2;
     // A fresh change of character: the measured-best bucket, and the opposite of
     // what the SMC book predicted (it calls BoS the continuation edge).
     if (result.structureEvent === "CHoCH") score += 2;
@@ -518,7 +518,7 @@
     return score;
   }
 
-  /** Human-readable tag over the measured 0-6 scale. */
+  /** Human-readable tag over the heuristic 0-6 scale. */
   function confluenceTag(score) {
     return score >= 5 ? "A+" : score >= 3 ? "A" : score === 2 ? "B" : "C";
   }

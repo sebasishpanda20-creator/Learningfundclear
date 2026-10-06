@@ -1,849 +1,1320 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en-IN">
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<meta name="robots" content="noindex">
-<title>Demand Zone Scanner — Private Research Journal</title>
-<link rel="stylesheet" href="assets/css/tokens.css">
-<link rel="stylesheet" href="assets/css/app.css">
-<link rel="stylesheet" href="assets/css/portal-shell.css">
-<script src="assets/js/theme.js"></script>
-<script defer src="assets/js/portal-shell.js"></script>
-<link rel="stylesheet" href="assets/css/scanner.css">
-</head>
-<body data-page="scanner">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <meta name="robots" content="noindex,nofollow" />
+    <title>Demand zone scanner · LearningFundClear</title>
+    <link rel="stylesheet" href="assets/css/tokens.css" />
 
-<header class="portal-header" id="header">
-  <div class="header-brand">
-    <div class="header-logo" aria-hidden="true">
-      <svg viewBox="0 0 24 24" fill="none"><path d="M4 17.5 9.5 12l4 3.5L20 7" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/><path d="M14.5 7H20v5.5" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
-    </div>
-    <div>
-      <h1>LearningFundClear</h1>
-      <small>Research portal</small>
-    </div>
-  </div>
-  <div class="userbar">
-      <span id="userDisplay">—</span>
-      <button class="nav-btn" data-nav="dashboard">Dashboard</button>
-      <button class="nav-btn" data-nav="performance">Performance</button>
-      <button class="nav-btn" data-nav="funds">Mutual Funds</button>
-      <button class="nav-btn active" data-nav="scanner" aria-current="page">Scanner</button>
-      <button class="nav-btn" data-nav="setups">Setups</button>
-      <button class="nav-btn" data-nav="gex">GEX</button>
-      <button class="nav-btn hidden" id="adminBtn" data-nav="admin">Admin</button>
-      <button class="nav-btn" id="themeToggle" data-lfc-theme-toggle aria-pressed="false">🌙 Dark</button>
-      <button class="nav-btn" id="logoutBtn">Logout</button>
-    </div>
-</header>
-<main class="scanner-main">
-<h1>Demand Zone Scanner</h1>  <p class="sub">End-of-day NSE/BSE + global commodity futures scan · independent pivot-based zone approximation · private page — same sign-in as the journal</p>
+    <link rel="stylesheet" href="assets/css/app.css" />
+    <script src="assets/vendor/supabase.js"></script>
+    <script src="assets/js/config.js"></script>
+    <script src="auth-guard.js"></script>
+    <script src="assets/js/theme.js"></script>
+  </head>
+  <body data-page="scanner">
+    <main id="main">
+      <p class="eyebrow">RESEARCH TOOLS</p>
+      <h1>Demand zone scanner</h1>
+      <p class="sub">
+        Completed-candle NSE/BSE + global commodity futures scan · independent
+        pivot-based zone approximation · private page — same sign-in as the
+        journal
+      </p>
 
-<section class="scan-card" aria-labelledby="scan-config-title">
-  <div class="scan-card-head">
-    <div>
-      <h2 id="scan-config-title">Scan Configuration</h2>
-      <p>Choose the detection settings, timeframes and filters before running the watchlist.</p>
-    </div>
-  </div>
+      <section class="card"><h2>Historical data source</h2><div class="row"><div><label for="historySource">Source</label><select id="historySource"><option value="yahoo">Yahoo historical · may be delayed</option><option value="csv">Local CSV · daily only</option></select></div><div><label for="historyFile">Import daily OHLCV history</label><input id="historyFile" type="file" accept=".csv,text/csv"></div><button id="historyTemplate">Download CSV template</button></div><p id="historyMessage" class="msg" role="status">CSV stays in this tab; it is never uploaded. Import at least 100 daily candles per symbol. This is not a live feed.</p><details><summary>CSV format and free data access</summary><p>Required columns: symbol,date,open,high,low,close,volume. Use YYYY-MM-DD dates and exchange suffixes (RELIANCE.NS or 500325.BO). Include one daily row per symbol/date. Obtain history you are entitled to use; validate corporate-action adjustments before relying on signals. Local import supports daily scanning only.</p><p><a href="https://www.nseindia.com/all-reports" target="_blank" rel="noopener noreferrer">NSE reports</a> · <a href="https://indianapi.in/indian-stock-market" target="_blank" rel="noopener noreferrer">IndianAPI provider information</a>. IndianAPI requires a separate API key; it is not connected here. Free-tier coverage, delay and limits must be confirmed before enabling it. Never paste a broker token into the portal.</p></details></section>
+      <div class="card">
+        <div class="row">
+          <div>
+            <label for="pLeft">Pivot left bars</label
+            ><input
+              id="pLeft"
+              type="number"
+              min="1"
+              max="10"
+              value="3"
+              style="width: 70px"
+            />
+          </div>
+          <div>
+            <label for="pRight">Pivot right bars</label
+            ><input
+              id="pRight"
+              type="number"
+              min="1"
+              max="10"
+              value="3"
+              style="width: 70px"
+            />
+          </div>
+          <div>
+            <label>Timeframes</label>
+            <div
+              style="
+                display: flex;
+                gap: 10px;
+                flex-wrap: wrap;
+                font-size: 12px;
+                color: #93a39a;
+              "
+            >
+              <label style="margin: 0"
+                ><input type="checkbox" id="tfDaily" checked /> Daily</label
+              >
+              <label style="margin: 0"
+                ><input type="checkbox" id="tfWeekly" /> Weekly</label
+              >
+              <label style="margin: 0"
+                ><input type="checkbox" id="tfMonthly" /> Monthly</label
+              >
+              <label style="margin: 0"
+                ><input type="checkbox" id="tfHourly" /> Hourly</label
+              >
+              <label style="margin: 0"
+                ><input type="checkbox" id="tf15" /> 15m (MIS)</label
+              >
+            </div>
+          </div>
+          <div>
+            <label for="days">Daily history</label
+            ><select id="days" style="width: 110px">
+              <option value="365">1 year</option>
+              <option value="730" selected>2 years</option>
+              <option value="1095">3 years</option>
+            </select>
+          </div>
+          <div>
+            <label
+              ><input id="trendFilter" type="checkbox" /> Require bullish EMA
+              trend</label
+            >
+          </div>
+          <div>
+            <label
+              ><input id="showTouching" type="checkbox" checked /> Include
+              candles touching a zone</label
+            >
+          </div>
+          <div>
+            <label
+              ><input id="volFilter" type="checkbox" /> Volume at least 20-bar
+              average</label
+            >
+          </div>
+          <div>
+            <button class="primary" id="scanBtn">Scan watchlist</button>
+            <label><input id="forceRefresh" type="checkbox" checked /> Fetch fresh data</label>
+          </div>
+        </div>
+        <div class="row" style="margin-top: 12px">
+          <div style="flex: 1; min-width: 260px">
+            <label for="watchInput"
+              >Watchlist (one NSE/BSE symbol or futures like GC=F per line, e.g.
+              COALINDIA.NS)</label
+            ><input
+              id="watchInput"
+              style="width: 100%"
+              placeholder="COALINDIA.NS, ASHOKLEY.NS, RELIANCE.NS, GC=F, CL=F"
+            />
+          </div>
+          <button class="ghost" id="saveWatch">Save list</button>
+          <button class="ghost" id="importToggle">Import list…</button>
+          <button
+            class="ghost"
+            id="addCommodities"
+            title="Adds gold, silver, crude, natgas, copper, zinc, aluminium — the global futures MCX tracks (MCX codes themselves aren't on Yahoo)"
+          >
+            Add commodities
+          </button>
+        </div>
+        <div class="row hidden" id="importRow" style="margin-top: 12px">
+          <div style="flex: 1; min-width: 260px">
+            <label
+              >Paste symbols — CSV, one per line, or comma/semicolon separated
+              (bare symbol → NSE, bare number → BSE)</label
+            >
+            <textarea
+              id="importBox"
+              rows="6"
+              style="
+                width: 100%;
+                padding: 9px 10px;
+                border-radius: 8px;
+                border: 1px solid #2c3a33;
+                background: #0d1310;
+                color: #e8efe9;
+                font-size: 12px;
+                font-family: monospace;
+              "
+              placeholder="RELIANCE.NS, TCS.NS
+ASHOKLEY.NS, Coal India
+500325"
+            ></textarea>
+          </div>
+          <div style="display: flex; flex-direction: column; gap: 8px">
+            <button class="ghost" id="importFileBtn">Load from file…</button>
+            <input
+              type="file"
+              id="importFile"
+              accept=".csv,.txt,text/csv,text/plain"
+              style="display: none"
+            />
+            <button class="ghost" id="importReplace">Replace list</button>
+            <button class="ghost" id="importMerge">Merge into list</button>
+            <button class="ghost" id="importDefaults">Use default list</button>
+          </div>
+        </div>
+        <p class="muted">Completed candles only · Yahoo historical data may be delayed. Stale feeds are excluded. Candle opening times are shown in IST; this is not a live tick feed.</p>
+        <p class="msg" id="msg" role="status"></p>
+        <details><summary>Data quality and excluded symbols</summary><ul id="feedIssues"></ul></details>
+      </div>
 
-  <div class="scan-settings-grid">
-    <div class="scan-field">
-      <label for="pLeft">Pivot Left</label>
-      <input id="pLeft" type="number" min="1" max="10" value="3">
-    </div>
-    <div class="scan-field">
-      <label for="pRight">Pivot Right</label>
-      <input id="pRight" type="number" min="1" max="10" value="3">
-    </div>
-    <div class="scan-field">
-      <label for="days">History</label>
-      <select id="days">
-        <option value="365">1 year</option>
-        <option value="730" selected>2 years</option>
-        <option value="1095">3 years</option>
-      </select>
-    </div>
-  </div>
-  <p class="scan-helper">Higher pivot values usually produce fewer, stronger pivot zones. Existing scanner calculations are unchanged.</p>
+      <div class="stats">
+        <div class="stat"><b id="stScanned">—</b><span>scanned</span></div>
+        <div class="stat">
+          <b id="stInside">—</b><span>inside demand zone</span>
+        </div>
+        <div class="stat"><b id="stTouch">—</b><span>touching zone</span></div>
+        <div class="stat">
+          <b id="stSkipped">—</b><span>failed / skipped</span>
+        </div>
+      </div>
 
-  <div class="scan-section">
-    <div class="scan-section-title">Timeframes</div>
-    <div class="timeframe-options" role="group" aria-label="Scan timeframes">
-      <label><input type="checkbox" id="tfDaily" checked><span>Daily</span></label>
-      <label><input type="checkbox" id="tfWeekly"><span>Weekly</span></label>
-      <label><input type="checkbox" id="tfMonthly"><span>Monthly</span></label>
-      <label><input type="checkbox" id="tfHourly"><span>Hourly</span></label>
-      <label><input type="checkbox" id="tf15"><span>15m MIS</span></label>
-    </div>
-  </div>
+      <div class="card" id="resultsCard" style="display: none">
+        <div
+          style="
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+            gap: 10px;
+            flex-wrap: wrap;
+          "
+        >
+          <h3 style="font-size: 15px">Scan results</h3>
+          <button class="ghost" id="downloadBtn">Download Results (CSV)</button>
+        </div>
+        <div
+          class="table-scroll"
+          role="region"
+          aria-label="Scrollable data table"
+          tabindex="0"
+        >
+          <table>
+            <thead>
+              <tr>
+                <th>Symbol</th>
+                <th>TF</th>
+                <th>Price ₹</th>
+                <th>Trend</th>
+                <th>Demand zone</th>
+                <th>Position</th>
+                <th>Dist to zone</th>
+                <th>Zone from</th>
+                <th>Vol vs 20d</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody id="resultsBody"></tbody>
+          </table>
+        </div>
+      </div>
 
-  <div class="scan-section">
-    <div class="scan-section-title">Signal Filters</div>
-    <div class="filter-options">
-      <label class="filter-option">
-        <input id="trendFilter" type="checkbox">
-        <span><strong>Bullish EMA trend</strong><small>Only show symbols aligned with the existing EMA trend filter.</small></span>
-      </label>
-      <label class="filter-option">
-        <input id="showTouching" type="checkbox" checked>
-        <span><strong>Include zone touches</strong><small>Include candles touching a zone as well as those closing inside it.</small></span>
-      </label>
-      <label class="filter-option">
-        <input id="volFilter" type="checkbox">
-        <span><strong>Above-average volume</strong><small>Require volume above the existing 20-day average filter.</small></span>
-      </label>
-    </div>
-  </div>
+      <div class="card" id="chartCard" style="display: none">
+        <h3 id="chartTitle" style="font-size: 15px; margin-bottom: 8px"></h3>
+        <div id="chartWrap">
+          <canvas id="chart" width="900" height="340"></canvas>
+        </div>
+        <p class="mut" id="chartNote"></p>
+      </div>
 
-  <div class="scan-action">
-    <div class="scan-action-copy">
-      <strong>Ready to scan the selected timeframes</strong>
-      <span>Settings and watchlist are preserved using the existing portal logic.</span>
-    </div>
-    <button class="primary" id="scanBtn">Scan Watchlist</button>
-  </div>
-</section>
+      <p class="disclaimer">
+        <strong>Private Research Journal:</strong> independent pivot-based
+        demand-zone approximation on end-of-day data from Yahoo Finance. Free
+        data sources may have missing, delayed or inconsistent NSE/BSE data.
+        This is not the invite-only indicator, and it is not investment advice —
+        verify every chart on your broker or exchange platform before acting.
+        Consult a SEBI-registered professional before making an investment
+        decision.
+      </p>
+    </main>
+    <script src="assets/js/shell.js"></script>
+    <script src="assets/js/market-data.js"></script>
+    <script src="assets/js/csv-history.js"></script>
+    <script src="scanner-logic.js"></script>
+    <script>
+      (async function () {
+        await LfcAuth.ready;
+        ("use strict");
+        var $ = function (id) {
+          return document.getElementById(id);
+        };
+        var lastRows = [];
+        var cacheHits = 0;
 
-<section class="scan-card" aria-labelledby="watchlist-title">
-  <div class="scan-card-head">
-    <div>
-      <h2 id="watchlist-title">Watchlist</h2>
-      <p>Symbols to scan. NSE, BSE and supported futures formats remain unchanged.</p>
-    </div>
-  </div>
+        var DEFAULT_WATCH = [
+          // Banking & financials
+          "HDFCBANK.NS",
+          "ICICIBANK.NS",
+          "SBIN.NS",
+          "KOTAKBANK.NS",
+          "AXISBANK.NS",
+          "BAJFINANCE.NS",
+          "BAJAJFINSV.NS",
+          "INDUSINDBK.NS",
+          "BANKBARODA.NS",
+          "PNB.NS",
+          // IT
+          "TCS.NS",
+          "INFY.NS",
+          "WIPRO.NS",
+          "HCLTECH.NS",
+          "TECHM.NS",
+          "PERSISTENT.NS",
+          // Energy & power
+          "RELIANCE.NS",
+          "ONGC.NS",
+          "NTPC.NS",
+          "POWERGRID.NS",
+          "TATAPOWER.NS",
+          "ADANIGREEN.NS",
+          // FMCG
+          "HINDUNILVR.NS",
+          "ITC.NS",
+          "NESTLEIND.NS",
+          "BRITANNIA.NS",
+          "DABUR.NS",
+          "TATACONSUM.NS",
+          // Autos
+          // Tata Motors demerged: TMCV.NS (commercial vehicles) + TMPV.NS (passenger vehicles).
+          // The old TATAMOTORS.NS ticker is gone from Yahoo, as is LTIM.NS.
+          "MARUTI.NS",
+          "TMCV.NS",
+          "TMPV.NS",
+          "M&M.NS",
+          "BAJAJ-AUTO.NS",
+          "EICHERMOT.NS",
+          "ASHOKLEY.NS",
+          // Metals & mining
+          "TATASTEEL.NS",
+          "JSWSTEEL.NS",
+          "HINDALCO.NS",
+          "COALINDIA.NS",
+          "VEDL.NS",
+          "JINDALSTEL.NS",
+          // Pharma & healthcare
+          "SUNPHARMA.NS",
+          "DRREDDY.NS",
+          "CIPLA.NS",
+          "DIVISLAB.NS",
+          "LUPIN.NS",
+          "AUROPHARMA.NS",
+          // Infra, cement & others
+          "LT.NS",
+          "ULTRACEMCO.NS",
+          "GRASIM.NS",
+          "ADANIPORTS.NS",
+          "DMART.NS",
+          "TITAN.NS",
+        ];
+        // Commodities: Yahoo carries the global futures that MCX prices follow
+        // (COMEX metals, NYMEX energy). MCX contract codes themselves (CRUDEOIL.MCX
+        // etc.) do not exist on Yahoo — these proxies track the same moves.
+        var DEFAULT_COMMODITIES = [
+          "GC=F", // Gold (COMEX)      ~ MCX GOLD/GOLDM
+          "SI=F", // Silver (COMEX)    ~ MCX SILVER
+          "CL=F", // Crude WTI (NYMEX) ~ MCX CRUDEOIL
+          "BZ=F", // Brent (ICE)       ~ MCX BRENT CRUDEOIL
+          "NG=F", // Natural Gas (NYMEX) ~ MCX NATURALGAS
+          "HG=F", // Copper (COMEX)    ~ MCX COPPER
+          "ALI=F", // Aluminium (COMEX) ~ MCX ALUMINIUM
+          "ZNC=F", // Zinc (COMEX)      ~ MCX ZINC
+          "PL=F", // Platinum (NYMEX)
+        ];
+        var SETTINGS_KEY = "lfc.scanSettings";
 
-  <div class="watchlist-row">
-    <div class="scan-field">
-      <label for="watchInput">Symbols to scan</label>
-      <input class="watchlist-input" id="watchInput" placeholder="RELIANCE.NS, TCS.NS, COALINDIA.NS, GC=F, CL=F">
-      <p class="scan-helper">NSE: RELIANCE.NS · BSE: 500325.BO · Futures: GC=F</p>
-    </div>
-    <button class="ghost" id="saveWatch">Save list</button>
-    <button class="ghost" id="importToggle">Import</button>
-    <button class="ghost" id="addCommodities" title="Adds supported global futures proxies for MCX-tracked commodities">Add commodities</button>
-  </div>
+        // ---------- symbol normalization ----------
+        // Accepts pasted CSV/lines/mixed junk and returns clean Yahoo-style symbols.
+        //   RELIANCE      -> RELIANCE.NS      (bare word assumes NSE)
+        //   RELIANCE.BO   -> kept             (already suffixed)
+        //   500325        -> 500325.BO        (bare Scrip code assumes BSE)
+        //   500325.BO     -> kept
+        //   "Coal India"  -> looked up in the NSE master, else skipped
+        //   SYMBOL,NAME rows (CSV with a header or two columns) are handled.
+        //   GC=F / BZ=F    -> kept (globally-traded futures; MCX tracks these)
+        function normaliseSymbols(text, knownNames) {
+          var out = [];
+          function add(s) {
+            if (out.indexOf(s) < 0) out.push(s);
+          }
+          function push(raw) {
+            var s = String(raw || "")
+              .trim()
+              .toUpperCase()
+              .replace(/["']/g, "");
+            if (!s) return;
+            s = s.replace(/^\d{1,2}\.\s*/, ""); // strip list numbering like "1. RELIANCE"
+            if (!s || s === "SYMBOL" || s === "NAME" || s === "TICKER") return;
+            if (s.length < 2 || s.length > 20) return;
+            var isFut = /=F$/.test(s); // futures contract, e.g. GC=F
+            if (!isFut && !/^[A-Z0-9&\-\.]+$/.test(s)) {
+              // prose (a company name) — try the name index, else give up on this field
+              var hit = knownNames && knownNames[s.toLowerCase()];
+              if (hit) add(hit);
+              return;
+            }
+            // a bare word that exactly matches a known company name (e.g. "Infosys")
+            // resolves through the index rather than becoming a bogus INFOSYS.NS
+            var nameHit = knownNames && knownNames[s.toLowerCase()];
+            if (nameHit) {
+              add(nameHit);
+              return;
+            }
+            if (isFut) {
+              /* futures: kept as-is */
+            } else if (/^\d{5,6}$/.test(s))
+              s = s + ".BO"; // bare Scrip code assumes BSE
+            else if (/\.(NS|BO)$/.test(s)) {
+              /* already suffixed */
+            } else if (/\.NSE$/.test(s)) s = s.replace(/\.NSE$/, ".NS");
+            else if (/\.BSE$/.test(s)) s = s.replace(/\.BSE$/, ".BO");
+            else s = s + ".NS"; // bare word assumes NSE
+            if (!isFut && /\.NS$/.test(s) && /\d/.test(s)) return; // NSE equity tickers carry no digits
+            add(s);
+          }
+          text.split(/[\r\n]+/).forEach(function (line) {
+            line.split(",").forEach(function (field) {
+              var f = field.trim().replace(/^["']+|["']+$/g, "");
+              if (!f) return;
+              if (!/\s/.test(f)) {
+                push(f); // symbol-shaped: RELIANCE, 500325, TCS.NS
+              } else {
+                // prose or several bare words: try the whole field, then word by word
+                var hit = knownNames && knownNames[f.toLowerCase()];
+                if (hit) {
+                  add(hit);
+                  return;
+                }
+                f.split(/\s+/).forEach(function (w) {
+                  if (/^[A-Z0-9&\-\.]{2,}$/.test(w)) push(w);
+                  else {
+                    var h = knownNames && knownNames[w.toLowerCase()];
+                    if (h) add(h);
+                  }
+                });
+              }
+            });
+          });
+          return out;
+        }
 
-  <div class="hidden" id="importRow">
-    <div class="scan-field">
-      <label for="importBox">Paste or import symbols</label>
-      <textarea id="importBox" rows="6" placeholder="RELIANCE.NS, TCS.NS&#10;ASHOKLEY.NS, Coal India&#10;500325"></textarea>
-      <p class="scan-helper">CSV, one per line, comma/semicolon separated, bare NSE symbol or bare BSE code.</p>
-    </div>
-    <div class="import-actions">
-      <button class="ghost" id="importFileBtn">Load from file</button>
-      <input type="file" id="importFile" accept=".csv,.txt,text/csv,text/plain" hidden>
-      <button class="ghost" id="importReplace">Replace list</button>
-      <button class="ghost" id="importMerge">Merge into list</button>
-      <button class="ghost" id="importDefaults">Use default list</button>
-    </div>
-  </div>
+        // company-name -> symbol map built from the NSE master (best effort)
+        function buildNameIndex() {
+          var idx = {};
+          try {
+            fetch("india_symbols.json")
+              .then(function (r) {
+                return r.json();
+              })
+              .then(function (list) {
+                (list || []).forEach(function (x) {
+                  if (x && x.symbol && x.name)
+                    idx[String(x.name).toLowerCase()] = String(
+                      x.symbol,
+                    ).toUpperCase();
+                });
+              })
+              .catch(function () {});
+          } catch (e) {}
+          return idx;
+        }
+        var NAME_INDEX = buildNameIndex();
 
-  <p class="msg" id="msg" aria-live="polite"></p>
-</section>
+        // ---------- watchlist persistence ----------
+        function loadWatch() {
+          try {
+            var raw = localStorage.getItem("lfc.watchlist");
+            var arr = raw ? JSON.parse(raw) : null;
+            if (Array.isArray(arr) && arr.length) return arr;
+          } catch (e) {}
+          return DEFAULT_WATCH.slice();
+        }
+        function saveWatch() {
+          var arr = $("watchInput")
+            .value.split(/[\n,]+/)
+            .map(function (s) {
+              return s.trim().toUpperCase();
+            })
+            .filter(function (s) {
+              return s.length > 1;
+            });
+          arr = arr.filter(function (s, i) {
+            return arr.indexOf(s) === i;
+          });
+          if (!arr.length) {
+            $("msg").textContent = "Watchlist is empty.";
+            return;
+          }
+          try {
+            localStorage.setItem("lfc.watchlist", JSON.stringify(arr));
+          } catch (e) {}
+          $("watchInput").value = arr.join(", ");
+          $("msg").textContent =
+            "Watchlist saved (" + arr.length + " symbols, on this device).";
+        }
 
-<div class="stats">
-  <div class="stat"><b id="stScanned">—</b><span>scanned</span></div>
-  <div class="stat"><b id="stInside">—</b><span>inside demand zone</span></div>
-  <div class="stat"><b id="stTouch">—</b><span>touching zone</span></div>
-  <div class="stat"><b id="stSkipped">—</b><span>failed / skipped</span></div>
-</div>
+        // ---------- EOD data: Yahoo direct, jina.ai text proxy as fallback ----------
+        function yahooUrl(symbol, interval, range) {
+          return (
+            "https://query1.finance.yahoo.com/v8/finance/chart/" +
+            encodeURIComponent(symbol) +
+            "?range=" +
+            range +
+            "&interval=" +
+            interval
+          );
+        }
 
-<section class="scan-card" id="resultsCard" style="display:none">
-  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;gap:10px;flex-wrap:wrap">
-    <h3 style="font-size:15px">Scan results</h3>
-    <button class="ghost" id="downloadBtn">Download Results (CSV)</button>
-  </div>
-  <div class="scan-table-wrap">
-  <table>
-    <thead><tr>
-      <th>Symbol</th><th>TF</th><th>Price ₹</th><th>Trend</th><th>Demand zone</th><th>Position</th><th>Dist to zone</th><th>Zone from</th><th>Vol vs 20d</th><th></th>
-    </tr></thead>
-    <tbody id="resultsBody"></tbody>
-  </table>
-  </div>
-</section>
+        var TF_ORDER = ["d", "w", "m", "1h", "15m"];
+        function selectedTFs() {
+          var days = parseInt($("days").value, 10);
+          var out = [];
+          if ($("tfDaily").checked)
+            out.push({
+              id: "d",
+              label: "Daily",
+              interval: "1d",
+              range: days + "d",
+              minBars: 100,
+            });
+          if ($("tfWeekly").checked)
+            out.push({
+              id: "w",
+              label: "Weekly",
+              interval: "1wk",
+              range: "1095d",
+              minBars: 60,
+            });
+          if ($("tfMonthly").checked)
+            out.push({
+              id: "m",
+              label: "Monthly",
+              interval: "1mo",
+              range: "3650d",
+              minBars: 50,
+            });
+          if ($("tfHourly").checked)
+            out.push({
+              id: "1h",
+              label: "Hourly",
+              interval: "1h",
+              range: "90d",
+              minBars: 200,
+            });
+          if ($("tf15").checked)
+            out.push({
+              id: "15m",
+              label: "15m (MIS)",
+              interval: "15m",
+              range: "30d",
+              minBars: 200,
+            });
+          return out;
+        }
 
-<section class="scan-card" id="chartCard" style="display:none">
-  <h3 id="chartTitle" style="font-size:15px;margin-bottom:8px"></h3>
-  <div id="chartWrap"><canvas id="chart" width="900" height="340"></canvas></div>
-  <p class="mut" id="chartNote"></p>
-</section>
+        function parseYahoo(json, symbol, interval) {
+          return window.LfcMarketData.parseYahoo(json, symbol, interval);
+        }
 
-<p class="disclaimer"><strong>Private Research Journal:</strong> independent pivot-based demand-zone
-approximation on end-of-day data from Yahoo Finance. Free data sources may have missing, delayed or
-inconsistent NSE/BSE data. This is not the invite-only indicator, and it is not investment advice —
-verify every chart on your broker or exchange platform before acting. Consult a SEBI-registered
-professional before making an investment decision.</p>
+        // fetch with a hard timeout — a hung response must never hold a worker forever
+        function fetchT(url, ms) {
+          var ctrl = new AbortController();
+          var timer = setTimeout(function () {
+            ctrl.abort();
+          }, ms);
+          return fetch(url, { signal: ctrl.signal }).finally(function () {
+            clearTimeout(timer);
+          });
+        }
 
-</main>
+        function fetchDirect(url) {
+          return fetchT(url, 15000).then(function (r) {
+            if (!r.ok) throw new Error("HTTP " + r.status);
+            return r.json();
+          });
+        }
 
-<script src="auth-guard.js"></script>
-<script src="scanner-logic.js"></script>
-<script>
-(function () {
-  "use strict";
-  var $ = function (id) { return document.getElementById(id); };
-  if (!window.LfcAuth || !window.LfcAuth.current()) {
-    location.replace("signin.html?next=scanner.html");
-    return;
-  }
-  var lastRows = [];
-  var cacheHits = 0;
+        // r.jina.ai returns the JSON wrapped in a small text preamble; extract it.
+        function fetchViaProxy(url) {
+          return fetchT("https://r.jina.ai/" + url, 25000)
+            .then(function (r) {
+              if (!r.ok) throw new Error("proxy HTTP " + r.status);
+              return r.text();
+            })
+            .then(function (text) {
+              var start = text.indexOf('{"chart"');
+              if (start < 0) throw new Error("proxy returned no chart JSON");
+              return JSON.parse(text.slice(start));
+            });
+        }
 
-  var DEFAULT_WATCH = [
-    // Banking & financials
-    "HDFCBANK.NS", "ICICIBANK.NS", "SBIN.NS", "KOTAKBANK.NS", "AXISBANK.NS",
-    "BAJFINANCE.NS", "BAJAJFINSV.NS", "INDUSINDBK.NS", "BANKBARODA.NS", "PNB.NS",
-    // IT
-    "TCS.NS", "INFY.NS", "WIPRO.NS", "HCLTECH.NS", "TECHM.NS", "PERSISTENT.NS",
-    // Energy & power
-    "RELIANCE.NS", "ONGC.NS", "NTPC.NS", "POWERGRID.NS", "TATAPOWER.NS", "ADANIGREEN.NS",
-    // FMCG
-    "HINDUNILVR.NS", "ITC.NS", "NESTLEIND.NS", "BRITANNIA.NS", "DABUR.NS", "TATACONSUM.NS",
-    // Autos
-    // Tata Motors demerged: TMCV.NS (commercial vehicles) + TMPV.NS (passenger vehicles).
-    // The old TATAMOTORS.NS ticker is gone from Yahoo, as is LTIM.NS.
-    "MARUTI.NS", "TMCV.NS", "TMPV.NS", "M&M.NS", "BAJAJ-AUTO.NS", "EICHERMOT.NS", "ASHOKLEY.NS",
-    // Metals & mining
-    "TATASTEEL.NS", "JSWSTEEL.NS", "HINDALCO.NS", "COALINDIA.NS", "VEDL.NS", "JINDALSTEL.NS",
-    // Pharma & healthcare
-    "SUNPHARMA.NS", "DRREDDY.NS", "CIPLA.NS", "DIVISLAB.NS", "LUPIN.NS", "AUROPHARMA.NS",
-    // Infra, cement & others
-    "LT.NS", "ULTRACEMCO.NS", "GRASIM.NS", "ADANIPORTS.NS", "DMART.NS", "TITAN.NS"
-  ];
-  // Commodities: Yahoo carries the global futures that MCX prices follow
-  // (COMEX metals, NYMEX energy). MCX contract codes themselves (CRUDEOIL.MCX
-  // etc.) do not exist on Yahoo — these proxies track the same moves.
-  var DEFAULT_COMMODITIES = [
-    "GC=F",   // Gold (COMEX)      ~ MCX GOLD/GOLDM
-    "SI=F",   // Silver (COMEX)    ~ MCX SILVER
-    "CL=F",   // Crude WTI (NYMEX) ~ MCX CRUDEOIL
-    "BZ=F",   // Brent (ICE)       ~ MCX BRENT CRUDEOIL
-    "NG=F",   // Natural Gas (NYMEX) ~ MCX NATURALGAS
-    "HG=F",   // Copper (COMEX)    ~ MCX COPPER
-    "ALI=F",  // Aluminium (COMEX) ~ MCX ALUMINIUM
-    "ZNC=F",  // Zinc (COMEX)      ~ MCX ZINC
-    "PL=F"    // Platinum (NYMEX)
-  ];
-  var SETTINGS_KEY = "lfc.scanSettings";
+        var importedHistory = new Map();
+        document.getElementById('historyFile').onchange = async function (event) {
+          importedHistory = new Map();
+          var msg=document.getElementById('historyMessage'),file=event.target.files[0];
+          if(!file)return;
+          try {
+            if(file.size>10*1024*1024)throw new Error('Use a CSV smaller than 10 MB');
+            importedHistory=LfcCsvHistory.parse(await file.text());
+            document.getElementById('historySource').value='csv';
+            document.getElementById('watchInput').value=[...importedHistory.keys()].join('\n');
+            ['tfWeekly','tfMonthly','tfHourly','tf15'].forEach(function(id){document.getElementById(id).checked=false;});
+            document.getElementById('tfDaily').checked=true;
+            msg.textContent='Imported '+importedHistory.size+' symbols into this tab. Daily history will be checked for freshness and minimum length when scanned.';
+          }catch(e){msg.textContent='Import rejected: '+e.message;}
+        };
+        document.getElementById('historyTemplate').onclick=function(){
+          var blob=new Blob(['symbol,date,open,high,low,close,volume\n'],{type:'text/csv'}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download='daily-history-template.csv';a.click();setTimeout(function(){URL.revokeObjectURL(url);},1000);
+        };
+        function getBars(symbol, tf) {
+          if(document.getElementById('historySource').value==='csv'){
+            try{return Promise.resolve(LfcCsvHistory.history(importedHistory,symbol,tf.interval));}catch(e){return Promise.reject(e);}
+          }
+          var url = yahooUrl(symbol, tf.interval, tf.range);
+          return fetchDirect(url)
+            .then(function (json) {
+              return parseYahoo(json, symbol, tf.interval);
+            })
+            .catch(function () {
+              return fetchViaProxy(url).then(function (json) {
+                return parseYahoo(json, symbol, tf.interval);
+              });
+            });
+        }
 
-  // ---------- symbol normalization ----------
-  // Accepts pasted CSV/lines/mixed junk and returns clean Yahoo-style symbols.
-  //   RELIANCE      -> RELIANCE.NS      (bare word assumes NSE)
-  //   RELIANCE.BO   -> kept             (already suffixed)
-  //   500325        -> 500325.BO        (bare Scrip code assumes BSE)
-  //   500325.BO     -> kept
-  //   "Coal India"  -> looked up in the NSE master, else skipped
-  //   SYMBOL,NAME rows (CSV with a header or two columns) are handled.
-  //   GC=F / BZ=F    -> kept (globally-traded futures; MCX tracks these)
-  function normaliseSymbols(text, knownNames) {
-    var out = [];
-    function add(s) { if (out.indexOf(s) < 0) out.push(s); }
-    function push(raw) {
-      var s = String(raw || "").trim().toUpperCase().replace(/["']/g, "");
-      if (!s) return;
-      s = s.replace(/^\d{1,2}\.\s*/, "");             // strip list numbering like "1. RELIANCE"
-      if (!s || s === "SYMBOL" || s === "NAME" || s === "TICKER") return;
-      if (s.length < 2 || s.length > 20) return;
-      var isFut = /=F$/.test(s);                       // futures contract, e.g. GC=F
-      if (!isFut && !/^[A-Z0-9&\-\.]+$/.test(s)) {
-        // prose (a company name) — try the name index, else give up on this field
-        var hit = knownNames && knownNames[s.toLowerCase()];
-        if (hit) add(hit);
-        return;
-      }
-      // a bare word that exactly matches a known company name (e.g. "Infosys")
-      // resolves through the index rather than becoming a bogus INFOSYS.NS
-      var nameHit = knownNames && knownNames[s.toLowerCase()];
-      if (nameHit) { add(nameHit); return; }
-      if (isFut) { /* futures: kept as-is */ }
-      else if (/^\d{5,6}$/.test(s)) s = s + ".BO";    // bare Scrip code assumes BSE
-      else if (/\.(NS|BO)$/.test(s)) { /* already suffixed */ }
-      else if (/\.NSE$/.test(s)) s = s.replace(/\.NSE$/, ".NS");
-      else if (/\.BSE$/.test(s)) s = s.replace(/\.BSE$/, ".BO");
-      else s = s + ".NS";                            // bare word assumes NSE
-      if (!isFut && /\.NS$/.test(s) && /\d/.test(s)) return;  // NSE equity tickers carry no digits
-      add(s);
-    }
-    text.split(/[\r\n]+/).forEach(function (line) {
-      line.split(",").forEach(function (field) {
-        var f = field.trim().replace(/^["']+|["']+$/g, "");
-        if (!f) return;
-        if (!/\s/.test(f)) {
-          push(f);                                   // symbol-shaped: RELIANCE, 500325, TCS.NS
-        } else {
-          // prose or several bare words: try the whole field, then word by word
-          var hit = knownNames && knownNames[f.toLowerCase()];
-          if (hit) { add(hit); return; }
-          f.split(/\s+/).forEach(function (w) {
-            if (/^[A-Z0-9&\-\.]{2,}$/.test(w)) push(w);
-            else {
-              var h = knownNames && knownNames[w.toLowerCase()];
-              if (h) add(h);
+        // ---------- EOD bar cache ----------
+        // Short interval-aware cache. Version 2 rejects the old 20-hour entries.
+
+
+        function cacheKey(symbol, tf) {
+          return "lfc.bars.v2." + symbol + "." + tf.interval + "." + tf.range;
+        }
+
+        function pruneCache() {
+          try {
+            var keys = [];
+            for (var i = 0; i < localStorage.length; i++) {
+              var k = localStorage.key(i);
+              if (k && k.indexOf("lfc.bars.") === 0) keys.push(k);
+            }
+            keys.slice(0, Math.ceil(keys.length / 3)).forEach(function (k) {
+              localStorage.removeItem(k);
+            });
+          } catch (e) {}
+        }
+
+        function getBarsCached(symbol, tf) {
+          if(document.getElementById('historySource').value==='csv')return getBars(symbol,tf);
+          try {
+            var c = JSON.parse(
+              localStorage.getItem(cacheKey(symbol, tf)) || "null",
+            );
+            if (!$('forceRefresh').checked && window.LfcMarketData.cacheValid(c,tf.interval) && c.data.bars.length >= tf.minBars) {
+              cacheHits++;
+              return Promise.resolve(Object.assign({},c.data,{cached:true}));
+            }
+          } catch (e) {}
+          return getBars(symbol, tf).then(function (data) {
+            if (data && data.bars.length >= tf.minBars) {
+              try {
+                localStorage.setItem(
+                  cacheKey(symbol, tf),
+                  JSON.stringify({ version:2, saved: Date.now(), data:data }),
+                );
+              } catch (e) {
+                pruneCache();
+                try {
+                  localStorage.setItem(
+                    cacheKey(symbol, tf),
+                    JSON.stringify({ version:2, saved: Date.now(), data:data }),
+                  );
+                } catch (e2) {}
+              }
+            }
+            return data;
+          });
+        }
+
+        // The data proxy rate-limits bursts (observed 429s on back-to-back waves), so fetch
+        // through a small worker pool. Retries do NOT run inside the pool — a symbol stuck in
+        // backoff would stall its worker — failed symbols are re-fetched in a gentle recovery
+        // pass once the burst has cooled down.
+        function sleep(ms) {
+          return new Promise(function (res) {
+            setTimeout(res, ms);
+          });
+        }
+
+        function recoverFailures(failed, days, onResult) {
+          // cool-down, then two workers with one spaced retry each
+          return sleep(2500).then(function () {
+            var stillFailed = [];
+            return runPool(failed, 2, function (sym) {
+              return getBars(sym, days)
+                .catch(function () {
+                  return sleep(4000).then(function () {
+                    return getBars(sym, days);
+                  });
+                })
+                .then(function (data) {
+                  if (data) onResult(sym, data);
+                  else stillFailed.push(sym);
+                });
+            }).then(function () {
+              return stillFailed;
+            });
+          });
+        }
+
+        function runPool(items, limit, worker) {
+          var next = 0;
+          function launch() {
+            if (next >= items.length) return Promise.resolve();
+            var i = next++;
+            return Promise.resolve()
+              .then(function () {
+                return worker(items[i], i);
+              })
+              .then(launch);
+          }
+          var pool = [];
+          for (var k = 0; k < Math.min(limit, items.length); k++)
+            pool.push(launch());
+          return Promise.all(pool);
+        }
+
+        // ---------- scanning ----------
+        function scan() {
+          var symbols = $("watchInput")
+            .value.split(/[\n,]+/)
+            .map(function (s) {
+              return s.trim().toUpperCase();
+            })
+            .filter(function (s, i, a) {
+              return s.length > 1 && a.indexOf(s) === i;
+            });
+          if (!symbols.length) {
+            $("msg").textContent = "Add at least one symbol.";
+            return;
+          }
+
+          if (symbols.some(function (s) {return !/^[A-Z0-9^][A-Z0-9.&^=_-]{0,39}$/.test(s);})) {
+            $("msg").textContent = "Use valid ticker symbols, for example RELIANCE.NS or GC=F.";
+            return;
+          }
+          if (![Number($("pLeft").value),Number($("pRight").value)].every(function(n) {return Number.isInteger(n) && n>=1 && n<=20;})) {
+            $("msg").textContent = "Pivot windows must be whole numbers from 1 to 20.";
+            return;
+          }
+          var tfs = selectedTFs();
+          if (!tfs.length) {
+            $("msg").textContent = "Tick at least one timeframe.";
+            return;
+          }
+
+          if ($('historySource').value==='csv' && (tfs.some(function(tf){return tf.interval!=='1d';}) || !importedHistory.size)) {
+            $('msg').textContent='Import a daily history CSV and select only Daily before scanning.';
+            return;
+          }
+
+          var opts = {
+            pivotLeft: parseInt($("pLeft").value, 10) || 3,
+            pivotRight: parseInt($("pRight").value, 10) || 3,
+            trendFilter: $("trendFilter").checked,
+            showTouching: $("showTouching").checked,
+
+            minVolRatio: $("volFilter").checked ? 1 : null,
+          };
+          // remember exactly what was used, so tomorrow's visit starts here
+          try {
+            localStorage.setItem(
+              SETTINGS_KEY,
+              JSON.stringify({
+                pLeft: $("pLeft").value,
+                pRight: $("pRight").value,
+                days: $("days").value,
+                tfs: tfs.map(function (t) {
+                  return t.id;
+                }),
+                volFilter: $("volFilter").checked,
+                trendFilter: $("trendFilter").checked,
+                showTouching: $("showTouching").checked,
+              }),
+            );
+          } catch (e) {}
+
+          var tasks = [];
+          symbols.forEach(function (sym) {
+            tfs.forEach(function (tf) {
+              tasks.push({ sym: sym, tf: tf });
+            });
+          });
+
+          lastRows = [];
+          $("feedIssues").replaceChildren();
+          $("stTouch").textContent = "0";
+          $("scanBtn").disabled = true;
+          $("msg").textContent =
+            "Scanning " +
+            symbols.length +
+            " symbols x " +
+            tfs.length +
+            " timeframe(s) = " +
+            tasks.length +
+            " tasks (5 at a time)…";
+          $("resultsCard").style.display = "none";
+          $("chartCard").style.display = "none";
+          $("stInside").textContent = "—";
+          $("stTouch").textContent = "—";
+
+          var rows = [],
+            scanned = 0,
+            skipped = 0,
+            rendered = false;
+          cacheHits = 0;
+          var counted = {}; // "sym|tf" -> final verdict recorded?
+          var failedOnce = {}; // "sym|tf" -> first pass could not fetch it
+
+          function verdict(task, data) {
+            var key = task.sym + "|" + task.tf.id;
+            if (counted[key]) return;
+            counted[key] = true;
+            scanned++;
+            var ok = data && !data.stale && !data.discarded && !data.gaps && data.bars.length >= task.tf.minBars;
+            if (!ok) {
+              skipped++;
+              failedOnce[key] = true;
+              var issue = document.createElement("li");
+              issue.dataset.key = key;
+              issue.textContent = task.sym + " / " + task.tf.label + ": " + (data && data.stale ? "Source candles exceed freshness tolerance" : data && (data.discarded || data.gaps) ? "Incomplete history: " + data.discarded + " invalid candles, " + data.gaps + " intraday gaps" : data && data.bars ? "Only " + data.bars.length + " completed candles; need " + task.tf.minBars : "Feed unavailable or invalid response");
+              $("feedIssues").appendChild(issue);
+            }
+            if (ok) {
+              Array.from($("feedIssues").children).filter(function (el) {return el.dataset.key === key;}).forEach(function(el){el.remove();});
+              var res = window.LfcScanner.computeZones(data.bars, opts);
+              if (res && window.LfcScanner.includeRow(res, opts)) {
+                rows.push({
+                  sym: task.sym,
+                  tfId: task.tf.id,
+                  tf: task.tf.label,
+                  res: res,
+                  bars: data.bars,
+                  feed: data,
+                });
+                rows.sort(function (a, b) {
+                  if (a.sym !== b.sym) return a.sym < b.sym ? -1 : 1;
+                  return TF_ORDER.indexOf(a.tfId) - TF_ORDER.indexOf(b.tfId);
+                });
+                render(rows); // progressive: results appear as they arrive
+                rendered = true;
+              }
+            }
+            $("stScanned").textContent = scanned;
+            $("stSkipped").textContent = skipped;
+            $("stInside").textContent = rows.filter(function (r) {
+              return r.res.insideDemand;
+            }).length;
+            $("stTouch").textContent = rows.filter(function (r) {return !r.res.insideDemand && r.res.touchingDemand;}).length;
+          }
+
+          function finish(stillFailed) {
+            $("scanBtn").disabled = false;
+            var tail = " Historical candles; source may be delayed." + (cacheHits ? " (" + cacheHits + " from short cache)" : "");
+            if (rendered) {
+              $("msg").textContent = stillFailed
+                ? "Done — " +
+                  stillFailed +
+                  " task(s) excluded: unavailable, stale, or insufficient completed candles." +
+                  tail
+                : "Done." + tail;
+            } else {
+              $("msg").textContent = stillFailed
+                ? "No stocks matched, and " +
+                  stillFailed +
+                  " task(s) excluded: unavailable, stale, or insufficient completed candles." + tail
+                : "No stocks matched the selected conditions. Only completed candles are evaluated.";
+            }
+          }
+
+          // first pass: 5 workers, single attempt each (no backoff inside the pool — a stalled
+          // worker would hold a slot hostage)
+          runPool(tasks, 5, function (task) {
+            return getBarsCached(task.sym, task.tf).then(
+              function (data) {
+                verdict(task, data);
+              },
+              function () {
+                verdict(task, null);
+              },
+            );
+          }).then(function () {
+            var failed = tasks.filter(function (t) {
+              return failedOnce[t.sym + "|" + t.tf.id];
+            });
+            if (!failed.length) {
+              finish(0);
+              return;
+            }
+            // recovery pass: let the proxy cool down, then retry gently with 2 workers
+            $("msg").textContent =
+              "Retrying " + failed.length + " incomplete data task(s)…";
+            sleep(2500)
+              .then(function () {
+                return runPool(failed, 2, function (task) {
+                  return getBarsCached(task.sym, task.tf)
+                    .catch(function () {
+                      return sleep(4000).then(function () {
+                        return getBarsCached(task.sym, task.tf);
+                      });
+                    })
+                    .then(
+                      function (data) {
+                        if (data && !data.stale && !data.discarded && !data.gaps && data.bars.length >= task.tf.minBars) {
+                          // recovered: undo the skip, re-judge
+                          failedOnce[task.sym + "|" + task.tf.id] = false;
+                          skipped--;
+                          counted[task.sym + "|" + task.tf.id] = false;
+                          scanned--;
+                          verdict(task, data);
+                        }
+                      },
+                      function () {
+                        /* stays failed */
+                      },
+                    );
+                });
+              })
+              .then(function () {
+                finish(
+                  tasks.filter(function (t) {
+                    return failedOnce[t.sym + "|" + t.tf.id];
+                  }).length,
+                );
+              });
+          });
+        }
+
+        function fmtZone(res) {
+          if (res.demandTop == null) return "No zone";
+          return res.demandBottom.toFixed(2) + " – " + res.demandTop.toFixed(2);
+        }
+
+        function volText(res) {
+          if (res.avgVol20 && res.lastVol) {
+            var ratio = res.lastVol / res.avgVol20;
+            return (
+              (ratio >= 1 ? "+" : "") + Math.round((ratio - 1) * 100) + "%"
+            );
+          }
+          return "—";
+        }
+
+        function distText(res) {
+          if (res.distDemand == null) return "—";
+          if (res.distDemand === 0) return "in zone";
+          return (res.distDemand * 100).toFixed(1) + "%";
+        }
+
+        // CSV export of the current scan, like the reference's Download Results button.
+        function downloadCSV() {
+          if (!lastRows.length) return;
+          function cell(v) {
+            v = v == null ? "" : String(v);
+            return /[,\"\n]/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v;
+          }
+          var head = [
+            "Symbol",
+            "TF",
+            "Price",
+            "Trend",
+            "Demand Zone",
+            "Position",
+            "Dist to zone",
+            "Zone Date",
+            "Vol vs 20 bars",
+            "Candle time (UTC)",
+            "Source",
+          ];
+          var lines = [head.join(",")];
+          lastRows.forEach(function (r) {
+            lines.push(
+              [
+                cell(r.sym),
+                cell(r.tf),
+                cell(r.res.price.toFixed(2)),
+                cell(r.res.trend),
+                cell(fmtZone(r.res)),
+                cell(
+                  r.res.insideDemand
+                    ? "INSIDE"
+                    : r.res.touchingDemand
+                      ? "TOUCHING"
+                      : "",
+                ),
+                cell(distText(r.res)),
+                cell(r.res.zoneCreated || ""),
+                cell(volText(r.res)),
+                cell(new Date(r.feed.candleAt).toISOString()),
+                cell(r.feed.source),
+              ].join(","),
+            );
+          });
+          // BOM so Excel opens the UTF-8 file correctly
+          var blob = new Blob(["\ufeff" + lines.join("\r\n")], {
+            type: "text/csv;charset=utf-8",
+          });
+          var a = document.createElement("a");
+          a.href = URL.createObjectURL(blob);
+          a.download =
+            "demand-zone-results-" +
+            new Date().toISOString().slice(0, 10) +
+            ".csv";
+          document.body.appendChild(a);
+          a.click();
+          a.remove();
+          setTimeout(function () {
+            URL.revokeObjectURL(a.href);
+          }, 2000);
+        }
+
+        function trendTag(t) {
+          var cls =
+            t === "UPTREND" ? "up" : t === "DOWNTREND" ? "down" : "side";
+          return '<span class="tag ' + cls + '">' + t + "</span>";
+        }
+
+        function posTag(res) {
+          if (res.insideDemand) return '<span class="tag in">INSIDE</span>';
+          if (res.touchingDemand)
+            return '<span class="tag touch">TOUCHING</span>';
+          return "—";
+        }
+
+        function render(rows) {
+          lastRows = rows;
+          if (!rows.length) {
+            $("msg").textContent = "No stocks matched the selected conditions. Only completed candles are evaluated.";
+            return;
+          }
+          var inside = rows.filter(function (r) {
+            return r.res.insideDemand;
+          }).length;
+          $("stInside").textContent = inside;
+          $("stTouch").textContent = rows.length - inside;
+
+          var body = $("resultsBody");
+          body.innerHTML = "";
+          rows.forEach(function (r, idx) {
+            var tr = document.createElement("tr");
+            tr.innerHTML =
+              "<td><b>" +
+              r.sym +
+              "</b><br><small>" + new Date(r.feed.candleAt).toLocaleString("en-IN", {timeZone:"Asia/Kolkata"}) + " IST · " + (r.feed.cached ? "cached" : "fetched") + " · " + r.feed.source + "</small></td>" +
+              '<td><span class="tag touch">' +
+              r.tf +
+              "</span></td>" +
+              "<td>" +
+              r.res.price.toFixed(2) +
+              "</td>" +
+              "<td>" +
+              trendTag(r.res.trend) +
+              "</td>" +
+              "<td>" +
+              fmtZone(r.res) +
+              "</td>" +
+              "<td>" +
+              posTag(r.res) +
+              "</td>" +
+              "<td>" +
+              distText(r.res) +
+              "</td>" +
+              "<td>" +
+              (r.res.zoneCreated || "—") +
+              "</td>" +
+              "<td>" +
+              volText(r.res) +
+              "</td>" +
+              '<td><button class="ghost" data-chart="' +
+              idx +
+              '">Chart</button></td>';
+            body.appendChild(tr);
+          });
+          $("resultsCard").style.display = "";
+
+          body.onclick = function (ev) {
+            var b = ev.target.closest("[data-chart]");
+            if (b) drawChart(rows[parseInt(b.getAttribute("data-chart"), 10)]);
+          };
+          drawChart(rows[0]);
+        }
+
+        // ---------- minimal canvas chart: candlesticks, EMA20/50, zones ----------
+        function drawChart(row) {
+          if (!row) return;
+          var bars = row.bars,
+            res = row.res;
+          var show = bars.slice(-180);
+          var offset = bars.length - show.length;
+          // the card must be visible BEFORE the canvas is measured, or clientWidth is 0
+          $("chartCard").style.display = "";
+
+          var cvs = $("chart"),
+            ctx = cvs.getContext("2d");
+          var W = (cvs.width = cvs.clientWidth * 2); // crisp on HiDPI
+          var H = (cvs.height = 680);
+          ctx.scale(1, 1);
+
+          var min = Math.min.apply(
+            null,
+            show.map(function (b) {
+              return b.low;
+            }),
+          );
+          var max = Math.max.apply(
+            null,
+            show.map(function (b) {
+              return b.high;
+            }),
+          );
+          var pad = (max - min) * 0.06;
+          min -= pad;
+          max += pad;
+
+          // candle spacing: leave a gap between wicks; X centers the i-th bar
+          var slot = (W - 80) / show.length;
+          var bodyW = Math.max(2, Math.min(14, slot * 0.62));
+          function X(i) {
+            return 40 + slot * i + slot / 2;
+          }
+          function Y(p) {
+            return H - 40 - ((p - min) / (max - min)) * (H - 70);
+          }
+
+          ctx.clearRect(0, 0, W, H);
+          ctx.fillStyle = "#0b0f0e";
+          ctx.fillRect(0, 0, W, H);
+
+          // demand zones (green) and supply zones (red)
+          function zones(zs, fill) {
+            zs.forEach(function (z) {
+              var zi = z.confirmedIndex - offset;
+              if (zi < 0) zi = 0;
+              if (zi > show.length - 1) return;
+              ctx.fillStyle = fill;
+              ctx.globalAlpha = 0.16;
+              ctx.fillRect(
+                X(zi),
+                Y(z.top),
+                W - 40 - X(zi),
+                Y(z.bottom) - Y(z.top),
+              );
+              ctx.globalAlpha = 1;
+            });
+          }
+          zones(res.demandZones, "#10b981");
+          zones(res.supplyZones, "#ef4444");
+
+          // candlesticks: wick = high→low, body = open→close; green up, red down
+          show.forEach(function (b, i) {
+            var up = b.close >= b.open;
+            var col = up ? "#10b981" : "#ef4444";
+            var x = X(i);
+            ctx.strokeStyle = col;
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            ctx.moveTo(x, Y(b.high));
+            ctx.lineTo(x, Y(b.low));
+            ctx.stroke();
+            var yO = Y(b.open),
+              yC = Y(b.close);
+            var top = Math.min(yO, yC),
+              hgt = Math.max(1, Math.abs(yO - yC));
+            ctx.fillStyle = col;
+            ctx.fillRect(x - bodyW / 2, top, bodyW, hgt);
+          });
+
+          // EMAs on top of the candles
+          function line(vals, color, width) {
+            ctx.strokeStyle = color;
+            ctx.lineWidth = width || 2;
+            ctx.beginPath();
+            vals.forEach(function (v, i) {
+              i ? ctx.lineTo(X(i), Y(v)) : ctx.moveTo(X(i), Y(v));
+            });
+            ctx.stroke();
+          }
+          line(res.ema20.slice(offset), "#7fc0ef", 1.5);
+          line(res.ema50.slice(offset), "#d8c76a", 1.5);
+
+          // last price marker
+          var lastY = Y(res.price);
+          ctx.fillStyle = "#10b981";
+          ctx.fillRect(W - 78, lastY - 9, 70, 18);
+          ctx.fillStyle = "#04241a";
+          ctx.font = "bold 12px monospace";
+          ctx.fillText(res.price.toFixed(1), W - 72, lastY + 4);
+
+          // axis labels
+          ctx.fillStyle = "#6f7f76";
+          ctx.font = "11px monospace";
+          [0, 0.25, 0.5, 0.75, 1].forEach(function (f) {
+            var p = max - f * (max - min);
+            ctx.fillText(p.toFixed(0), 2, Y(p) + 4);
+          });
+
+          $("chartTitle").textContent =
+            row.sym +
+            " · " +
+            row.tf +
+            " — candles (green up / red down), EMA20 (blue), EMA50 (gold), demand zones shaded green";
+          $("chartNote").textContent =
+            "Zones drawn from their pivot bar to the right edge. A zone disappears once a daily close trades through it.";
+        }
+
+        // ---------- boot ----------
+        // ---------- restore last-used settings ----------
+        (function restoreSettings() {
+          try {
+            var s = JSON.parse(localStorage.getItem(SETTINGS_KEY) || "null");
+            if (!s) return;
+            if (s.pLeft != null) $("pLeft").value = s.pLeft;
+            if (s.pRight != null) $("pRight").value = s.pRight;
+            if (s.days != null) $("days").value = s.days;
+            if (s.tfs) {
+              $("tfDaily").checked = s.tfs.indexOf("d") >= 0;
+              $("tfWeekly").checked = s.tfs.indexOf("w") >= 0;
+              $("tfMonthly").checked = s.tfs.indexOf("m") >= 0;
+              $("tfHourly").checked = s.tfs.indexOf("1h") >= 0;
+              $("tf15").checked = s.tfs.indexOf("15m") >= 0;
+            }
+            if (s.trendFilter != null)
+              $("trendFilter").checked = !!s.trendFilter;
+            if (s.showTouching != null)
+              $("showTouching").checked = !!s.showTouching;
+            if (s.volFilter != null) $("volFilter").checked = !!s.volFilter;
+          } catch (e) {}
+        })();
+
+        $("watchInput").value = loadWatch().join(", ");
+        $("saveWatch").onclick = saveWatch;
+        $("scanBtn").onclick = scan;
+        $("downloadBtn").onclick = downloadCSV;
+
+        // ---------- import UI ----------
+        $("importToggle").onclick = function () {
+          var row = $("importRow");
+          row.classList.toggle("hidden");
+        };
+
+        function applyImport(replace) {
+          var syms = normaliseSymbols($("importBox").value, NAME_INDEX);
+          if (!syms.length) {
+            $("msg").textContent =
+              "Nothing to import — paste some symbols first.";
+            return;
+          }
+          var existing = replace
+            ? []
+            : $("watchInput")
+                .value.split(/[\n,]+/)
+                .map(function (s) {
+                  return s.trim().toUpperCase();
+                })
+                .filter(Boolean);
+          syms.forEach(function (s) {
+            if (existing.indexOf(s) < 0) existing.push(s);
+          });
+          $("watchInput").value = existing.join(", ");
+          try {
+            localStorage.setItem("lfc.watchlist", JSON.stringify(existing));
+          } catch (e) {}
+          $("msg").textContent =
+            (replace ? "Replaced" : "Merged") +
+            " — watchlist now has " +
+            existing.length +
+            " symbols (saved).";
+          $("importBox").value = "";
+        }
+        $("importReplace").onclick = function () {
+          applyImport(true);
+        };
+        $("importMerge").onclick = function () {
+          applyImport(false);
+        };
+        $("importDefaults").onclick = function () {
+          $("watchInput").value = DEFAULT_WATCH.join(", ");
+          try {
+            localStorage.setItem(
+              "lfc.watchlist",
+              JSON.stringify(DEFAULT_WATCH),
+            );
+          } catch (e) {}
+          $("msg").textContent =
+            "Default list restored (" +
+            DEFAULT_WATCH.length +
+            " symbols, saved).";
+        };
+
+        // one click to pull the MCX-tracked commodity futures into the watchlist
+        $("addCommodities").onclick = function () {
+          var existing = $("watchInput")
+            .value.split(/[\n,]+/)
+            .map(function (s) {
+              return s.trim().toUpperCase();
+            })
+            .filter(Boolean);
+          var added = 0;
+          DEFAULT_COMMODITIES.forEach(function (c) {
+            if (existing.indexOf(c) < 0) {
+              existing.push(c);
+              added++;
             }
           });
+          if (!added) {
+            $("msg").textContent =
+              "Commodity futures were already on the list.";
+            return;
+          }
+          $("watchInput").value = existing.join(", ");
+          try {
+            localStorage.setItem("lfc.watchlist", JSON.stringify(existing));
+          } catch (e) {}
+          $("msg").textContent =
+            "Added " +
+            added +
+            " commodity futures (gold, silver, crude, natgas, copper, zinc, aluminium, platinum) — saved. MCX codes aren't on Yahoo; these global contracts track the same moves.";
+        };
+
+        $("importFileBtn").onclick = function () {
+          $("importFile").click();
+        };
+        $("importFile").onchange = function (ev) {
+          var f = ev.target.files && ev.target.files[0];
+          if (!f) return;
+          var reader = new FileReader();
+          reader.onload = function () {
+            $("importBox").value = String(reader.result || "");
+            $("msg").textContent =
+              "Loaded " + f.name + " — review it, then Replace or Merge.";
+          };
+          reader.readAsText(f);
+          ev.target.value = ""; // allow re-selecting the same file
+        };
+        if (!window.LfcAuth || !window.LfcAuth.current()) {
+          location.replace("signin.html?next=scanner.html");
         }
-      });
-    });
-    return out;
-  }
-
-  // company-name -> symbol map built from the NSE master (best effort)
-  function buildNameIndex() {
-    var idx = {};
-    try {
-      fetch("india_symbols.json").then(function (r) { return r.json(); }).then(function (list) {
-        (list || []).forEach(function (x) {
-          if (x && x.symbol && x.name) idx[String(x.name).toLowerCase()] = String(x.symbol).toUpperCase();
-        });
-      }).catch(function () {});
-    } catch (e) {}
-    return idx;
-  }
-  var NAME_INDEX = buildNameIndex();
-
-  // ---------- watchlist persistence ----------
-  function loadWatch() {
-    try {
-      var raw = localStorage.getItem("lfc.watchlist");
-      var arr = raw ? JSON.parse(raw) : null;
-      if (Array.isArray(arr) && arr.length) return arr;
-    } catch (e) {}
-    return DEFAULT_WATCH.slice();
-  }
-  function saveWatch() {
-    var arr = $("watchInput").value.split(/[\n,]+/).map(function (s) { return s.trim().toUpperCase(); })
-      .filter(function (s) { return s.length > 1; });
-    arr = arr.filter(function (s, i) { return arr.indexOf(s) === i; });
-    if (!arr.length) { $("msg").textContent = "Watchlist is empty."; return; }
-    try { localStorage.setItem("lfc.watchlist", JSON.stringify(arr)); } catch (e) {}
-    $("watchInput").value = arr.join(", ");
-    $("msg").textContent = "Watchlist saved (" + arr.length + " symbols, on this device).";
-  }
-
-  // ---------- EOD data: Yahoo direct, jina.ai text proxy as fallback ----------
-  function yahooUrl(symbol, interval, range) {
-    return "https://query1.finance.yahoo.com/v8/finance/chart/" + encodeURIComponent(symbol) +
-           "?range=" + range + "&interval=" + interval;
-  }
-
-  var TF_ORDER = ["d", "w", "m", "1h", "15m"];
-  function selectedTFs() {
-    var days = parseInt($("days").value, 10);
-    var out = [];
-    if ($("tfDaily").checked)   out.push({ id: "d",   label: "Daily",     interval: "1d",  range: days + "d", minBars: 100 });
-    if ($("tfWeekly").checked)  out.push({ id: "w",   label: "Weekly",    interval: "1wk", range: "1095d",    minBars: 60 });
-    if ($("tfMonthly").checked) out.push({ id: "m",   label: "Monthly",   interval: "1mo", range: "3650d",    minBars: 36 });
-    if ($("tfHourly").checked)  out.push({ id: "1h",  label: "Hourly",    interval: "1h",  range: "90d",      minBars: 200 });
-    if ($("tf15").checked)      out.push({ id: "15m", label: "15m (MIS)", interval: "15m", range: "30d",      minBars: 200 });
-    return out;
-  }
-
-  function parseYahoo(json, symbol, interval) {
-    var r = json && json.chart && json.chart.result && json.chart.result[0];
-    if (!r || !r.timestamp) return null;
-    var q = r.indicators.quote[0];
-    var bars = [];
-    for (var i = 0; i < r.timestamp.length; i++) {
-      var o = q.open[i], h = q.high[i], l = q.low[i], c = q.close[i];
-      if (o == null || h == null || l == null || c == null) continue;
-      var label;
-      if (interval === "1d") {
-        label = new Date(r.timestamp[i] * 1000).toISOString().slice(0, 10);
-      } else {
-        // intraday/weekly labels carry IST time so zones are traceable on the chart
-        label = new Date((r.timestamp[i] + 19800) * 1000).toISOString().slice(0, 16).replace("T", " ");
-      }
-      bars.push({
-        date: label,
-        open: o, high: h, low: l, close: c, volume: q.volume ? q.volume[i] : 0
-      });
-    }
-    return bars.length ? { symbol: symbol, bars: bars } : null;
-  }
-
-  // fetch with a hard timeout — a hung response must never hold a worker forever
-  function fetchT(url, ms) {
-    var ctrl = new AbortController();
-    var timer = setTimeout(function () { ctrl.abort(); }, ms);
-    return fetch(url, { signal: ctrl.signal }).finally(function () { clearTimeout(timer); });
-  }
-
-  function fetchDirect(url) {
-    return fetchT(url, 15000).then(function (r) {
-      if (!r.ok) throw new Error("HTTP " + r.status);
-      return r.json();
-    });
-  }
-
-  // r.jina.ai returns the JSON wrapped in a small text preamble; extract it.
-  function fetchViaProxy(url) {
-    return fetchT("https://r.jina.ai/" + url, 25000).then(function (r) {
-      if (!r.ok) throw new Error("proxy HTTP " + r.status);
-      return r.text();
-    }).then(function (text) {
-      var start = text.indexOf('{"chart"');
-      if (start < 0) throw new Error("proxy returned no chart JSON");
-      return JSON.parse(text.slice(start));
-    });
-  }
-
-  function getBars(symbol, tf) {
-    var url = yahooUrl(symbol, tf.interval, tf.range);
-    return fetchDirect(url)
-      .then(function (json) { return parseYahoo(json, symbol, tf.interval); })
-      .catch(function () { return fetchViaProxy(url).then(function (json) { return parseYahoo(json, symbol, tf.interval); }); });
-  }
-
-  // ---------- EOD bar cache ----------
-  // Daily bars change once a day, so cache them per symbol+range for 20 hours:
-  // the first scan of the day fetches, every rescan after that is instant.
-  var CACHE_TTL = 20 * 60 * 60 * 1000;
-
-  function cacheKey(symbol, tf) { return "lfc.bars." + symbol + "." + tf.interval + "." + tf.range; }
-
-  function pruneCache() {
-    try {
-      var keys = [];
-      for (var i = 0; i < localStorage.length; i++) {
-        var k = localStorage.key(i);
-        if (k && k.indexOf("lfc.bars.") === 0) keys.push(k);
-      }
-      keys.slice(0, Math.ceil(keys.length / 3)).forEach(function (k) { localStorage.removeItem(k); });
-    } catch (e) {}
-  }
-
-  function getBarsCached(symbol, tf) {
-    try {
-      var c = JSON.parse(localStorage.getItem(cacheKey(symbol, tf)) || "null");
-      if (c && c.bars && c.bars.length >= tf.minBars && Date.now() - c.saved < CACHE_TTL) {
-        cacheHits++;
-        return Promise.resolve({ symbol: symbol, bars: c.bars });
-      }
-    } catch (e) {}
-    return getBars(symbol, tf).then(function (data) {
-      if (data && data.bars.length >= tf.minBars) {
-        try {
-          localStorage.setItem(cacheKey(symbol, tf), JSON.stringify({ saved: Date.now(), bars: data.bars }));
-        } catch (e) {
-          pruneCache();
-          try { localStorage.setItem(cacheKey(symbol, tf), JSON.stringify({ saved: Date.now(), bars: data.bars })); } catch (e2) {}
-        }
-      }
-      return data;
-    });
-  }
-
-  // The data proxy rate-limits bursts (observed 429s on back-to-back waves), so fetch
-  // through a small worker pool. Retries do NOT run inside the pool — a symbol stuck in
-  // backoff would stall its worker — failed symbols are re-fetched in a gentle recovery
-  // pass once the burst has cooled down.
-  function sleep(ms) { return new Promise(function (res) { setTimeout(res, ms); }); }
-
-  function recoverFailures(failed, days, onResult) {
-    // cool-down, then two workers with one spaced retry each
-    return sleep(2500).then(function () {
-      var stillFailed = [];
-      return runPool(failed, 2, function (sym) {
-        return getBars(sym, days)
-          .catch(function () { return sleep(4000).then(function () { return getBars(sym, days); }); })
-          .then(function (data) { if (data) onResult(sym, data); else stillFailed.push(sym); });
-      }).then(function () { return stillFailed; });
-    });
-  }
-
-  function runPool(items, limit, worker) {
-    var next = 0;
-    function launch() {
-      if (next >= items.length) return Promise.resolve();
-      var i = next++;
-      return Promise.resolve()
-        .then(function () { return worker(items[i], i); })
-        .then(launch);
-    }
-    var pool = [];
-    for (var k = 0; k < Math.min(limit, items.length); k++) pool.push(launch());
-    return Promise.all(pool);
-  }
-
-  // ---------- scanning ----------
-  function scan() {
-    var symbols = $("watchInput").value.split(/[\n,]+/).map(function (s) { return s.trim().toUpperCase(); })
-      .filter(function (s, i, a) { return s.length > 1 && a.indexOf(s) === i; });
-    if (!symbols.length) { $("msg").textContent = "Add at least one symbol."; return; }
-
-    var tfs = selectedTFs();
-    if (!tfs.length) { $("msg").textContent = "Tick at least one timeframe."; return; }
-
-    var opts = {
-      pivotLeft: parseInt($("pLeft").value, 10) || 3,
-      pivotRight: parseInt($("pRight").value, 10) || 3,
-      trendFilter: $("trendFilter").checked,
-      showTouching: $("showTouching").checked,
-      
-      minVolRatio: $("volFilter").checked ? 1 : null
-    };
-    // remember exactly what was used, so tomorrow's visit starts here
-    try {
-      localStorage.setItem(SETTINGS_KEY, JSON.stringify({
-        pLeft: $("pLeft").value, pRight: $("pRight").value, days: $("days").value,
-        tfs: tfs.map(function (t) { return t.id; }),
-        trendFilter: $("trendFilter").checked, showTouching: $("showTouching").checked,
-      }));
-    } catch (e) {}
-
-    var tasks = [];
-    symbols.forEach(function (sym) {
-      tfs.forEach(function (tf) { tasks.push({ sym: sym, tf: tf }); });
-    });
-
-    $("scanBtn").disabled = true;
-    $("msg").textContent = "Scanning " + symbols.length + " symbols x " + tfs.length +
-      " timeframe(s) = " + tasks.length + " tasks (5 at a time)…";
-    $("resultsCard").style.display = "none";
-    $("chartCard").style.display = "none";
-    $("stInside").textContent = "—";
-    $("stTouch").textContent = "—";
-
-    var rows = [], scanned = 0, skipped = 0, rendered = false;
-    cacheHits = 0;
-    var counted = {};    // "sym|tf" -> final verdict recorded?
-    var failedOnce = {}; // "sym|tf" -> first pass could not fetch it
-
-    function verdict(task, data) {
-      var key = task.sym + "|" + task.tf.id;
-      if (counted[key]) return;
-      counted[key] = true;
-      scanned++;
-      var ok = data && data.bars.length >= task.tf.minBars;
-      if (!ok) { skipped++; failedOnce[key] = true; }
-      if (ok) {
-        var res = window.LfcScanner.computeZones(data.bars, opts);
-        if (res && window.LfcScanner.includeRow(res, opts)) {
-          rows.push({ sym: task.sym, tfId: task.tf.id, tf: task.tf.label, res: res, bars: data.bars });
-          rows.sort(function (a, b) {
-            if (a.sym !== b.sym) return a.sym < b.sym ? -1 : 1;
-            return TF_ORDER.indexOf(a.tfId) - TF_ORDER.indexOf(b.tfId);
-          });
-          render(rows);   // progressive: results appear as they arrive
-          rendered = true;
-        }
-      }
-      $("stScanned").textContent = scanned;
-      $("stSkipped").textContent = skipped;
-      $("stInside").textContent = rows.filter(function (r) { return r.res.insideDemand; }).length;
-    }
-
-    function finish(stillFailed) {
-      $("scanBtn").disabled = false;
-      var tail = cacheHits ? " (" + cacheHits + " from cache)" : "";
-      if (rendered) {
-        $("msg").textContent = stillFailed
-          ? "Done — " + stillFailed + " task(s) could not be fetched (bad symbol or data source hiccup)." + tail
-          : "Done." + tail;
-      } else {
-        $("msg").textContent = stillFailed
-          ? "No stocks matched, and " + stillFailed + " task(s) could not be fetched."
-          : "No stocks matched the selected conditions.";
-      }
-    }
-
-    // first pass: 5 workers, single attempt each (no backoff inside the pool — a stalled
-    // worker would hold a slot hostage)
-    runPool(tasks, 5, function (task) {
-      return getBarsCached(task.sym, task.tf).then(
-        function (data) { verdict(task, data); },
-        function () { verdict(task, null); }
-      );
-    }).then(function () {
-      var failed = tasks.filter(function (t) { return failedOnce[t.sym + "|" + t.tf.id]; });
-      if (!failed.length) { finish(0); return; }
-      // recovery pass: let the proxy cool down, then retry gently with 2 workers
-      $("msg").textContent = "Recovering " + failed.length + " rate-limited task(s)…";
-      sleep(2500).then(function () {
-        return runPool(failed, 2, function (task) {
-          return getBarsCached(task.sym, task.tf)
-            .catch(function () { return sleep(4000).then(function () { return getBarsCached(task.sym, task.tf); }); })
-            .then(
-              function (data) {
-                if (data) {           // recovered: undo the skip, re-judge
-                  failedOnce[task.sym + "|" + task.tf.id] = false;
-                  skipped--; counted[task.sym + "|" + task.tf.id] = false; scanned--;
-                  verdict(task, data);
-                }
-              },
-              function () { /* stays failed */ }
-            );
-        });
-      }).then(function () {
-        finish(tasks.filter(function (t) { return failedOnce[t.sym + "|" + t.tf.id]; }).length);
-      });
-    });
-  }
-
-  function fmtZone(res) {
-    if (res.demandTop == null) return "No zone";
-    return res.demandBottom.toFixed(2) + " – " + res.demandTop.toFixed(2);
-  }
-
-  function volText(res) {
-    if (res.avgVol20 && res.lastVol) {
-      var ratio = res.lastVol / res.avgVol20;
-      return (ratio >= 1 ? "+" : "") + Math.round((ratio - 1) * 100) + "%";
-    }
-    return "—";
-  }
-
-  function distText(res) {
-    if (res.distDemand == null) return "—";
-    if (res.distDemand === 0) return "in zone";
-    return (res.distDemand * 100).toFixed(1) + "%";
-  }
-
-  // CSV export of the current scan, like the reference's Download Results button.
-  function downloadCSV() {
-    if (!lastRows.length) return;
-    function cell(v) {
-      v = v == null ? "" : String(v);
-      return /[,\"\n]/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v;
-    }
-    var head = ["Symbol", "TF", "Price", "Trend", "Demand Zone", "Position", "Dist to zone", "Zone Date", "Vol vs 20d"];
-    var lines = [head.join(",")];
-    lastRows.forEach(function (r) {
-      lines.push([
-        cell(r.sym),
-        cell(r.tf),
-        cell(r.res.price.toFixed(2)),
-        cell(r.res.trend),
-        cell(fmtZone(r.res)),
-        cell(r.res.insideDemand ? "INSIDE" : (r.res.touchingDemand ? "TOUCHING" : "")),
-        cell(distText(r.res)),
-        cell(r.res.zoneCreated || ""),
-        cell(volText(r.res))
-      ].join(","));
-    });
-    // BOM so Excel opens the UTF-8 file correctly
-    var blob = new Blob(["\ufeff" + lines.join("\r\n")], { type: "text/csv;charset=utf-8" });
-    var a = document.createElement("a");
-    a.href = URL.createObjectURL(blob);
-    a.download = "demand-zone-results-" + new Date().toISOString().slice(0, 10) + ".csv";
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    setTimeout(function () { URL.revokeObjectURL(a.href); }, 2000);
-  }
-
-  function trendTag(t) {
-    var cls = t === "UPTREND" ? "up" : (t === "DOWNTREND" ? "down" : "side");
-    return '<span class="tag ' + cls + '">' + t + "</span>";
-  }
-
-  function posTag(res) {
-    if (res.insideDemand) return '<span class="tag in">INSIDE</span>';
-    if (res.touchingDemand) return '<span class="tag touch">TOUCHING</span>';
-    return "—";
-  }
-
-  function render(rows) {
-    lastRows = rows;
-    if (!rows.length) {
-      $("msg").textContent = "No stocks matched the selected conditions.";
-      return;
-    }
-    var inside = rows.filter(function (r) { return r.res.insideDemand; }).length;
-    $("stInside").textContent = inside;
-    $("stTouch").textContent = rows.length - inside;
-
-    var body = $("resultsBody");
-    body.innerHTML = "";
-    rows.forEach(function (r, idx) {
-      var tr = document.createElement("tr");
-      tr.innerHTML =
-        "<td><b>" + r.sym + "</b></td>" +
-        "<td><span class=\"tag touch\">" + r.tf + "</span></td>" +
-        "<td>" + r.res.price.toFixed(2) + "</td>" +
-        "<td>" + trendTag(r.res.trend) + "</td>" +
-        "<td>" + fmtZone(r.res) + "</td>" +
-        "<td>" + posTag(r.res) + "</td>" +
-        "<td>" + distText(r.res) + "</td>" +
-        "<td>" + (r.res.zoneCreated || "—") + "</td>" +
-        "<td>" + volText(r.res) + "</td>" +
-        '<td><button class="ghost" data-chart="' + idx + '">Chart</button></td>';
-      body.appendChild(tr);
-    });
-    $("resultsCard").style.display = "";
-
-    body.onclick = function (ev) {
-      var b = ev.target.closest("[data-chart]");
-      if (b) drawChart(rows[parseInt(b.getAttribute("data-chart"), 10)]);
-    };
-    drawChart(rows[0]);
-  }
-
-  // ---------- minimal canvas chart: candlesticks, EMA20/50, zones ----------
-  function drawChart(row) {
-    if (!row) return;
-    var bars = row.bars, res = row.res;
-    var show = bars.slice(-180);
-    var offset = bars.length - show.length;
-    // the card must be visible BEFORE the canvas is measured, or clientWidth is 0
-    $("chartCard").style.display = "";
-
-    var cvs = $("chart"), ctx = cvs.getContext("2d");
-    var W = cvs.width = cvs.clientWidth * 2;   // crisp on HiDPI
-    var H = cvs.height = 680;
-    ctx.scale(1, 1);
-
-    var min = Math.min.apply(null, show.map(function (b) { return b.low; }));
-    var max = Math.max.apply(null, show.map(function (b) { return b.high; }));
-    var pad = (max - min) * 0.06;
-    min -= pad; max += pad;
-
-    // candle spacing: leave a gap between wicks; X centers the i-th bar
-    var slot = (W - 80) / show.length;
-    var bodyW = Math.max(2, Math.min(14, slot * 0.62));
-    function X(i) { return 40 + slot * i + slot / 2; }
-    function Y(p) { return H - 40 - ((p - min) / (max - min)) * (H - 70); }
-
-    ctx.clearRect(0, 0, W, H);
-    ctx.fillStyle = "#0b0f0e"; ctx.fillRect(0, 0, W, H);
-
-    // demand zones (green) and supply zones (red)
-    function zones(zs, fill) {
-      zs.forEach(function (z) {
-        var zi = z.pivotIndex - offset;
-        if (zi < 0) zi = 0;
-        if (zi > show.length - 1) return;
-        ctx.fillStyle = fill;
-        ctx.globalAlpha = 0.16;
-        ctx.fillRect(X(zi), Y(z.top), W - 40 - X(zi), Y(z.bottom) - Y(z.top));
-        ctx.globalAlpha = 1;
-      });
-    }
-    zones(res.demandZones, "#10b981");
-    zones(res.supplyZones, "#ef4444");
-
-    // candlesticks: wick = high→low, body = open→close; green up, red down
-    show.forEach(function (b, i) {
-      var up = b.close >= b.open;
-      var col = up ? "#10b981" : "#ef4444";
-      var x = X(i);
-      ctx.strokeStyle = col; ctx.lineWidth = 1;
-      ctx.beginPath(); ctx.moveTo(x, Y(b.high)); ctx.lineTo(x, Y(b.low)); ctx.stroke();
-      var yO = Y(b.open), yC = Y(b.close);
-      var top = Math.min(yO, yC), hgt = Math.max(1, Math.abs(yO - yC));
-      ctx.fillStyle = col;
-      ctx.fillRect(x - bodyW / 2, top, bodyW, hgt);
-    });
-
-    // EMAs on top of the candles
-    function line(vals, color, width) {
-      ctx.strokeStyle = color; ctx.lineWidth = width || 2; ctx.beginPath();
-      vals.forEach(function (v, i) { i ? ctx.lineTo(X(i), Y(v)) : ctx.moveTo(X(i), Y(v)); });
-      ctx.stroke();
-    }
-    line(res.ema20.slice(offset), "#7fc0ef", 1.5);
-    line(res.ema50.slice(offset), "#d8c76a", 1.5);
-
-    // last price marker
-    var lastY = Y(res.price);
-    ctx.fillStyle = "#10b981";
-    ctx.fillRect(W - 78, lastY - 9, 70, 18);
-    ctx.fillStyle = "#04241a";
-    ctx.font = "bold 12px monospace";
-    ctx.fillText(res.price.toFixed(1), W - 72, lastY + 4);
-
-    // axis labels
-    ctx.fillStyle = "#6f7f76"; ctx.font = "11px monospace";
-    [0, 0.25, 0.5, 0.75, 1].forEach(function (f) {
-      var p = max - f * (max - min);
-      ctx.fillText(p.toFixed(0), 2, Y(p) + 4);
-    });
-
-    $("chartTitle").textContent = row.sym + " · " + row.tf + " — candles (green up / red down), EMA20 (blue), EMA50 (gold), demand zones shaded green";
-    $("chartNote").textContent = "Zones drawn from their pivot bar to the right edge. A zone disappears once a daily close trades through it.";
-  }
-
-  // ---------- boot ----------
-  // ---------- restore last-used settings ----------
-  (function restoreSettings() {
-    try {
-      var s = JSON.parse(localStorage.getItem(SETTINGS_KEY) || "null");
-      if (!s) return;
-      if (s.pLeft != null) $("pLeft").value = s.pLeft;
-      if (s.pRight != null) $("pRight").value = s.pRight;
-      if (s.days != null) $("days").value = s.days;
-      if (s.tfs) {
-        $("tfDaily").checked = s.tfs.indexOf("d") >= 0;
-        $("tfWeekly").checked = s.tfs.indexOf("w") >= 0;
-        $("tfMonthly").checked = s.tfs.indexOf("m") >= 0;
-        $("tfHourly").checked = s.tfs.indexOf("1h") >= 0;
-        $("tf15").checked = s.tfs.indexOf("15m") >= 0;
-      }
-      if (s.trendFilter != null) $("trendFilter").checked = !!s.trendFilter;
-      if (s.showTouching != null) $("showTouching").checked = !!s.showTouching;
-      if (s.volFilter != null) $("volFilter").checked = !!s.volFilter;
-    } catch (e) {}
-  })();
-
-  $("watchInput").value = loadWatch().join(", ");
-  $("saveWatch").onclick = saveWatch;
-  $("scanBtn").onclick = scan;
-  $("downloadBtn").onclick = downloadCSV;
-
-  // ---------- import UI ----------
-  $("importToggle").onclick = function () {
-    var row = $("importRow");
-    row.classList.toggle("hidden");
-  };
-
-  function applyImport(replace) {
-    var syms = normaliseSymbols($("importBox").value, NAME_INDEX);
-    if (!syms.length) { $("msg").textContent = "Nothing to import — paste some symbols first."; return; }
-    var existing = replace ? [] : $("watchInput").value.split(/[\n,]+/)
-      .map(function (s) { return s.trim().toUpperCase(); }).filter(Boolean);
-    syms.forEach(function (s) { if (existing.indexOf(s) < 0) existing.push(s); });
-    $("watchInput").value = existing.join(", ");
-    try { localStorage.setItem("lfc.watchlist", JSON.stringify(existing)); } catch (e) {}
-    $("msg").textContent = (replace ? "Replaced" : "Merged") + " — watchlist now has " + existing.length + " symbols (saved).";
-    $("importBox").value = "";
-  }
-  $("importReplace").onclick = function () { applyImport(true); };
-  $("importMerge").onclick = function () { applyImport(false); };
-  $("importDefaults").onclick = function () {
-    $("watchInput").value = DEFAULT_WATCH.join(", ");
-    try { localStorage.setItem("lfc.watchlist", JSON.stringify(DEFAULT_WATCH)); } catch (e) {}
-    $("msg").textContent = "Default list restored (" + DEFAULT_WATCH.length + " symbols, saved).";
-  };
-
-  // one click to pull the MCX-tracked commodity futures into the watchlist
-  $("addCommodities").onclick = function () {
-    var existing = $("watchInput").value.split(/[\n,]+/).map(function (s) { return s.trim().toUpperCase(); }).filter(Boolean);
-    var added = 0;
-    DEFAULT_COMMODITIES.forEach(function (c) { if (existing.indexOf(c) < 0) { existing.push(c); added++; } });
-    if (!added) { $("msg").textContent = "Commodity futures were already on the list."; return; }
-    $("watchInput").value = existing.join(", ");
-    try { localStorage.setItem("lfc.watchlist", JSON.stringify(existing)); } catch (e) {}
-    $("msg").textContent = "Added " + added + " commodity futures (gold, silver, crude, natgas, copper, zinc, aluminium, platinum) — saved. MCX codes aren't on Yahoo; these global contracts track the same moves.";
-  };
-
-  $("importFileBtn").onclick = function () { $("importFile").click(); };
-  $("importFile").onchange = function (ev) {
-    var f = ev.target.files && ev.target.files[0];
-    if (!f) return;
-    var reader = new FileReader();
-    reader.onload = function () {
-      $("importBox").value = String(reader.result || "");
-      $("msg").textContent = "Loaded " + f.name + " — review it, then Replace or Merge.";
-    };
-    reader.readAsText(f);
-    ev.target.value = "";   // allow re-selecting the same file
-  };
-  // Global navigation, admin visibility, theme and logout are owned by portal-shell.js.
-
-})();
-</script>
-</body>
+      })();
+    </script>
+  </body>
 </html>

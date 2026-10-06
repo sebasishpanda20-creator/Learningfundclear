@@ -1,78 +1,81 @@
-/* ── LearningFundClear shared design system: tokens (light default) ──────────
- * Light mode IS the production default.  Dark is an explicitly optional
- * override layered on top via `.theme-dark` on <html> or <body>.
- *
- * Do not reference the old dark palette (#080b09 / #101512 / #e4c47c) here.
- * Those values may survive ONLY inside an opt-in `.theme-dark` block.
- * ─────────────────────────────────────────────────────────────────────────── */
-
 :root {
-  /* Page background ── light grey */
-  --lfc-bg: #F5F7FB;
-  --lfc-bg-ink: #EEF2F7;
-  --lfc-bg-raised: #FFFFFF;
-
-  /* Surfaces */
-  --lfc-surface: #FFFFFF;
-  --lfc-surface-soft: #F8FAFC;
-  --lfc-surface-raised: #FFFFFF;
-  --lfc-surface-active: #EEF4FF;
-
-  /* Text */
-  --lfc-text: #172033;
-  --lfc-text-strong: #0B1220;
-  --lfc-muted: #64748B;
-  --lfc-muted-soft: #94A3B8;
-
-  /* Borders */
-  --lfc-border: #E2E8F0;
-  --lfc-border-soft: #EDF1F6;
-
-  /* Brand ── blue = navigation / primary actions */
-  --lfc-primary: #2563EB;
-  --lfc-primary-hover: #1D4ED8;
-  --lfc-primary-soft: #EFF6FF;
-
-  /* Secondary (teal) */
-  --lfc-secondary: #0F766E;
-  --lfc-secondary-soft: #F0FDFA;
-
-  /* Status: positive / amber / negative / purple */
-  --lfc-positive: #15803D;
-  --lfc-positive-soft: #F0FDF4;
-  --lfc-warning: #B45309;
-  --lfc-warning-soft: #FFFBEB;
-  --lfc-negative: #B91C1C;
-  --lfc-negative-soft: #FEF2F2;
-  --lfc-purple: #7C3AED;
-  --lfc-purple-soft: #F5F3FF;
-
-  /* Neutral / grey for watch / disabled / empty states */
-  --lfc-neutral: #64748B;
-  --lfc-neutral-soft: #F1F5F9;
-  --lfc-neutral-ink: #0F172A;
-
-  /* Radii / shadows (kept minimal so components inherit a consistent feel) */
-  --lfc-radius: 10px;
+  color-scheme: light;
+  --lfc-bg: #f4f7f9;
+  --lfc-surface: #fff;
+  --lfc-surface-soft: #f8fafb;
+  --lfc-surface-raised: #fff;
+  --lfc-text: #26394b;
+  --lfc-text-strong: #132d42;
+  --lfc-muted: #667b8b;
+  --lfc-muted-soft: #8394a1;
+  --lfc-border: #dce5ea;
+  --lfc-border-soft: #eaf0f3;
+  --lfc-primary: #087e8b;
+  --lfc-primary-hover: #076873;
+  --lfc-primary-soft: #e5f4f3;
+  --lfc-secondary: #087e8b;
+  --lfc-secondary-soft: #e5f4f3;
+  --lfc-positive: #147758;
+  --lfc-positive-soft: #edf8f2;
+  --lfc-negative: #b44246;
+  --lfc-negative-soft: #fff0f0;
+  --lfc-warning: #93600b;
+  --lfc-warning-soft: #fff7e4;
+  --lfc-purple: #7465b6;
+  --lfc-neutral: #667b8b;
+  --lfc-neutral-soft: #f0f4f7;
+  --lfc-radius: 12px;
   --lfc-radius-sm: 8px;
-  --lfc-radius-lg: 14px;
-  --lfc-shadow: 0 1px 2px rgba(15, 23, 42, 0.04), 0 1px 3px rgba(15, 23, 42, 0.06);
-  --lfc-shadow-sm: 0 1px 2px rgba(15, 23, 42, 0.04);
-  --lfc-shadow-lg: 0 10px 30px rgba(15, 23, 42, 0.08);
-
-  /* Typography scale (matches old reading sizes in spirit) */
-  --lfc-font-sans: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-  --lfc-font-mono: "SF Mono", "Fira Code", "Consolas", monospace;
-
-  --lfc-text-xs: 10.5px;
-  --lfc-text-sm: 12px;
-  --lfc-text-base: 14px;
-  --lfc-text-lg: 15px;
-  --lfc-text-xl: 16px;
-
-  --lfc-line-height: 1.5;
-  --lfc-gap: 12px;
-  --lfc-padding: 16px;
-  --lfc-radius-control: 10px;
-  --lfc-arrow: "→";
+  --lfc-radius-lg: 16px;
+  --lfc-shadow: 0 2px 5px #18354504;
+  --lfc-font-sans:
+    Inter, ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI",
+    sans-serif;
+  --lfc-font-mono: ui-monospace, "SFMono-Regular", Consolas, monospace;
+  --bg: var(--lfc-bg);
+  --surface: var(--lfc-surface);
+  --surface-2: var(--lfc-surface-soft);
+  --line: var(--lfc-border);
+  --line-soft: var(--lfc-border-soft);
+  --ink: var(--lfc-text);
+  --ink-strong: var(--lfc-text-strong);
+  --muted: var(--lfc-muted);
+  --muted-2: var(--lfc-muted-soft);
+  --brand: var(--lfc-primary);
+  --brand-ink: var(--lfc-primary);
+  --brand-soft: var(--lfc-primary-soft);
+  --warn: var(--lfc-warning);
+  --warn-soft: var(--lfc-warning-soft);
+  --danger: var(--lfc-negative);
+  --up: var(--lfc-positive);
+  --down: var(--lfc-negative);
+  --radius: 12px;
+  --radius-sm: 8px;
+  --maxw: 1260px;
+  --shadow: var(--lfc-shadow);
+  --sans: var(--lfc-font-sans);
+  --mono: var(--lfc-font-mono);
+}
+.theme-dark {
+  color-scheme: dark;
+  --lfc-bg: #101b26;
+  --lfc-surface: #172633;
+  --lfc-surface-soft: #1b2d3c;
+  --lfc-surface-raised: #172633;
+  --lfc-text: #d7e5ed;
+  --lfc-text-strong: #f1f7fa;
+  --lfc-muted: #a3b7c5;
+  --lfc-muted-soft: #839ba9;
+  --lfc-border: #304553;
+  --lfc-border-soft: #263c4b;
+  --lfc-primary: #50c5c1;
+  --lfc-primary-hover: #7bded9;
+  --lfc-primary-soft: #143e45;
+  --lfc-positive: #69d4aa;
+  --lfc-positive-soft: #153d32;
+  --lfc-negative: #f79c9c;
+  --lfc-negative-soft: #452b33;
+  --lfc-warning: #eacb87;
+  --lfc-warning-soft: #3d3929;
+  --lfc-neutral-soft: #223747;
 }
