@@ -8,6 +8,7 @@ const stamp={u:user.id,n:'QA account',a:true,t:Date.now()};
 const ideas=[{id:'idea-1',ticker:'TEST-A',name:'Test research A',sector:'Test sector',rating:'MONITORING',status:'ACTIVE',entry:100,target:120,stop:95,time_frame:'Position',summary:'Isolated QA fixture, not a market recommendation.',created_at:new Date().toISOString(),updated_at:new Date().toISOString()},{id:'idea-2',ticker:'TEST-B',name:'Test research B',sector:'Test sector',rating:'RESEARCH COMPLETE',status:'CLOSED',entry:200,exit_price:220,closed_at:new Date().toISOString(),created_at:new Date().toISOString(),updated_at:new Date().toISOString()}];
 const pages=['index.html','performance.html','admin.html','scanner.html','setups.html','gex.html','crypto.html','funds/index.html','funds/funds.html','funds/compare.html','funds/calculators.html','funds/methodology.html','funds/legal.html','funds/scheme.html?code=119551'];
 async function fixture(ctx,auth=true,admin=true){
+ await ctx.addInitScript(()=>localStorage.setItem('lfc.scanner.auto','off'));
  if(auth)await ctx.addInitScript(({session,stamp})=>{if(!sessionStorage.getItem('seeded')){localStorage.setItem('sb-chbtjicvbezbiosuouwm-auth-token',JSON.stringify(session));localStorage.setItem('lfc.auth',JSON.stringify(stamp));sessionStorage.setItem('seeded','1');}},{session,stamp});
  await ctx.route('https://chbtjicvbezbiosuouwm.supabase.co/**',async route=>{
   const req=route.request(),url=new URL(req.url());let data=[];
