@@ -20,3 +20,13 @@ Provider references: https://github.com/binance/binance-spot-api-docs/blob/maste
 - Public HTTP endpoints returned successful unauthenticated responses. Origin-header probes confirmed CORS support for the private portal origin. Headless browser outbound requests were blocked/timed out in this execution environment, so continuous end-user network availability and account-specific production login have not been certified by these fixture tests.
 
 GitHub integration keeps the latest main NAV snapshot, scheduled scanner/watchdog/deployment workflows, and legacy/GTF-Pro backend gates. The previous shell's static-markup CI assertions were migrated to the shared dynamic shell and real authenticated DOM tests. GTF-Pro remains default off. No accuracy or profitability claim is made: signal correctness tests do not establish predictive performance.
+
+## Automation update — 7 October 2026
+
+The historical stock scanner now starts automatically on opening and repeats every 15 minutes while its tab is visible. The user can pause it; the preference is saved in that browser. Scans do not overlap, and local CSV mode pauses automatic downloads. Invalid/stale candles still cannot generate signals.
+
+The separate GitHub nightly stock scan remains scheduled for 18:00 IST (GitHub may delay scheduled runs). The latest inspected successful run, 37512119622, saved one legacy-pivot signal with no posting errors; some symbols were unavailable. Its webhook secret check passed. This is background historical scanning, not exchange live quotes.
+
+The existing index-option relay returned the 7 October 2026 15:40 IST snapshot during verification. Options overview loads automatically and refreshes every 60 seconds while visible. The relay only supports its listed indices. Individual-stock options and unattended option-chain storage remain blocked on an appropriate data connection; external viewers are not APIs.
+
+The extensionless /signin redirect loop is fixed. Regression tests reproduce hosted .html redirects at desktop/mobile widths and under a repository subdirectory.

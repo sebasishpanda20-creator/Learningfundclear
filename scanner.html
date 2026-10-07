@@ -23,7 +23,7 @@
         journal
       </p>
 
-      <section class="card"><h2>Historical data source</h2><div class="row"><div><label for="historySource">Source</label><select id="historySource"><option value="yahoo">Yahoo historical · may be delayed</option><option value="csv">Local CSV · daily only</option></select></div><div><label for="historyFile">Import daily OHLCV history</label><input id="historyFile" type="file" accept=".csv,text/csv"></div><button id="historyTemplate">Download CSV template</button></div><p id="historyMessage" class="msg" role="status">CSV stays in this tab; it is never uploaded. Import at least 100 daily candles per symbol. This is not a live feed.</p><details><summary>CSV format and free data access</summary><p>Required columns: symbol,date,open,high,low,close,volume. Use YYYY-MM-DD dates and exchange suffixes (RELIANCE.NS or 500325.BO). Include one daily row per symbol/date. Obtain history you are entitled to use; validate corporate-action adjustments before relying on signals. Local import supports daily scanning only.</p><p><a href="https://www.nseindia.com/all-reports" target="_blank" rel="noopener noreferrer">NSE reports</a> · <a href="https://indianapi.in/indian-stock-market" target="_blank" rel="noopener noreferrer">IndianAPI provider information</a>. IndianAPI requires a separate API key; it is not connected here. Free-tier coverage, delay and limits must be confirmed before enabling it. Never paste a broker token into the portal.</p></details></section>
+      <section class="card"><h2>Historical data source</h2><label><input id="autoScan" type="checkbox" checked> Automatically scan on opening and every 15 minutes</label><p id="autoScanStatus" class="msg" role="status">Automatic scans run while this tab is visible. The server-side nightly scan runs separately and writes to Setups.</p><div class="row"><div><label for="historySource">Source</label><select id="historySource"><option value="yahoo">Yahoo historical · may be delayed</option><option value="csv">Local CSV · daily only</option></select></div><div><label for="historyFile">Import daily OHLCV history</label><input id="historyFile" type="file" accept=".csv,text/csv"></div><button id="historyTemplate">Download CSV template</button></div><p id="historyMessage" class="msg" role="status">CSV stays in this tab; it is never uploaded. Import at least 100 daily candles per symbol. This is not a live feed.</p><details><summary>CSV format and free data access</summary><p>Required columns: symbol,date,open,high,low,close,volume. Use YYYY-MM-DD dates and exchange suffixes (RELIANCE.NS or 500325.BO). Include one daily row per symbol/date. Obtain history you are entitled to use; validate corporate-action adjustments before relying on signals. Local import supports daily scanning only.</p><p><a href="https://www.nseindia.com/all-reports" target="_blank" rel="noopener noreferrer">NSE reports</a> · <a href="https://indianapi.in/indian-stock-market" target="_blank" rel="noopener noreferrer">IndianAPI provider information</a>. IndianAPI requires a separate API key; it is not connected here. Free-tier coverage, delay and limits must be confirmed before enabling it. Never paste a broker token into the portal.</p></details></section>
       <div class="card">
         <div class="row">
           <div>
@@ -242,6 +242,7 @@ ASHOKLEY.NS, Coal India
     <script src="assets/js/shell.js"></script>
     <script src="assets/js/market-data.js"></script>
     <script src="assets/js/csv-history.js"></script>
+    <script src="assets/js/scanner-auto.js"></script>
     <script src="scanner-logic.js"></script>
     <script>
       (async function () {
@@ -1209,6 +1210,7 @@ ASHOKLEY.NS, Coal India
         $("watchInput").value = loadWatch().join(", ");
         $("saveWatch").onclick = saveWatch;
         $("scanBtn").onclick = scan;
+        LfcScannerAuto(scan);
         $("downloadBtn").onclick = downloadCSV;
 
         // ---------- import UI ----------
