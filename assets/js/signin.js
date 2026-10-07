@@ -4,6 +4,11 @@
     msg = document.getElementById("msg"),
     pass = document.getElementById("loginPass");
   const params = new URLSearchParams(location.search);
+  // Collapse previously nested sign-in return URLs without another navigation.
+  if (params.has("next")) {
+    params.set("next", LfcAuth.safeTarget(params.get("next")));
+    history.replaceState(null, "", location.pathname + "?" + params.toString());
+  }
   if (params.has("loggedOut"))
     msg.textContent = "You’re signed out of this browser.";
   document.getElementById("showPassword").onclick = function () {

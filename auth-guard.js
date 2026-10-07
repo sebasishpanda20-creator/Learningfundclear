@@ -4,7 +4,8 @@
   const config = global.LFC_CONFIG;
   const script = document.currentScript;
   const base = new URL(".", script.src);
-  const isSignin = location.pathname.endsWith("/signin.html");
+  const routeName = location.pathname.slice(base.pathname.length).replace(/\/$/, "");
+  const isSignin = routeName === "signin" || routeName === "signin.html";
   const KEY = "lfc.auth";
   let user = null,
     signingOut = false;
@@ -35,13 +36,14 @@
   function safeTarget(raw) {
     try {
       const target = new URL(raw || "index.html", base);
-      const relative = target.pathname.slice(base.pathname.length);
+      const relative = target.pathname.slice(base.pathname.length).replace(/\/$/, "");
+      const canonical = relative === "" ? "index.html" : relative.endsWith(".html") ? relative : relative + ".html";
       const allowed =
         /^(index|performance|admin|scanner|setups|gex|crypto)\.html$|^funds\/(index|funds|scheme|compare|calculators|methodology|legal)\.html$/;
       return target.origin === base.origin &&
         target.pathname.startsWith(base.pathname) &&
-        allowed.test(relative)
-        ? target.pathname + target.search + target.hash
+        allowed.test(canonical)
+        ? new URL(canonical, base).pathname + target.search + target.hash
         : new URL("index.html", base).pathname;
     } catch {
       return new URL("index.html", base).pathname;
@@ -55,9 +57,7 @@
   }
   function redirect() {
     const next =
-      location.pathname.slice(base.pathname.length) +
-      location.search +
-      location.hash;
+      safeTarget(location.href);
     location.replace(
       new URL(
         "signin.html" + (isSignin ? "" : "?next=" + encodeURIComponent(next)),

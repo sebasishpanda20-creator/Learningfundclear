@@ -5,6 +5,7 @@ npm install --ignore-scripts --no-audit --no-fund
 npx playwright install --with-deps chromium
 node qa/audit.cjs
 node qa/flows.cjs
+node qa/clean-routes.cjs
 node qa/feed-flows.cjs
 node qa/crypto-flows.cjs
 mkdir -p visual-qa-artifacts
