@@ -52,6 +52,7 @@
         <div class="msg" id="msg"></div>
       </div>
 
+      <section class="card"><p class="eyebrow">LONG OPTIONS · RESEARCH RULES</p><h2>Automatic Buy / Hold / Exit signals</h2><p>Buy Call, Buy Put, Hold, Exit Call, Exit Put or Wait. Exit means selling an option you already own; this panel never recommends opening a short option.</p><h3 id="signalAction">Wait</h3><p id="signalReason" role="status">Checking verified data…</p><div class="row"><div>Strike<strong id="signalStrike">—</strong></div><div>Expiry<strong id="signalExpiry">—</strong></div><div>Entry premium<strong id="signalEntry">—</strong></div><div>Stop premium<strong id="signalStop">—</strong></div><div>Target premium<strong id="signalTarget">—</strong></div></div><p class="mut">Premium levels are per unit, before costs. The rule is experimental and has no validated profitability record. Stop orders may fill worse than their trigger.</p><details><summary>Track an option you already bought</summary><p id="trackedPosition"></p><form id="trackOption"><div class="row"><div><label for="positionType">Long option</label><select id="positionType"><option value="ce">Call</option><option value="pe">Put</option></select></div><div><label for="positionStrike">Strike</label><input id="positionStrike" type="number" min="0.01" step="any" required></div><div><label for="positionEntry">Your entry premium</label><input id="positionEntry" type="number" min="0.01" step="any" required></div><div><label for="positionStop">Your stop premium</label><input id="positionStop" type="number" min="0.01" step="any" required></div><div><label for="positionTarget">Your target premium</label><input id="positionTarget" type="number" min="0.01" step="any" required></div></div><p>Uses the symbol and expiry selected above. Stored only in this browser for your portal account.</p><button type="submit">Track long option</button> <button type="button" id="clearPosition">Clear tracking</button><p id="signalMessage" role="status"></p></form></details><details><summary>Rules and data requirements</summary><p>Buy rule: completed 15-minute close breaks the previous five candles in the EMA20/EMA50 trend direction. Near-ATM contract within 2% of spot, OI and volume at least 1,000 contracts each, bid/ask spread at most 2%, quotes at most 90 seconds old. Default research levels are a 25% premium stop and 50% premium target. Exit rules use your tracked stop/target and a fresh bid. No writing of options and no orders are placed.</p><p><strong>Current connection limitations:</strong> the index relay supplies OI/LTP but lacks bid/ask and per-quote timestamps. Individual-stock option chains, current F&amp;O eligibility and liquidity are not connected. Those signals remain Wait; these gates are not replaced by guessed prices or OI direction.</p></details></section>
       <div class="stats" id="stats"></div>
 
       <div class="card">
@@ -104,6 +105,9 @@
       </p>
     </main>
     <script src="assets/js/shell.js"></script>
+    <script src="assets/js/market-data.js"></script>
+    <script src="assets/js/option-signals.js"></script>
+    <script src="assets/js/option-signals-ui.js"></script>
     <script type="module">
       await LfcAuth.ready;
       const FN =
@@ -287,10 +291,12 @@
           }
           mktBadge(j.nse_timestamp);
           render();
+          LfcOptionSignalUI.update(j,sourceTime(j.nse_timestamp));
           tick();
         } catch (e) {
           if (request !== requestId) return;
           feedFailed = true;
+          LfcOptionSignalUI.update(null,NaN);
           if (!DATA) $("exp").innerHTML = "<option>Unavailable</option>";
           $("mkt").textContent = DATA ? "STALE DATA" : "UNAVAILABLE";
           $("mkt").className = "badge stale";
@@ -307,6 +313,7 @@
       $("load").onclick = load;
       function clearSnapshot() {
         DATA=null; lastFetch=null;
+        LfcOptionSignalUI.update(null,NaN);
         ["stats","bars","flip","chainMeta","chain","stamp"].forEach(id=>$(id).replaceChildren());
         $("mkt").textContent="CONNECTING…";
       }
