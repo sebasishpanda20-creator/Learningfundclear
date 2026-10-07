@@ -19,7 +19,7 @@
     ["setups", "Setups & paper trades", "setups.html"],
     ["crypto", "Crypto markets", "crypto.html"],
     ["gex", "Options overview", "gex.html"],
-    ["funds", "Mutual funds", "funds/index.html"],
+    ["funds", "Mutual funds", "funds/top-returns.html"],
     ["admin", "Administration", "admin.html"],
   ];
   const svg = (key) =>
@@ -80,8 +80,9 @@
     const tabs = document.createElement("nav");
     tabs.className = "fund-tabs";
     tabs.setAttribute("aria-label", "Mutual fund pages");
-    const here = location.pathname.split("/").pop();
+    const here = location.pathname.split("/").filter(Boolean).pop().replace(/\.html$/, "") + ".html";
     tabs.innerHTML = [
+      ["top-returns.html", "Top Return Funds"],
       ["index.html", "Overview"],
       ["funds.html", "All schemes"],
       ["compare.html", "Compare"],

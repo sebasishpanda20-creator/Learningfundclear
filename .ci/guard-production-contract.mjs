@@ -3,7 +3,7 @@ import {readFileSync,existsSync} from 'node:fs';
 import path from 'node:path';
 import assert from 'node:assert/strict';
 const read=p=>readFileSync(p,'utf8');
-const pages={'index.html':'dashboard','performance.html':'performance','admin.html':'admin','scanner.html':'scanner','setups.html':'setups','gex.html':'gex','crypto.html':'crypto','funds/index.html':'funds','funds/funds.html':'funds','funds/scheme.html':'funds','funds/compare.html':'funds','funds/calculators.html':'funds','funds/methodology.html':'funds','funds/legal.html':'funds'};
+const pages={'index.html':'dashboard','performance.html':'performance','admin.html':'admin','scanner.html':'scanner','setups.html':'setups','gex.html':'gex','crypto.html':'crypto','funds/top-returns.html':'funds','funds/index.html':'funds','funds/funds.html':'funds','funds/scheme.html':'funds','funds/compare.html':'funds','funds/calculators.html':'funds','funds/methodology.html':'funds','funds/legal.html':'funds'};
 for(const [page,key] of Object.entries(pages)){
  const h=read(page),prefix=page.startsWith('funds/')?'../':'';
  assert(h.includes('name="viewport"'),page+' viewport');assert(h.includes(`data-page="${key}"`),page+' active navigation key');

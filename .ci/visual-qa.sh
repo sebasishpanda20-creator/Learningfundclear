@@ -8,5 +8,6 @@ node qa/flows.cjs
 node qa/clean-routes.cjs
 node qa/feed-flows.cjs
 node qa/crypto-flows.cjs
+node qa/research-flows.cjs
 mkdir -p visual-qa-artifacts
 cp qa/*.png qa/*results.json qa/page-audit.json visual-qa-artifacts/
