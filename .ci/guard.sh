@@ -39,7 +39,7 @@ fi
 
 run_check node tools/test-signal-guards.js
 run_check node tools/test-weekly-line.js
-run_check node --test qa/scanner-data.test.cjs qa/public-data.test.cjs qa/scanner-auto.test.cjs qa/research-math.test.cjs
+run_check node --test qa/scanner-data.test.cjs qa/public-data.test.cjs qa/scanner-auto.test.cjs qa/research-math.test.cjs qa/nifty500.test.cjs
 
 if git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
   run_check git diff --check
@@ -53,3 +53,5 @@ fi
 
 echo
 echo "Production regression guard PASSED."
+
+python3 qa/nifty500-collector.py
