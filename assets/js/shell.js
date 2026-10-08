@@ -5,6 +5,7 @@
   const icons = {
     dashboard: "M3 3h7v7H3z M14 3h7v7h-7z M3 14h7v7H3z M14 14h7v7h-7z",
     performance: "M4 20V10 M10 20V4 M16 20v-8 M22 20H2",
+    nifty500: "M4 20V10 M10 20V4 M16 20v-8 M22 20H2",
     scanner: "M10 3a7 7 0 1 0 0 14 7 7 0 0 0 0-14 M15 15l6 6 M7 10h6 M10 7v6",
     setups: "M4 5h16v16H4z M8 3v4 M16 3v4 M8 12h8 M8 16h5",
     gex: "M3 12h4l3-7 4 14 3-7h4",
@@ -15,6 +16,7 @@
   const nav = [
     ["dashboard", "Dashboard", "index.html"],
     ["performance", "Performance", "performance.html"],
+    ["nifty500", "Nifty 500 stocks", "nifty500.html"],
     ["scanner", "Demand scanner", "scanner.html"],
     ["setups", "Setups & paper trades", "setups.html"],
     ["crypto", "Crypto markets", "crypto.html"],

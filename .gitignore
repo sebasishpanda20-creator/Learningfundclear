@@ -16,3 +16,6 @@ dist/
 
 qa/*.png
 visual-qa-artifacts/
+
+__pycache__/
+*.pyc
