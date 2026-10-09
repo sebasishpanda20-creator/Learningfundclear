@@ -12,3 +12,5 @@ cpSync('server','dist/server',{recursive:true});
 copyFileSync('server/worker.mjs','dist/server/index.js');
 const config=readFileSync('assets/js/config.js','utf8').replace('window.LFC_CONFIG =','export default');
 writeFileSync('dist/server/config.mjs',config);
+mkdirSync('dist/.openai',{recursive:true});
+copyFileSync('.openai/hosting.json','dist/.openai/hosting.json');
