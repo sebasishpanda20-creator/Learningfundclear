@@ -36,7 +36,7 @@ jobs:
           python - <<'PY'
           import os,datetime
           now=datetime.datetime.now(datetime.timezone(datetime.timedelta(hours=5,minutes=30)))
-          mode=os.environ.get('REQUESTED_MODE') or ('eod' if os.environ.get('SCHEDULE')=='30 12 * * 1-5' else 'delayed')
+          mode=('eod delayed' if os.environ['EVENT']=='push' else os.environ.get('REQUESTED_MODE')) or ('eod' if os.environ.get('SCHEDULE')=='30 12 * * 1-5' else 'delayed')
           minute=now.hour*60+now.minute
           allowed=os.environ['EVENT']!='schedule' or (now.weekday()<5 and (mode=='eod' or 570<=minute<=945))
           with open(os.environ['GITHUB_OUTPUT'],'a') as f:f.write(f'mode={mode}\nenabled={str(allowed).lower()}\n')
@@ -44,22 +44,27 @@ jobs:
       - name: Collect snapshot
         if: steps.run.outputs.enabled == 'true'
         run: |
-          if [ '${{ steps.run.outputs.mode }}' = 'eod' ]; then
-            python tools/nifty500-collect.py --mode eod --refresh-universe --output /tmp/nifty500.json
-          else
-            python tools/nifty500-collect.py --mode delayed --output /tmp/nifty500.json
-          fi
+          for mode in ${{ steps.run.outputs.mode }}; do
+            if [ "$mode" = 'eod' ]; then
+              python tools/nifty500-collect.py --mode eod --refresh-universe --output /tmp/nifty500-eod.json
+            else
+              python tools/nifty500-collect.py --mode delayed --output /tmp/nifty500-delayed.json
+            fi
+          done
       - name: Encrypt and retain last usable snapshot
         if: steps.run.outputs.enabled == 'true'
         env:
           MODE: ${{ steps.run.outputs.mode }}
         run: |
-          node tools/nifty500-encrypt.cjs /tmp/nifty500.json "market-data/$MODE-latest.enc.json"
+          for mode in $MODE; do
+            node tools/nifty500-encrypt.cjs "/tmp/nifty500-$mode.json" "market-data/$mode-latest.enc.json"
+          done
           python - <<'PY'
           import json,os,shutil
-          d=json.load(open('/tmp/nifty500.json'));mode=os.environ['MODE']
-          if d['available']>0:shutil.copyfile(f'market-data/{mode}-latest.enc.json',f'market-data/{mode}-last-usable.enc.json')
-          with open(os.environ['GITHUB_STEP_SUMMARY'],'a') as f:f.write(f"## {mode}: {d['available']}/{d['total']} available\nSource: {d['source']}\nGenerated: {d['generatedAt']}\n\n{d['error'] or ''}\n")
+          for mode in os.environ['MODE'].split():
+            d=json.load(open(f'/tmp/nifty500-{mode}.json'))
+            if d['available']>0:shutil.copyfile(f'market-data/{mode}-latest.enc.json',f'market-data/{mode}-last-usable.enc.json')
+            with open(os.environ['GITHUB_STEP_SUMMARY'],'a') as f:f.write(f"## {mode}: {d['available']}/{d['total']} available\nSource: {d['source']}\nGenerated: {d['generatedAt']}\n\n{d['error'] or ''}\n")
           PY
       - name: Save encrypted snapshot
         if: steps.run.outputs.enabled == 'true'
