@@ -1,6 +1,7 @@
 (async function(){
  if(!await LfcAuth.ready)return;
  const $=id=>document.getElementById(id);let rows=[],generation=0,controller;
+ const clock=new Date(Date.now()+330*60000);if([0,6].includes(clock.getUTCDay())||clock.getUTCHours()*60+clock.getUTCMinutes()<570||clock.getUTCHours()*60+clock.getUTCMinutes()>945)$('snapshotMode').value='eod';
  const number=n=>Number.isFinite(n)?n.toLocaleString('en-IN',{maximumFractionDigits:2}):'—';
  const stamp=s=>s?new Date(s).toLocaleString('en-IN',{timeZone:'Asia/Kolkata',dateStyle:'medium',timeStyle:'short'}):'—';
  function render(){const term=$('stockSearch').value.trim().toLowerCase();$('stockRows').replaceChildren();const selected=rows.filter(r=>(r.symbol+' '+r.name).toLowerCase().includes(term));$('stockEmpty').hidden=selected.length>0;
