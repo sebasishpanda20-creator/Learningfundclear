@@ -1,0 +1,20 @@
+(async function(){
+ if(!await LfcAuth.ready)return;const $=id=>document.getElementById(id),all=FC.funds.all().filter(s=>s.plan==='Direct'&&s.option==='Growth');let records=[],generation=0,controller;
+ const node=(tag,text)=>{const el=document.createElement(tag);el.textContent=text;return el;};
+ const percent=v=>Number.isFinite(v)?(v>=0?'+':'')+v.toFixed(2)+'%':'—';
+ [...new Set(all.map(s=>s.category))].sort().forEach(c=>{const o=node('option',c);o.value=c;$('returnCategory').append(o);});$('returnCategory').value=all.some(s=>s.category==='Large Cap Fund')?'Large Cap Fund':$('returnCategory').value;
+ function badge(r){const b=node('span',r.tier+(r.volatility===null?'':' · '+r.volatility.toFixed(1)+'%'));b.className='return-tier';b.dataset.tier=r.tier;return b;}
+ function render(){const y=$('returnPeriod').value,risk=$('returnRisk').value,ranked=records.filter(r=>Number.isFinite(r.returns[y])&&(risk==='all'||r.tier===risk)).sort((a,b)=>b.returns[y]-a.returns[y]||a.scheme.name.localeCompare(b.scheme.name));$('returnRows').replaceChildren();$('returnLeaders').replaceChildren();$('returnEmpty').hidden=ranked.length>0;
+ ranked.forEach((r,i)=>{const tr=document.createElement('tr');tr.append(node('td',i+1));const title=document.createElement('td'),a=node('a',r.scheme.name);a.href='scheme.html?code='+encodeURIComponent(r.code);title.append(a,node('small',r.scheme.amc));tr.append(title,...[1,3,5].map(p=>node('td',percent(r.returns[p]))));const riskCell=document.createElement('td');riskCell.append(badge(r));tr.append(riskCell,node('td',r.asOf));$('returnRows').append(tr);
+ if(i<3){const card=document.createElement('article');card.className='card';card.append(node('p','#'+(i+1)+' in analysed category'),node('h3',r.scheme.name),node('p',r.scheme.amc));const value=node('p',percent(r.returns[y])+(y==='1'?'':' p.a.'));value.className='return-number';card.append(value,node('p',y+'-year historical return'),badge(r),node('p','Official Riskometer: not supplied'));$('returnLeaders').append(card);}});
+ }
+ async function load(force=false){const id=++generation;controller?.abort();controller=new AbortController();const signal=controller.signal,schemes=all.filter(s=>s.category===$('returnCategory').value);records=[];render();$('returnIssues').replaceChildren();$('refreshReturns').disabled=true;let done=0,failed=0,next=0;
+ const progress=()=>$('returnStatus').textContent=`${done}/${schemes.length} schemes checked · ${records.length} histories available · ${failed} unavailable. Rankings update as results arrive.`;progress();
+ async function worker(){while(next<schemes.length&&!signal.aborted){const scheme=schemes[next++];try{const key='lfc.return.v1.'+scheme.code;let metric;try{const c=JSON.parse(localStorage.getItem(key)||'null');if(!force&&c&&Date.now()>=c.checkedAt&&Date.now()-c.checkedAt<21600000&&Date.now()-Date.parse(c.asOf+'T00:00:00Z')<7*86400000)metric=c;}catch{}
+ if(!metric){const timeout=AbortSignal.timeout(15000),r=await fetch('https://api.mfapi.in/mf/'+encodeURIComponent(scheme.code),{signal:AbortSignal.any([signal,timeout]),credentials:'omit'});if(!r.ok)throw new Error('HTTP '+r.status);metric=LfcFundReturns.analyze(await r.json(),scheme.code);try{localStorage.setItem(key,JSON.stringify(metric));}catch{}}
+ if(id!==generation)return;records.push({...metric,scheme});
+ }catch(e){if(id!==generation)return;failed++;$('returnIssues').append(node('li',scheme.name+': '+(e.name==='TimeoutError'?'request timed out':e.message)));}done++;progress();render();}}
+ await Promise.all([worker(),worker()]);if(id!==generation)return;$('refreshReturns').disabled=false;$('returnStatus').textContent=`Checked ${done} of ${schemes.length} Direct Growth schemes in ${$('returnCategory').value}. ${records.length} histories available; ${failed} unavailable. Missing period history is excluded from rankings.`;
+ }
+ $('returnCategory').onchange=()=>load();$('returnPeriod').onchange=render;$('returnRisk').onchange=render;$('refreshReturns').onclick=()=>load(true);addEventListener('pagehide',()=>{generation++;controller?.abort();});load();
+})();

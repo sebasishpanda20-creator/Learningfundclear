@@ -290,15 +290,21 @@ async function deleteIdea(id) {
   if (!x) return;
   const t = prompt(`Type ${x.ticker} exactly to delete`);
   if (t?.toUpperCase() !== x.ticker.toUpperCase()) return;
-  const { error } = await sb.from("ideas").delete().eq("id", id);
-  if (error) return alert(error.message);
-  await sb.from("audit_log").insert({
-    user_id: me.id,
-    action: "IDEA_DELETE",
-    idea_id: id,
-    details: { ticker: x.ticker },
-  });
+  const notice = $("adminDeleteStatus");
+  if (!isAdmin) return;
+  notice.textContent = "Deleting idea and preserving audit history…";
+  const { data, error } = await sb.rpc("delete_idea_with_audit", { p_idea_id: id });
+  if (error || !data?.deleted) {
+    notice.textContent = error?.code === "PGRST202" || error?.code === "42883"
+      ? "Deletion is not enabled yet: the audit-preserving database update must be applied by the administrator. Your idea has not been removed."
+      : error?.code === "23503"
+      ? "This idea is still referenced by another record. No changes were saved; an administrator must review the database relationships."
+      : "Could not delete the idea. No successful deletion was confirmed. Please refresh and retry.";
+    return;
+  }
+  notice.textContent = "Idea deleted. Its audit history has been preserved.";
   await loadIdeas();
+  await loadAudit();
 }
 async function saveIdea() {
   if (!isAdmin) return;
@@ -438,7 +444,7 @@ async function loadAudit() {
   $("auditBody").innerHTML = (data || [])
     .map(
       (x) =>
-        `<tr><td>${dtt(x.created_at)}</td><td>${esc(x.app_users?.username || "")}</td><td>${esc(x.action || "")}</td><td>${esc(x.ideas?.ticker || "")}</td><td>${esc(JSON.stringify(x.details || {}))}</td></tr>`,
+        `<tr><td>${dtt(x.created_at)}</td><td>${esc(x.app_users?.username || "")}</td><td>${esc(x.action || "")}</td><td>${esc(x.ideas?.ticker || x.details?.ticker || "")}</td><td>${esc(JSON.stringify(x.details || {}))}</td></tr>`,
     )
     .join("");
 }

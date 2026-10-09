@@ -39,7 +39,7 @@
       const relative = target.pathname.slice(base.pathname.length).replace(/\/$/, "");
       const canonical = relative === "" ? "index.html" : relative.endsWith(".html") ? relative : relative + ".html";
       const allowed =
-        /^(index|performance|admin|scanner|setups|gex|crypto)\.html$|^funds\/(index|funds|scheme|compare|calculators|methodology|legal)\.html$/;
+        /^(index|performance|admin|scanner|nifty500|setups|gex|crypto)\.html$|^funds\/(index|top-returns|funds|scheme|compare|calculators|methodology|legal)\.html$/;
       return target.origin === base.origin &&
         target.pathname.startsWith(base.pathname) &&
         allowed.test(canonical)
