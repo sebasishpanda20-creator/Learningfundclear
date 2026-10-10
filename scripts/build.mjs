@@ -1,4 +1,4 @@
-import {readFileSync,writeFileSync,cpSync,mkdirSync,readdirSync,copyFileSync,rmSync} from 'node:fs';
+import {readFileSync,writeFileSync,cpSync,mkdirSync,readdirSync,copyFileSync,rmSync,existsSync} from 'node:fs';
 import {join} from 'node:path';
 rmSync('dist',{recursive:true,force:true});
 mkdirSync('dist/client',{recursive:true});
@@ -12,5 +12,7 @@ cpSync('server','dist/server',{recursive:true});
 copyFileSync('server/worker.mjs','dist/server/index.js');
 const config=readFileSync('assets/js/config.js','utf8').replace('window.LFC_CONFIG =','export default');
 writeFileSync('dist/server/config.mjs',config);
-mkdirSync('dist/.openai',{recursive:true});
-copyFileSync('.openai/hosting.json','dist/.openai/hosting.json');
+if(!process.argv.includes('--cloudflare') && existsSync('.openai/hosting.json')) {
+ mkdirSync('dist/.openai',{recursive:true});
+ copyFileSync('.openai/hosting.json','dist/.openai/hosting.json');
+}

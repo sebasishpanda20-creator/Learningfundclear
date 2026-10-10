@@ -13,6 +13,10 @@ Thumbs.db
 supabase/.temp/
 
 dist/
+.wrangler/
+node_modules/
+.dev.vars*
+.env*
 
 qa/*.png
 visual-qa-artifacts/
