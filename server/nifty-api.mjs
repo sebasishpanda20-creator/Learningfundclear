@@ -2,7 +2,12 @@ const decode=s=>Uint8Array.from(atob(s),c=>c.charCodeAt(0));
 export async function decryptSnapshot(envelope,pem){
  const der=decode(pem.replace(/-----[^-]+-----/g,'').replace(/\s/g,''));
  const privateKey=await crypto.subtle.importKey('pkcs8',der,{name:'RSA-OAEP',hash:'SHA-256'},false,['decrypt']);
- const key=await crypto.subtle.decrypt({name:'RSA-OAEP'},privateKey,decode(envelope.key));
+ let key;
+ for(const wrapped of [envelope.cloudflareKey,envelope.key]){
+  if(typeof wrapped!=='string')continue;
+  try{key=await crypto.subtle.decrypt({name:'RSA-OAEP'},privateKey,decode(wrapped));break;}catch{}
+ }
+ if(!key)throw Error('No matching snapshot recipient');
  const aes=await crypto.subtle.importKey('raw',key,'AES-GCM',false,['decrypt']);
  const raw=await crypto.subtle.decrypt({name:'AES-GCM',iv:decode(envelope.iv)},aes,decode(envelope.data));
  const result=JSON.parse(await new Response(new Blob([raw]).stream().pipeThrough(new DecompressionStream('gzip'))).text());
@@ -32,7 +37,8 @@ export async function serveNifty(request,env,config,fetcher=fetch){
   let previous=null;
   if(latest.available===0){
    const old=await fetcher(url.replace('-latest.','-last-usable.'),{signal:AbortSignal.timeout(15000)});
-   if(old.ok){previous=await decryptSnapshot(await old.json(),env.NIFTY_FEED_PRIVATE_KEY);if(previous.mode!==mode)previous=null;}
+   // Historical fallback may predate this host's key; still return valid latest data.
+   if(old.ok){try{previous=await decryptSnapshot(await old.json(),env.NIFTY_FEED_PRIVATE_KEY);if(previous.mode!==mode)previous=null;}catch{previous=null;}}
   }
   return reply({latest,previous});
  }catch{return reply({error:'Price service unavailable. Please retry later.'},503);}
