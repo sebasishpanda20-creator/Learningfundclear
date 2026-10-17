@@ -10,9 +10,13 @@
     "test:scanner": "node --test qa/scanner-data.test.cjs",
     "test:feeds": "node qa/feed-flows.cjs",
     "test:public-data": "node --test qa/public-data.test.cjs",
-    "test:crypto": "node qa/crypto-flows.cjs"
+    "test:crypto": "node qa/crypto-flows.cjs",
+    "build:cloudflare": "node scripts/build.mjs --cloudflare",
+    "check:cloudflare": "wrangler deploy --dry-run --outdir dist/cloudflare-check",
+    "deploy:cloudflare": "wrangler deploy"
   },
   "devDependencies": {
-    "playwright": "1.51.1"
+    "playwright": "1.51.1",
+    "wrangler": "4.149.0"
   }
 }
