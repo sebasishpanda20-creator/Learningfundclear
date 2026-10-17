@@ -57,13 +57,27 @@ def parse_delayed(payload,m,now):
     status='available' if age<=3600 and dt.datetime.fromtimestamp(t,IST).date()==now.date() else 'stale'
     return dict(m,**dict(zip(['open','high','low','price','volume'],values)),asOf=dt.datetime.fromtimestamp(t+900,IST).isoformat(),status=status,reason='' if status=='available' else 'Latest completed candle is old')
 
+def latest_eod(members,now):
+    # Try calendar dates so special weekend sessions are not silently skipped.
+    end=now.date() if now.time()>=dt.time(15,30) else now.date()-dt.timedelta(days=1)
+    for offset in range(10):
+        day=end-dt.timedelta(days=offset)
+        url=f'https://nsearchives.nseindia.com/content/cm/BhavCopy_NSE_CM_0_0_0_{day:%Y%m%d}_F_0000.csv.zip'
+        try:raw=download(url)
+        except urllib.error.HTTPError as e:
+            if e.code==404:continue
+            raise
+        return parse_eod(raw,members,day.isoformat()),day.isoformat()
+    raise ValueError('No published NSE report found in the last 10 calendar days')
+
 def collect(mode,now,report=None):
     universe=json.loads((ROOT/'market-data/nifty500-universe.json').read_text())
     members=universe['members'];error=None;source='NSE daily bhavcopy' if mode=='eod' else 'Yahoo completed 15-minute candles (best effort)'
+    session_date=now.date().isoformat()
     if mode=='eod':
-        date=now.date().isoformat()
-        url=f'https://nsearchives.nseindia.com/content/cm/BhavCopy_NSE_CM_0_0_0_{now:%Y%m%d}_F_0000.csv.zip'
-        try:rows=parse_eod(pathlib.Path(report).read_bytes() if report else download(url),members,date)
+        try:
+            if report:rows=parse_eod(pathlib.Path(report).read_bytes(),members,session_date)
+            else:rows,session_date=latest_eod(members,now)
         except Exception as e:
             error='Session report unavailable: '+str(e);rows=[dict(m,status='unavailable',reason=error) for m in members]
     else:
@@ -84,7 +98,7 @@ def collect(mode,now,report=None):
             finally:time.sleep(0.5)
         with concurrent.futures.ThreadPoolExecutor(max_workers=4) as pool:rows=list(pool.map(fetch_member,members))
     available=sum(r['status']=='available' for r in rows)
-    return dict(version=1,mode=mode,source=source,generatedAt=now.isoformat(),sessionDate=now.date().isoformat(),universeAsOf=universe['fetchedAt'],total=len(members),available=available,stale=sum(r['status']=='stale' for r in rows),error=error,rows=rows)
+    return dict(version=1,mode=mode,source=source,generatedAt=now.isoformat(),sessionDate=session_date,universeAsOf=universe['fetchedAt'],total=len(members),available=available,stale=sum(r['status']=='stale' for r in rows),error=error,rows=rows)
 if __name__=='__main__':
     p=argparse.ArgumentParser();p.add_argument('--mode',choices=['delayed','eod'],required=True);p.add_argument('--refresh-universe',action='store_true');p.add_argument('--report');p.add_argument('--date');p.add_argument('--output',required=True);a=p.parse_args()
     now=dt.datetime.now(IST) if not a.date else dt.datetime.fromisoformat(a.date+'T18:00:00+05:30')
