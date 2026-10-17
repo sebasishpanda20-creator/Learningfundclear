@@ -21,15 +21,18 @@ feeds, or the pending Supabase audit-preserving deletion migration.
    `npm run build:cloudflare`, deploy command `npm run deploy:cloudflare`, and
    repository root as the build directory. Review GitHub connection permissions.
 3. Configure `NIFTY_FEED_PRIVATE_KEY` as a **runtime secret** on that Worker.
-   It must be the key matching `market-data/feed-public-key.pem`. Do not paste it
+   For Cloudflare, use the owner-held key matching
+   `market-data/feed-cloudflare-public-key.pem`. Do not paste it
    into chat, source, build variables, logs, or the browser bundle. The config
    requires this secret so an incomplete deployment fails rather than silently
    publishing a broken feed. Complete secret setup before final deployment.
-4. The current private key was configured in Sites and cannot be assumed
-   exportable: its value is redacted by the management API. If the original key
-   is not available through an approved secure transfer, coordinate key
-   replacement and re-encryption of all retained snapshots. Do not rotate the
-   repository public key alone: that would break the running portal.
+4. The original Sites key remains active and unchanged. The collector now wraps
+   each new snapshot's AES key for both the original key and the owner's new
+   Cloudflare public key. Only the owner holds the new private key. Never replace
+   the original public key alone. Snapshots from before the second recipient was
+   added remain readable only by the old host; Cloudflare needs a fresh collection.
+   A legacy last-usable fallback that cannot be decrypted is omitted without
+   hiding a valid latest snapshot. Verify both modes after collector publication.
 5. Retain the same Supabase project. Add the final Cloudflare origin to any
    configured authentication redirects/CORS allowlists as applicable. Existing
    passwords and records should not be recreated. Users sign in again on the
