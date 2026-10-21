@@ -1,9 +1,9 @@
 name: pre-push HTML contract guard
 on:
   push:
-    branches: [main]
+    branches: [main, portal/cloudflare-migration]
   pull_request:
-    branches: [main]
+    branches: [main, portal/cloudflare-migration]
 permissions: read-all
 jobs:
   guard-html:
