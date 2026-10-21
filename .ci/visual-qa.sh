@@ -14,5 +14,6 @@ node qa/feed-flows.cjs
 node qa/crypto-flows.cjs
 node qa/research-flows.cjs
 node qa/nifty500-flows.cjs
+node qa/index-scanner-flows.cjs
 mkdir -p visual-qa-artifacts
 cp qa/*.png qa/*results.json qa/page-audit.json visual-qa-artifacts/

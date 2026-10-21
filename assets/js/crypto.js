@@ -5,7 +5,12 @@
  const fmt=x=>Number.isFinite(x)?x.toLocaleString('en-US',{maximumFractionDigits:4}):'—';
  const stamp=t=>new Date(t).toLocaleString('en-IN',{timeZone:'Asia/Kolkata',hour12:false})+' IST';
  async function get(url,signal){const r=await fetch(url,{signal,credentials:'omit',cache:'no-store'});if(!r.ok)throw new Error('HTTP '+r.status);return r.json();}
- function clear(){quote=null;for(const id of ['lastPrice','dayHigh','dayLow','dayChange'])$(id).textContent='—';$('quoteStamp').textContent='No quote received';$('cryptoChart').replaceChildren();$('chartNote').textContent='Waiting for history';}
+ function clear(){renderSignal(null);quote=null;for(const id of ['lastPrice','dayHigh','dayLow','dayChange'])$(id).textContent='—';$('quoteStamp').textContent='No quote received';$('cryptoChart').replaceChildren();$('chartNote').textContent='Waiting for history';}
+ function renderSignal(result){
+  $('cryptoSignal').textContent=result?.signal||'Wait';$('cryptoSignalReason').textContent=result?.reason||'Waiting for fresh, complete candle history.';
+  for(const [id,key] of [['cryptoEntry','entry'],['cryptoStop','stop'],['cryptoTarget','target']])$(id).textContent=fmt(result?.[key]);
+  $('cryptoSignalStamp').textContent=result?.candleAt?'Setup candle opened '+stamp(result.candleAt)+' · '+$('asset').value+'/'+(quote?.currency||'')+' · '+$('interval').value:'';
+ }
  function chart(bars){const low=Math.min(...bars.map(b=>b.close)),high=Math.max(...bars.map(b=>b.close)),span=high-low||1;
  const points=bars.map((b,i)=>`${80+i*700/(bars.length-1)},${25+(high-b.close)/span*210}`).join(' ');
  $('cryptoChart').innerHTML=`<svg viewBox="0 0 800 285" role="img" aria-label="Completed candle closing prices"><text x="0" y="30">${fmt(high)}</text><text x="0" y="235">${fmt(low)}</text><polyline fill="none" stroke="currentColor" stroke-width="2" points="${points}"/><text x="80" y="270">${new Date(bars[0].time*1000).toISOString().slice(0,10)}</text><text x="680" y="270">${new Date(bars.at(-1).time*1000).toISOString().slice(0,10)}</text></svg>`;
@@ -24,13 +29,13 @@
    quote=D.quote(qr.value,provider,asset);$('lastPrice').textContent=fmt(quote.last)+' '+quote.currency;$('dayHigh').textContent=fmt(quote.high);$('dayLow').textContent=fmt(quote.low);$('dayChange').textContent=quote.change===null?'Not supplied':fmt(quote.change)+'%';
    $('quoteStamp').textContent=(quote.time?'Exchange time '+stamp(quote.time)+' · ':'')+'Received '+stamp(quote.received);
    $('spotStatus').textContent='Snapshot received · '+(provider==='binance'?'Binance public API':'Kraken public API · trade timestamp not supplied')+' · '+($('autoCrypto').checked?'refreshing every 20 seconds':'automatic refresh off');
-   try{if(br.status==='rejected')throw br.reason;if(br.value.error?.length)throw new Error(br.value.error.join(', '));const rows=provider==='binance'?br.value:br.value.result?.[{BTC:'XXBTZUSD',ETH:'XETHZUSD',SOL:'SOLUSD'}[asset]];chart(D.candles(rows,provider,interval));}catch(e){$('chartNote').textContent='History unavailable: '+e.message;}
+   try{if(br.status==='rejected')throw br.reason;if(br.value.error?.length)throw new Error(br.value.error.join(', '));const rows=provider==='binance'?br.value:br.value.result?.[{BTC:'XXBTZUSD',ETH:'XETHZUSD',SOL:'SOLUSD'}[asset]];const bars=D.candles(rows,provider,interval);chart(bars);renderSignal(LfcCryptoSignals.analyze(bars,interval));}catch(e){$('chartNote').textContent='History unavailable: '+e.message;renderSignal({signal:'Wait',reason:'Candle history unavailable. No setup generated.'});}
   }catch(e){if(id===generation){clear();$('spotStatus').textContent='Unavailable · '+(e.name==='AbortError'?'request timed out':e.message)+'. Retry or choose the other exchange.';}}
   finally{clearTimeout(timer);if(id===generation)$('refreshCrypto').disabled=false;}
  }
  for(const id of ['venue','asset','interval'])$(id).onchange=refresh;
  $('refreshCrypto').onclick=refresh;$('autoCrypto').onchange=refresh;
- const interval=setInterval(()=>{if(!document.hidden&&$('autoCrypto').checked&&!$('refreshCrypto').disabled)refresh();if(quote&&Date.now()-quote.received>45000){$('spotStatus').textContent='Stale snapshot · refresh to retrieve a current quote';}},20000);
+ const interval=setInterval(()=>{if(!document.hidden&&$('autoCrypto').checked&&!$('refreshCrypto').disabled)refresh();if(quote&&Date.now()-quote.received>45000){$('spotStatus').textContent='Stale snapshot · refresh to retrieve a current quote';renderSignal({signal:'Wait',reason:'Snapshot is stale. Refresh before evaluating a setup.'});}},20000);
  document.addEventListener('visibilitychange',()=>{if(document.hidden){controller?.abort();}else if($('autoCrypto').checked)refresh();});
  function clearDelta(){deltaGeneration++;deltaController?.abort();$('deltaRows').replaceChildren();$('deltaStatus').textContent='Selection changed. Load a new snapshot.';$('refreshDelta').disabled=false;}
  $('deltaExpiry').value=new Date().toISOString().slice(0,10);$('deltaExpiry').min=$('deltaExpiry').value;
