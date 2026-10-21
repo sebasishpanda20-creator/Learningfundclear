@@ -5,6 +5,7 @@ on:
     branches: [main, portal/cloudflare-migration]
     paths:
       - "account.html"
+      - "index-scanner.html"
       - "index.html"
       - "signin.html"
       - "performance.html"

@@ -4,7 +4,7 @@
 
 set -euo pipefail
 
-PAGES=(account.html index.html signin.html performance.html scanner.html setups.html gex.html crypto.html admin.html)
+PAGES=(index-scanner.html account.html index.html signin.html performance.html scanner.html setups.html gex.html crypto.html admin.html)
 FAIL=0
 
 run_check() {
@@ -39,7 +39,7 @@ fi
 
 run_check node tools/test-signal-guards.js
 run_check node tools/test-weekly-line.js
-run_check node --test qa/account.test.cjs qa/admin-password-reset.test.cjs qa/scanner-data.test.cjs qa/public-data.test.cjs qa/scanner-auto.test.cjs qa/research-math.test.cjs qa/nifty500.test.cjs
+run_check node --test qa/index-scanner.test.cjs qa/account.test.cjs qa/admin-password-reset.test.cjs qa/scanner-data.test.cjs qa/public-data.test.cjs qa/scanner-auto.test.cjs qa/research-math.test.cjs qa/nifty500.test.cjs
 
 if git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
   run_check git diff --check
