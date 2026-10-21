@@ -291,6 +291,14 @@
             ><label>Password<input id="newPassword" type="password" /></label>
           </div>
           <button class="primary" id="createUser">Create user</button>
+          <div class="section-title">Reset a user's password</div>
+          <p>For a user who cannot sign in. Verify their identity before sharing a replacement password privately. They can change it in My account after signing in.</p>
+          <form id="resetUserForm"><div class="grid3">
+          <label>User<select id="resetUserTarget" required><option value="">Loading users…</option></select></label>
+          <label>Replacement password<input id="resetUserPassword" type="password" autocomplete="new-password" minlength="6" maxlength="128" required></label>
+          <label>Confirm password<input id="resetUserConfirm" type="password" autocomplete="new-password" minlength="6" maxlength="128" required></label>
+          </div><button id="resetUserButton" type="submit" disabled>Reset selected user's password</button></form>
+          <p id="resetUserStatus" role="status" aria-live="polite"></p>
           <div class="section-title">Users</div>
           <div class="table-wrap">
             <div
@@ -340,5 +348,6 @@
     </main>
     <script src="assets/js/shell.js"></script>
     <script type="module" src="assets/js/journal.js"></script>
+    <script src="assets/js/admin-password-reset.js"></script>
   </body>
 </html>
