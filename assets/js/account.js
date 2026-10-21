@@ -7,7 +7,7 @@
   form.onsubmit = async event => {
     event.preventDefault();
     if (!profile || button.disabled) return;
-    if (next.value.length < 12 || next.value !== confirm.value) { status.textContent = "Use at least 12 characters and enter the same new password twice."; return; }
+    if (next.value.length < 6 || next.value !== confirm.value) { status.textContent = "Use at least 6 characters and enter the same new password twice."; return; }
     if (next.value === current.value) { status.textContent = "Choose a password different from your current password."; return; }
     button.disabled = true;
     status.textContent = "Verifying your account…";
