@@ -1,0 +1,13 @@
+<!doctype html>
+<html lang="en-IN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex,nofollow"><title>My account · LearningFundClear</title>
+<link rel="stylesheet" href="assets/css/tokens.css"><link rel="stylesheet" href="assets/css/app.css">
+<script src="assets/vendor/supabase.js"></script><script src="assets/js/config.js"></script><script src="auth-guard.js"></script><script src="assets/js/theme.js"></script></head>
+<body data-page="account"><main id="main"><div class="page-heading"><div><p class="eyebrow">YOUR ACCOUNT</p><h1>My account</h1><p class="sub">Manage your sign-in password.</p></div></div>
+<section class="card"><h2>Change password</h2><div class="content"><p>Signed in as <strong id="accountUsername">…</strong></p><p>Your username and saved research stay the same.</p>
+<form id="passwordForm" style="max-width:480px;display:grid;gap:16px">
+<label>Current password<input id="currentPassword" type="password" autocomplete="current-password" required maxlength="128"></label>
+<label>New password<input id="nextPassword" type="password" autocomplete="new-password" required minlength="12" maxlength="128" aria-describedby="passwordHelp"></label>
+<label>Confirm new password<input id="confirmPassword" type="password" autocomplete="new-password" required minlength="12" maxlength="128"></label>
+<p id="passwordHelp">Use at least 12 characters. Enter your password only here; never send it in chat.</p><button class="primary" id="changePassword" disabled>Change password</button></form>
+<p id="passwordStatus" role="status" aria-live="polite"></p><a id="signInAgain" href="signin.html?loggedOut=1" hidden>Sign in with your new password</a>
+</div></section></main><script src="assets/js/shell.js"></script><script src="assets/js/account.js"></script></body></html>
