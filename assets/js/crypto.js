@@ -33,7 +33,15 @@
   }catch(e){if(id===generation){clear();$('spotStatus').textContent='Unavailable · '+(e.name==='AbortError'?'request timed out':e.message)+'. Retry or choose the other exchange.';}}
   finally{clearTimeout(timer);if(id===generation)$('refreshCrypto').disabled=false;}
  }
- for(const id of ['venue','asset','interval'])$(id).onchange=refresh;
+ function syncAssets(){
+  const limited=$('venue').value==='kraken',previous=$('asset').value;
+  for(const option of $('asset').options){option.disabled=limited&&!['BTC','ETH','SOL'].includes(option.value);option.hidden=option.disabled;}
+  if($('asset').selectedOptions[0]?.disabled)$('asset').value='BTC';
+  $('assetCoverage').textContent=(previous!==$('asset').value?previous+' is not connected on Kraken in this portal. Switched to BTC. ':'')+(limited?'Kraken: BTC, ETH and SOL in USD. Choose Binance for 10 USDT pairs.':'Binance: BTC, ETH, SOL, XRP, DOGE, AVAX, ADA, LINK, DOT and LTC in USDT.');
+ }
+ $('venue').onchange=()=>{syncAssets();refresh();};
+ for(const id of ['asset','interval'])$(id).onchange=refresh;
+ syncAssets();
  $('refreshCrypto').onclick=refresh;$('autoCrypto').onchange=refresh;
  const interval=setInterval(()=>{if(!document.hidden&&$('autoCrypto').checked&&!$('refreshCrypto').disabled)refresh();if(quote&&Date.now()-quote.received>45000){$('spotStatus').textContent='Stale snapshot · refresh to retrieve a current quote';renderSignal({signal:'Wait',reason:'Snapshot is stale. Refresh before evaluating a setup.'});}},20000);
  document.addEventListener('visibilitychange',()=>{if(document.hidden){controller?.abort();}else if($('autoCrypto').checked)refresh();});
