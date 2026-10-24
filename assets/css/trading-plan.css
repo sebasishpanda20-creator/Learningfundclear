@@ -1,0 +1,61 @@
+.plan-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 240px), 1fr));
+  gap: 18px;
+}
+.plan-grid label {
+  display: grid;
+  gap: 6px;
+}
+.plan-grid input,
+.plan-grid select,
+.plan-grid textarea {
+  width: 100%;
+  box-sizing: border-box;
+}
+.plan-actions {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin: 20px 0;
+}
+.plan-checks {
+  display: grid;
+  gap: 12px;
+  margin: 20px 0;
+}
+.plan-checks label {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+}
+.plan-checks input {
+  width: 20px;
+  min-height: 20px;
+  flex: 0 0 20px;
+}
+.plan-note {
+  padding: 14px;
+  border-left: 3px solid var(--lfc-primary);
+  background: var(--lfc-primary-soft);
+  color: var(--lfc-text);
+}
+.strategy-notes details {
+  margin: 16px 0;
+  padding: 16px;
+  border: 1px solid var(--lfc-border);
+  border-radius: 12px;
+}
+.strategy-notes summary {
+  font-weight: 700;
+  cursor: pointer;
+}
+.strategy-notes li {
+  margin: 8px 0;
+}
+.plan-status {
+  min-height: 24px;
+}
+.plan-status:empty {
+  display: none;
+}
