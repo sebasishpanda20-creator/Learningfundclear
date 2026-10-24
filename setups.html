@@ -12,16 +12,36 @@
     <script src="assets/js/config.js"></script>
     <script src="auth-guard.js"></script>
     <script src="assets/js/theme.js"></script>
+    <script src="assets/js/trade-plan.js"></script>
+    <link rel="stylesheet" href="assets/css/trading-plan.css" />
   </head>
   <body data-page="setups">
     <main id="main">
       <p class="eyebrow">RESEARCH TOOLS</p>
       <h1>Setups & paper trades</h1>
       <p class="sub">
-        TradingView signals → risk sizing → manual execution → paper-trade
+        TradingView signals → plan and checklist → risk sizing → paper-trade
         ledger · private page, same sign-in as the journal
       </p>
 
+      <div class="card">
+        <h3>Plan before a paper trade</h3>
+        <p id="activePlan"></p>
+        <p>
+          <a href="trading-plan.html"
+            >Edit your trading plan and read strategy notes</a
+          >. Plans and trades are stored only in this browser for your account.
+          No real orders are placed.
+        </p>
+        <p class="mut">
+          Sizing uses INR cash/premium units with a 1× capital ceiling, not
+          futures margin or FX pip values. Convert all prices and costs to INR
+          first. An index level is not a tradable contract price. For long
+          options enter the actual premium and contract quantity step; short
+          options are not supported by this calculator.
+        </p>
+        <p id="budgetStatus" role="status"></p>
+      </div>
       <div class="card">
         <h3>Signals</h3>
         <div class="row" style="margin-bottom: 10px">
@@ -159,7 +179,8 @@
             ><input
               id="rCapital"
               type="number"
-              value="100000"
+              value="50000"
+              readonly
               style="width: 120px"
             />
           </div>
@@ -169,14 +190,16 @@
               id="rRisk"
               type="number"
               step="0.1"
-              value="1"
+              value="0.5"
+              readonly
               style="width: 80px"
             />
           </div>
           <div>
-            <label for="rLev">Leverage×</label
+            <label for="rLev">Notional ceiling×</label
             ><input
               id="rLev"
+              readonly
               type="number"
               step="0.5"
               value="1"
@@ -184,9 +207,73 @@
             />
           </div>
         </div>
+        <div class="plan-grid">
+          <label
+            >Quantity step (shares / contract units)<input
+              id="rStep"
+              type="number"
+              min="0.00000001"
+              step="any"
+              value="1"
+          /></label>
+          <label
+            >Round-trip costs per unit (₹)<input
+              id="rUnitCost"
+              type="number"
+              min="0"
+              step="any"
+              placeholder="Fees + spread/slippage allowance"
+          /></label>
+          <label
+            >Additional fixed round-trip costs (₹)<input
+              id="rFixedCost"
+              type="number"
+              min="0"
+              step="any"
+              placeholder="Enter 0 if none"
+          /></label>
+          <label
+            >Setup family<select id="rStrategy">
+              <option value="">Select a setup</option>
+              <option>Opening-range breakout</option>
+              <option>Trend pullback</option>
+              <option>Breakout and retest</option>
+              <option>EMA crossback / base breakout</option>
+              <option>Supply / demand retest</option>
+              <option>Range reversal</option>
+              <option>Other defined setup</option>
+            </select></label
+          >
+        </div>
+        <p class="mut">
+          Enter cost estimates explicitly, including zero only when intentional.
+          Set the quantity step to 1 for whole shares or the verified lot size
+          for option units. Stops can fill worse than planned; these are
+          estimates.
+        </p>
+        <div class="plan-checks" id="preTradeChecks">
+          <label
+            ><input type="checkbox" id="checkContext" />The market, timeframe
+            and session match my saved plan.</label
+          >
+          <label
+            ><input type="checkbox" id="checkData" />I checked the source
+            timestamp, completed candles and executable instrument
+            prices.</label
+          >
+          <label
+            ><input type="checkbox" id="checkTrigger" />The trigger, stop and
+            target match my written setup rules.</label
+          >
+          <label
+            ><input type="checkbox" id="checkEvents" />I reviewed events,
+            liquidity, correlated positions and my exit plan.</label
+          >
+        </div>
         <div class="stats">
           <div class="riskout">
-            <b id="oRiskAmt">—</b><span>₹ at risk</span>
+            <b id="oRiskAmt">—</b
+            ><span>estimated loss at stop incl. costs</span>
           </div>
           <div class="riskout">
             <b id="oQty">—</b><span>position size</span>
@@ -194,8 +281,12 @@
           <div class="riskout">
             <b id="oNotional">—</b><span>notional ₹</span>
           </div>
-          <div class="riskout"><b id="oRR">—</b><span>reward : risk</span></div>
-          <div class="riskout"><b id="oTarget">—</b><span>target ₹</span></div>
+          <div class="riskout">
+            <b id="oRR">—</b><span>net reward : risk</span>
+          </div>
+          <div class="riskout">
+            <b id="oTarget">—</b><span>target profit after costs ₹</span>
+          </div>
         </div>
         <div class="row">
           <button class="primary" id="paperOpen">Open paper trade</button>
@@ -205,6 +296,16 @@
 
       <div class="card">
         <h3>Paper-trade ledger</h3>
+        <p>
+          Full-position manual exits only. New trades record estimated costs at
+          entry and total costs at exit. Older records remain cost-unadjusted
+          and are labelled. Account limits cover this local ledger only.
+        </p>
+        <button id="exportJournal">Export journal JSON</button>
+        <label
+          ><input id="showArchived" type="checkbox" /> Show archived
+          records</label
+        >
         <div class="stats" id="ledgerStats"></div>
         <div
           class="table-scroll"
@@ -222,7 +323,7 @@
                 <th>Entry</th>
                 <th>Stop</th>
                 <th>Target</th>
-                <th>R:R</th>
+                <th>Planned net R:R</th>
                 <th>Status</th>
                 <th>Exit</th>
                 <th>P&amp;L ₹</th>
@@ -292,15 +393,66 @@
         try {
           return JSON.parse(localStorage.getItem(LS_TRADES) || "[]");
         } catch (e) {
-          return [];
+          return null;
         }
       }
       function saveTrades(t) {
         try {
+          const current = JSON.parse(localStorage.getItem(LS_TRADES) || "[]");
+          if (JSON.stringify(current) !== JSON.stringify(trades)) {
+            $("msg").textContent =
+              "The ledger changed in another tab. Reload before saving to preserve those records.";
+            return false;
+          }
           localStorage.setItem(LS_TRADES, JSON.stringify(t));
-        } catch (e) {}
+          return true;
+        } catch (e) {
+          $("msg").textContent =
+            "Could not save the paper ledger. Browser storage is unavailable or full.";
+          return false;
+        }
       }
       let trades = loadTrades();
+      let ledgerError = !Array.isArray(trades);
+      if (
+        !ledgerError &&
+        trades.some(
+          (t) =>
+            !t ||
+            typeof t !== "object" ||
+            !Number.isFinite(t.entry) ||
+            !Number.isFinite(t.qty),
+        )
+      )
+        ledgerError = true;
+      if (ledgerError) trades = [];
+      let plan;
+      const checkIds = [
+        "checkContext",
+        "checkData",
+        "checkTrigger",
+        "checkEvents",
+      ];
+      function refreshPlan() {
+        try {
+          plan = LfcTradePlan.load(localStorage, account.id);
+        } catch (e) {
+          plan = null;
+          $("activePlan").textContent = e.message;
+          return;
+        }
+        $("rCapital").value = plan.capital;
+        $("rRisk").value = plan.riskPct;
+        $("activePlan").textContent =
+          `${plan.timeframe} · ${plan.markets} · ₹${money(plan.capital)} planning capital · ${plan.riskPct}% per trade · ${plan.openPct}% open risk · ${plan.dailyPct}% daily / ${plan.weeklyPct}% weekly loss budget · minimum ${plan.minRR} net R:R. Settings are editable in Trading plan.`;
+      }
+      refreshPlan();
+      window.addEventListener("storage", (e) => {
+        if (e.key === "lfc.plan." + account.id) {
+          refreshPlan();
+          if (riskCtx) computeRisk();
+        }
+      });
 
       // Filter controls survive a reload; the scan list keeps a local mirror so a
       // Supabase hiccup shows your real list instead of the committed fallback.
@@ -463,113 +615,113 @@
       let riskCtx = null;
       function primeRisk(sig) {
         riskCtx = sig;
+        checkIds.forEach((id) => ($(id).checked = false));
+        $("rStrategy").value = "";
+        refreshPlan();
         $("riskCard").style.display = "";
         $("riskSym").textContent = sig.symbol + " (" + sig.action + ")";
         computeRisk();
       }
-      ["rCapital", "rRisk", "rLev"].forEach((id) => {
-        $(id).oninput = computeRisk;
-      });
-
+      ["rStep", "rUnitCost", "rFixedCost", "rStrategy", ...checkIds].forEach(
+        (id) => $(id).addEventListener("input", computeRisk),
+      );
+      function riskInput() {
+        const stopM = /stop\s+([\d.]+)/i.exec(riskCtx?.details || "");
+        const targetM = /target\s+([\d.]+)/i.exec(riskCtx?.details || "");
+        return {
+          entry: Number(riskCtx?.price),
+          stop: stopM ? Number(stopM[1]) : NaN,
+          target: targetM ? Number(targetM[1]) : NaN,
+          side: /SHORT|SELL/i.test(riskCtx?.action || "") ? "SHORT" : "LONG",
+          step: parseFloat($("rStep").value),
+          costPerUnit: parseFloat($("rUnitCost").value),
+          fixedCost: parseFloat($("rFixedCost").value),
+        };
+      }
+      function currentSizing() {
+        if (ledgerError)
+          return {
+            ok: false,
+            reason:
+              "Saved ledger is unreadable. Restore a valid backup before adding trades.",
+          };
+        if (!plan)
+          return { ok: false, reason: "Save a valid trading plan first." };
+        return LfcTradePlan.size(plan, trades, riskInput());
+      }
       function computeRisk() {
         if (!riskCtx) return;
-        const cap = parseFloat($("rCapital").value),
-          riskPct = parseFloat($("rRisk").value);
-        const lev = parseFloat($("rLev").value) || 1;
-        const entry = parseFloat(riskCtx.price);
-        // parse "stop 212.5 · target 230" out of the details
-        const stopM = /stop\s+([\d.]+)/i.exec(riskCtx.details || "");
-        const tgtM = /target\s+([\d.]+)/i.exec(riskCtx.details || "");
-        const stop = stopM ? parseFloat(stopM[1]) : NaN;
-        const target = tgtM ? parseFloat(tgtM[1]) : NaN;
-        const isShort = /SHORT|SELL/i.test(riskCtx.action || "");
-        const riskAmt = cap * (riskPct / 100);
-
-        if (
-          !Number.isFinite(cap) ||
-          cap <= 0 ||
-          !Number.isFinite(riskPct) ||
-          riskPct <= 0 ||
-          riskPct > 100 ||
-          !Number.isFinite(entry) ||
-          entry <= 0 ||
-          !Number.isFinite(stop) ||
-          stop <= 0 ||
-          (isShort ? stop <= entry : stop >= entry)
-        ) {
-          ["oRiskAmt", "oQty", "oNotional", "oRR", "oTarget"].forEach(
-            (id) => ($(id).textContent = "—"),
-          );
-          $("riskMsg").textContent =
-            "Enter positive capital and risk (up to 100%), and a stop on the correct side of entry.";
-          $("paperOpen").disabled = true;
+        const r = currentSizing();
+        ["oRiskAmt", "oQty", "oNotional", "oRR", "oTarget"].forEach(
+          (id) => ($(id).textContent = "—"),
+        );
+        const checked =
+          checkIds.every((id) => $(id).checked) && !!$("rStrategy").value;
+        $("paperOpen").disabled = !r.ok || !checked;
+        if (!r.ok) {
+          $("riskMsg").textContent = r.reason;
           return;
         }
-        $("paperOpen").disabled = false;
-        const perUnit = Math.abs(entry - stop);
-        const qty = riskAmt / perUnit;
-        const rr = !isNaN(target) ? Math.abs(target - entry) / perUnit : NaN;
-
-        $("oRiskAmt").textContent = "₹" + money(riskAmt);
-        $("oQty").textContent = money(Math.floor(qty * 100) / 100);
-        $("oNotional").textContent = "₹" + money(entry * qty);
-        $("oRR").textContent = isNaN(rr) ? "—" : rr.toFixed(2) + " : 1";
-        $("oTarget").textContent = !isNaN(target)
-          ? "₹" + money(Math.abs(target - entry) * qty)
-          : "—";
-        $("riskMsg").textContent = isShort
-          ? "Short setup — margin rules apply on the real order."
-          : lev > 1
-            ? "Leverage " +
-              lev +
-              "× assumed for notional only; qty is risk-derived."
-            : "";
+        $("oRiskAmt").textContent = "₹" + money(r.risk);
+        $("oQty").textContent = r.qty.toLocaleString("en-IN", {
+          maximumFractionDigits: 8,
+        });
+        $("oNotional").textContent = "₹" + money(r.notional);
+        $("oRR").textContent = r.rr.toFixed(2) + " : 1";
+        $("oTarget").textContent = "₹" + money(r.reward);
+        $("riskMsg").textContent = checked
+          ? `Estimated round-trip costs ₹${money(r.costs)}. Checklist is your manual confirmation, not automated data verification.`
+          : "Choose a setup family and complete all four checks before recording a paper trade.";
       }
-
       $("paperOpen").onclick = () => {
         if (!riskCtx) return;
-        const cap = parseFloat($("rCapital").value),
-          riskPct = parseFloat($("rRisk").value);
-        const entry = parseFloat(riskCtx.price);
-        const stopM = /stop\s+([\d.]+)/i.exec(riskCtx.details || "");
-        const tgtM = /target\s+([\d.]+)/i.exec(riskCtx.details || "");
-        const stop = stopM ? parseFloat(stopM[1]) : NaN;
-        const target = tgtM ? parseFloat(tgtM[1]) : NaN;
-        const riskAmt = cap * (riskPct / 100);
-        if (
-          !Number.isFinite(cap) ||
-          cap <= 0 ||
-          !Number.isFinite(riskPct) ||
-          riskPct <= 0 ||
-          riskPct > 100 ||
-          !Number.isFinite(entry) ||
-          entry <= 0 ||
-          !Number.isFinite(stop) ||
-          stop <= 0 ||
-          (/SHORT|SELL/i.test(riskCtx.action) ? stop <= entry : stop >= entry)
-        ) {
-          $("riskMsg").textContent = "Cannot open without a valid stop.";
+        refreshPlan();
+        // Re-read storage to avoid silently overwriting another tab's records.
+        const fresh = loadTrades();
+        if (!Array.isArray(fresh)) {
+          ledgerError = true;
+          computeRisk();
           return;
         }
-        const qty = Math.floor((riskAmt / Math.abs(entry - stop)) * 100) / 100;
-        trades.unshift({
-          id: "pt-" + Date.now(),
+        trades = fresh;
+        const r = currentSizing();
+        if (
+          !r.ok ||
+          !checkIds.every((id) => $(id).checked) ||
+          !$("rStrategy").value
+        ) {
+          computeRisk();
+          return;
+        }
+        const input = riskInput();
+        const record = {
+          id: "pt-" + crypto.randomUUID(),
           opened: new Date().toISOString(),
           symbol: riskCtx.symbol,
-          side: /SHORT|SELL/i.test(riskCtx.action || "") ? "SHORT" : "LONG",
-          qty,
-          entry,
-          stop,
-          target: isNaN(target) ? null : target,
+          side: input.side,
+          qty: r.qty,
+          entry: input.entry,
+          stop: input.stop,
+          target: input.target,
           note: riskCtx.details || "",
           source: riskCtx.source,
           status: "OPEN",
-        });
-        saveTrades(trades);
+          strategy: $("rStrategy").value,
+          estimatedCosts: r.costs,
+          costPerUnit: input.costPerUnit,
+          fixedCost: input.fixedCost,
+          initialRisk: r.risk,
+          netRR: r.rr,
+          planSnapshot: { ...plan },
+          checklist: Object.fromEntries(checkIds.map((id) => [id, true])),
+        };
+        const next = [record, ...trades];
+        if (!saveTrades(next)) return;
+        trades = next;
         $("msg").textContent =
-          "Paper trade opened for " +
+          "Paper trade recorded for " +
           riskCtx.symbol +
-          ". Place the real order manually on your broker.";
+          ". No real order was placed.";
         riskCtx = null;
         $("riskCard").style.display = "none";
         renderLedger();
@@ -577,13 +729,22 @@
 
       // ---------- ledger ----------
       function pnl(t, exitPrice) {
-        return t.side === "SHORT"
-          ? (t.entry - exitPrice) * t.qty
-          : (exitPrice - t.entry) * t.qty;
+        return LfcTradePlan.netPnl(t, exitPrice, 0).gross;
       }
 
       function renderLedger() {
         const b = $("ledgerBody");
+        if (ledgerError)
+          $("budgetStatus").textContent =
+            "Saved ledger could not be read. New trades are blocked.";
+        else
+          try {
+            const e = LfcTradePlan.exposure(trades);
+            $("budgetStatus").textContent =
+              `Recorded open risk ₹${money(e.openRisk)} · realised losses today ₹${money(e.dailyLoss)} / this week ₹${money(e.weeklyLoss)} · ${e.todayCount} trades today (IST). Legacy costs may be missing. Gaps and unrecorded positions are not measured.`;
+          } catch (e) {
+            $("budgetStatus").textContent = e.message;
+          }
         b.innerHTML = "";
         $("ledgerEmpty").style.display = trades.length ? "none" : "";
 
@@ -602,19 +763,22 @@
           `<div class="stat"><b>${stats.open}</b><span>open</span></div>` +
           `<div class="stat"><b>${stats.closed}</b><span>closed</span></div>` +
           `<div class="stat"><b>${stats.winRate}</b><span>win rate</span></div>` +
-          `<div class="stat"><b class="${gross >= 0 ? "pos" : "neg"}">${gross >= 0 ? "+" : ""}₹${money(gross)}</b><span>paper P&L (net)</span></div>`;
+          `<div class="stat"><b class="${gross >= 0 ? "pos" : "neg"}">${gross >= 0 ? "+" : ""}₹${money(gross)}</b><span>paper P&L (entered costs only)</span></div>`;
 
         trades.forEach((t, i) => {
+          if (t.archived && !$("showArchived").checked) return;
           const tr = document.createElement("tr");
           let status =
             t.status === "OPEN"
               ? '<span class="tag open">OPEN</span>'
-              : t.pnl >= 0
-                ? '<span class="tag win">WIN</span>'
-                : '<span class="tag loss">LOSS</span>';
+              : t.pnl === 0
+                ? '<span class="tag">FLAT</span>'
+                : t.pnl > 0
+                  ? '<span class="tag win">WIN</span>'
+                  : '<span class="tag loss">LOSS</span>';
           let exitCell, pnlCell;
           if (t.status === "OPEN") {
-            exitCell = `<input type="number" step="0.01" placeholder="exit ₹" id="exit-${i}" style="width:90px"> <button class="ghost" data-close="${i}">Close</button>`;
+            exitCell = `<input type="number" step="0.01" placeholder="exit ₹" aria-label="Exit price" id="exit-${i}" style="width:90px"> <input type="number" min="0" step="0.01" aria-label="Total round-trip costs" placeholder="total costs ₹" id="cost-${i}" value="${Number.isFinite(t.estimatedCosts) ? t.estimatedCosts : ""}" style="width:110px"> <input aria-label="Exit reason" maxlength="300" id="reason-${i}" placeholder="Exit reason" style="width:140px"> <button class="ghost" data-close="${i}">Close</button>`;
             pnlCell = "—";
           } else {
             exitCell = esc(t.exit);
@@ -622,12 +786,12 @@
           }
           tr.innerHTML =
             `<td>${esc(dt(t.opened))}</td>` +
-            `<td><b>${esc(t.symbol)}</b><div class="mut">${esc(t.note || "")}</div></td>` +
+            `<td><b>${esc(t.symbol)}</b><div class="mut">${esc(t.note || "")}</div><div class="mut">${esc(t.strategy || "Legacy setup")} · ${t.estimatedCosts == null ? "Costs not recorded" : "Estimated costs ₹" + money(t.estimatedCosts)}${t.status === "CLOSED" && t.actualCosts != null ? " · Exit costs ₹" + money(t.actualCosts) : ""}${t.exitReason ? " · " + esc(t.exitReason) : ""}</div></td>` +
             `<td>${t.side === "SHORT" ? '<span class="tag short">SHORT</span>' : '<span class="tag long">LONG</span>'}</td>` +
             `<td>${money(t.qty)}</td><td>${money(t.entry)}</td><td>${money(t.stop)}</td><td>${t.target != null ? money(t.target) : "—"}</td>` +
-            `<td>${t.stop && t.target ? (Math.abs(t.target - t.entry) / Math.abs(t.entry - t.stop)).toFixed(2) : "—"}</td>` +
+            `<td>${Number.isFinite(t.netRR) ? t.netRR.toFixed(2) : "Legacy: gross only"}</td>` +
             `<td>${status}</td><td>${exitCell}</td><td>${pnlCell}</td>` +
-            `<td><button class="ghost danger" data-del="${i}">✕</button></td>`;
+            `<td>${t.status === "CLOSED" ? `<button class="ghost" data-del="${i}">${t.archived ? "Unarchive" : "Archive"}</button>` : ""}</td>`;
           b.appendChild(tr);
         });
 
@@ -636,29 +800,79 @@
           if (c) {
             const i = parseInt(c.getAttribute("data-close"), 10);
             const exit = parseFloat($("exit-" + i).value);
-            if (isNaN(exit) || exit <= 0) {
+            if (!Number.isFinite(exit) || exit <= 0) {
               $("msg").textContent = "Enter the exit price to close.";
               return;
             }
-            const t = trades[i];
-            t.status = "CLOSED";
-            t.exit = exit;
-            t.pnl = Math.round(pnl(t, exit) * 100) / 100;
-            t.closedAt = new Date().toISOString();
-            saveTrades(trades);
-            $("msg").textContent = t.symbol + " closed — paper P&L ₹" + t.pnl;
+            const totalCosts = parseFloat($("cost-" + i).value),
+              reason = $("reason-" + i).value.trim();
+            if (!Number.isFinite(totalCosts) || totalCosts < 0 || !reason) {
+              $("msg").textContent =
+                "Enter non-negative total round-trip costs and an exit reason.";
+              return;
+            }
+            const t = trades[i],
+              result = LfcTradePlan.netPnl(t, exit, totalCosts);
+            const next = trades.map((v, j) =>
+              j === i
+                ? {
+                    ...v,
+                    status: "CLOSED",
+                    exit,
+                    grossPnl: result.gross,
+                    pnl: result.pnl,
+                    actualCosts: totalCosts,
+                    exitReason: reason,
+                    closedAt: new Date().toISOString(),
+                  }
+                : v,
+            );
+            if (!saveTrades(next)) return;
+            trades = next;
+            $("msg").textContent =
+              t.symbol +
+              " closed — paper P&L after entered costs ₹" +
+              result.pnl;
             renderLedger();
             return;
           }
           const d = ev.target.closest("[data-del]");
           if (d) {
-            trades.splice(parseInt(d.getAttribute("data-del"), 10), 1);
-            saveTrades(trades);
+            const index = parseInt(d.getAttribute("data-del"), 10);
+            const next = trades.map((t, i) =>
+              i === index ? { ...t, archived: !t.archived } : t,
+            );
+            if (!saveTrades(next)) return;
+            trades = next;
             renderLedger();
           }
         };
       }
 
+      $("showArchived").onchange = renderLedger;
+      $("exportJournal").onclick = () => {
+        if (ledgerError) {
+          $("msg").textContent = "Ledger unreadable; export was not created.";
+          return;
+        }
+        const url = URL.createObjectURL(
+          new Blob(
+            [
+              JSON.stringify(
+                { version: 2, exportedAt: new Date().toISOString(), trades },
+                null,
+                2,
+              ),
+            ],
+            { type: "application/json" },
+          ),
+        );
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = "LearningFundClear-paper-journal.json";
+        a.click();
+        setTimeout(() => URL.revokeObjectURL(url), 1000);
+      };
       // ---------- nightly scan list (Supabase scan_symbols) ----------
       let scanSymbols = [];
 

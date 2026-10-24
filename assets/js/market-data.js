@@ -12,7 +12,7 @@
       return Date.UTC(d.getUTCFullYear(),d.getUTCMonth(),d.getUTCDate()+days)/1000-offset;
     }
     if (interval === '1d') {
-      if (/\.(NS|BO)$/.test(symbol) || /^(\^NSE|\^BSESN)/.test(symbol)) {
+      if (/\.(NS|BO)$/.test(symbol) || /^(\^NSE|\^NSMIDCP|\^BSESN)/.test(symbol)) {
         const india = new Date((ts+19800)*1000);
         return Date.UTC(india.getUTCFullYear(),india.getUTCMonth(),india.getUTCDate(),10)/1000;
       }
@@ -28,7 +28,7 @@
       // Tight intraday checks only during the known Indian equity session.
       // Holidays are not inferred from weekdays; an idle feed is reported conservatively.
       const india = new Date(now+19800000), minute=india.getUTCHours()*60+india.getUTCMinutes();
-      if ((/\.(NS|BO)$/.test(symbol) || symbol.startsWith('^NSE')) && india.getUTCDay()>0 && india.getUTCDay()<6 && minute>=615 && minute<=930) {
+      if ((/\.(NS|BO)$/.test(symbol) || /^(\^NSE|\^NSMIDCP)/.test(symbol)) && india.getUTCDay()>0 && india.getUTCDay()<6 && minute>=615 && minute<=930) {
         tolerance=seconds[interval]*2+900;
       }
     }
@@ -53,7 +53,7 @@
     const bars=[...byTime.values()].sort((a,b)=>a.timestamp-b.timestamp);
     if (!bars.length) throw new Error('No valid completed candles available');
     let gaps=0;
-    if ((interval==='15m' || interval==='1h') && /\.(NS|BO)$/.test(symbol)) {
+    if ((interval==='15m' || interval==='1h') && (/\.(NS|BO)$/.test(symbol) || /^(\^NSE|\^NSMIDCP)/.test(symbol))) {
       for (let i=1;i<bars.length;i++) {
         if (bars[i].date.slice(0,10)===bars[i-1].date.slice(0,10) && bars[i].timestamp-bars[i-1].timestamp>seconds[interval]*1.5) gaps++;
       }

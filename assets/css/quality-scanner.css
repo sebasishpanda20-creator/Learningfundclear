@@ -1,0 +1,52 @@
+.qs-controls {
+  padding: 24px;
+  margin-block: 20px;
+}
+.qs-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  gap: 16px;
+}
+.qs-controls label {
+  display: block;
+}
+.qs-controls select,
+.qs-controls input:not([type="checkbox"]),
+.qs-controls textarea {
+  display: block;
+  width: 100%;
+  box-sizing: border-box;
+  margin-block: 8px 16px;
+}
+.qs-results {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 320px), 1fr));
+  gap: 16px;
+}
+.qs-result {
+  padding: 20px;
+  border: 1px solid var(--lfc-border, #d9e3e7);
+  border-radius: 12px;
+  overflow-wrap: anywhere;
+}
+.qs-result h3 {
+  margin-top: 0;
+}
+.qs-levels {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+}
+.qs-result small {
+  display: block;
+  margin-block: 12px;
+}
+.qs-controls button {
+  margin-block: 6px;
+}
+textarea {
+  min-height: 90px;
+}
+main {
+  min-width: 0;
+}

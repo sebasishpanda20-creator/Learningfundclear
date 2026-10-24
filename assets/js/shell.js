@@ -6,23 +6,31 @@
     dashboard: "M3 3h7v7H3z M14 3h7v7h-7z M3 14h7v7H3z M14 14h7v7h-7z",
     performance: "M4 20V10 M10 20V4 M16 20v-8 M22 20H2",
     nifty500: "M4 20V10 M10 20V4 M16 20v-8 M22 20H2",
+    "market-scanner": "M3 17l6-7 4 4 8-10 M3 21h18",
+    "index-scanner": "M3 17l6-7 4 4 8-10 M3 21h18",
     scanner: "M10 3a7 7 0 1 0 0 14 7 7 0 0 0 0-14 M15 15l6 6 M7 10h6 M10 7v6",
+    "trading-plan": "M4 3h16v18H4z M8 8h8 M8 12h8 M8 16h5",
     setups: "M4 5h16v16H4z M8 3v4 M16 3v4 M8 12h8 M8 16h5",
     gex: "M3 12h4l3-7 4 14 3-7h4",
     crypto: "M3 12h4l3-7 4 14 3-7h4",
     funds: "M3 9l9-6 9 6 M5 10v8 M12 10v8 M19 10v8 M3 21h18",
+    account: "M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8 M4 21v-2a8 8 0 0 1 16 0v2",
     admin: "M12 3l8 4v5c0 5-8 9-8 9s-8-4-8-9V7z",
   };
   const nav = [
     ["dashboard", "Dashboard", "index.html"],
     ["performance", "Performance", "performance.html"],
     ["nifty500", "Nifty 500 stocks", "nifty500.html"],
+    ["market-scanner", "Stock & crypto scanner", "market-scanner.html"],
     ["scanner", "Demand scanner", "scanner.html"],
+    ["index-scanner", "Index scanner", "index-scanner.html"],
+    ["trading-plan", "Trading plan", "trading-plan.html"],
     ["setups", "Setups & paper trades", "setups.html"],
     ["crypto", "Crypto markets", "crypto.html"],
     ["gex", "Options overview", "gex.html"],
     ["funds", "Mutual funds", "funds/top-returns.html"],
     ["admin", "Administration", "admin.html"],
+    ["account", "My account", "account.html"],
   ];
   const svg = (key) =>
     `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="${icons[key]}"/></svg>`;

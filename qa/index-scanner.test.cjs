@@ -1,0 +1,18 @@
+const test=require('node:test'),assert=require('node:assert/strict');global.window=global;require('../scanner-logic.js');require('../assets/js/market-data.js');require('../assets/js/index-scanner-logic.js');
+const now=Date.parse('2026-10-16T12:00:00+05:30');
+function feed(direction=1){const bars=Array.from({length:120},(_,i)=>{const p=direction===1?1000+i*2:1500-i*2;return {timestamp:now/1000-(120-i)*900,date:'2026-10-16',open:p,close:p+direction,high:p+3,low:p-3,volume:0};});const b=bars.at(-1);b.close+=direction*10;b.high=Math.max(b.high,b.close+1);b.low=Math.min(b.low,b.close-1);return {bars,stale:false,gaps:0,discarded:0};}
+test('fresh breakout and breakdown have correctly ordered 2R index levels',()=>{for(const dir of [1,-1]){const r=LfcIndexScanner.analyze(feed(dir),'intraday',now);assert.ok(r.entry);assert.equal(r.signal,dir===1?"Buy setup":"Sell setup");assert.ok(dir*(r.entry-r.stop)>0);assert.equal(r.target-r.entry,2*(r.entry-r.stop));}});
+test('stale, gapped, invalid and insufficient histories suppress all levels',()=>{for(const f of [{...feed(),stale:true},{...feed(),gaps:1},{...feed(),discarded:1},{...feed(),bars:feed().bars.slice(0,30)}]){const r=LfcIndexScanner.analyze(f,'intraday',now);assert.equal(r.signal,'Wait');assert.equal(r.entry,null);}});
+test('weekend intraday cannot produce an entry; recent swing can',()=>{const weekend=now+86400000;assert.equal(LfcIndexScanner.analyze(feed(),'intraday',weekend).entry,null);assert.ok(LfcIndexScanner.analyze(feed(),'swing',weekend).entry);assert.equal(LfcIndexScanner.analyze(feed(),'swing',now+5*86400000).entry,null);});
+test('Next 50 daily candle ends at 15:30 IST',()=>{const t=Date.parse('2026-10-16T09:15:00+05:30')/1000;assert.equal(LfcMarketData.endTime(t,'1d','^NSMIDCP',{}),Date.parse('2026-10-16T15:30:00+05:30')/1000);});
+test('index endpoint requires authentication and active profile before data fetch',async()=>{const {serveIndexHistory}=await import('../server/index-history.mjs');const config={url:'https://test.local',anonKey:'test'};let calls=0;const fetcher=async url=>{calls++;return Response.json(url.includes('/auth/')?{id:'user'}:[{is_active:false}]);};assert.equal((await serveIndexHistory(new Request('https://local/api/index-history?index=nifty50&mode=swing'),config,fetcher)).status,401);assert.equal(calls,0);assert.equal((await serveIndexHistory(new Request('https://local/api/index-history?index=nifty50&mode=swing',{headers:{Authorization:'Bearer test'}}),config,fetcher)).status,403);assert.equal(calls,2);});
+test('endpoint rejects arbitrary symbols and source mismatches',async()=>{const {serveIndexHistory}=await import('../server/index-history.mjs');const config={url:'https://test.local',anonKey:'test'},req=id=>new Request('https://local/api/index-history?index='+id+'&mode=swing',{headers:{Authorization:'Bearer test'}});const fetcher=async url=>Response.json(url.includes('/auth/')?{id:'user'}:url.includes('/rest/')?[{is_active:true}]:{chart:{result:[{meta:{symbol:'WRONG'},timestamp:[1]}]}});assert.equal((await serveIndexHistory(req('evil'),config,fetcher)).status,400);assert.equal((await serveIndexHistory(req('nifty50'),config,fetcher)).status,503);});
+require('../assets/js/crypto-signals.js');
+test('crypto buy/sell setups work outside NSE hours and reject stale/gapped history',()=>{
+ const weekend=Date.parse('2026-10-18T02:00:00Z');
+ for(const dir of [1,-1]){const bars=feed(dir).bars.map((b,i)=>({...b,time:weekend/1000-(120-i)*900}));
+ assert.equal(LfcCryptoSignals.analyze(bars,'15m',weekend).signal,dir===1?'Buy setup':'Sell setup');
+ assert.equal(LfcCryptoSignals.analyze(bars,'15m',weekend+4*900000).entry,null);
+ bars[50].time+=1;assert.equal(LfcCryptoSignals.analyze(bars,'15m',weekend).entry,null);
+ }
+});

@@ -1,0 +1,290 @@
+<!doctype html>
+<html lang="en-IN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <meta name="robots" content="noindex,nofollow" />
+    <title>Trading plan · LearningFundClear</title>
+    <link rel="stylesheet" href="assets/css/tokens.css" />
+    <link rel="stylesheet" href="assets/css/app.css" />
+    <link rel="stylesheet" href="assets/css/trading-plan.css" />
+    <script src="assets/vendor/supabase.js"></script>
+    <script src="assets/js/config.js"></script>
+    <script src="auth-guard.js"></script>
+    <script src="assets/js/theme.js"></script>
+    <script src="assets/js/trade-plan.js"></script>
+  </head>
+  <body data-page="trading-plan">
+    <main id="main">
+      <div class="page-heading">
+        <div>
+          <p class="eyebrow">PLAN · PRACTISE · REVIEW</p>
+          <h1>Trading plan</h1>
+          <p class="sub">Define your rules before recording a paper trade.</p>
+        </div>
+      </div>
+      <section class="card">
+        <h2>Your paper-trading limits</h2>
+        <div class="content">
+          <p>
+            Saved only in this browser for your portal account. These limits
+            apply to <a href="setups.html">Setups &amp; paper trades</a>, not
+            your broker or other devices. Export your plan and journal for a
+            backup.
+          </p>
+          <p class="plan-note">
+            The ₹50,000 starter plan is an editable practice example, not a
+            validated strategy. Losses and gaps can exceed planned stops. Limits
+            use realised losing trades plus estimated open risk; profits do not
+            replenish the daily or weekly loss budget. Day and Monday-start week
+            use IST.
+          </p>
+          <form id="planForm">
+            <div class="plan-grid">
+              <label
+                >Planning capital (₹)<input
+                  id="capital"
+                  type="number"
+                  min="1"
+                  step="0.01"
+                  required
+              /></label>
+              <label
+                >Risk per trade (%)<input
+                  id="riskPct"
+                  type="number"
+                  min="0.01"
+                  max="100"
+                  step="0.01"
+                  required
+              /></label>
+              <label
+                >Total open risk (%)<input
+                  id="openPct"
+                  type="number"
+                  min="0.01"
+                  max="100"
+                  step="0.01"
+                  required
+              /></label>
+              <label
+                >Daily loss budget (%)<input
+                  id="dailyPct"
+                  type="number"
+                  min="0.01"
+                  max="100"
+                  step="0.01"
+                  required
+              /></label>
+              <label
+                >Weekly loss budget (%)<input
+                  id="weeklyPct"
+                  type="number"
+                  min="0.01"
+                  max="100"
+                  step="0.01"
+                  required
+              /></label>
+              <label
+                >Minimum net reward/risk<input
+                  id="minRR"
+                  type="number"
+                  min="0.01"
+                  max="100"
+                  step="0.01"
+                  required
+              /></label>
+              <label
+                >Maximum paper trades per day<input
+                  id="maxTrades"
+                  type="number"
+                  min="1"
+                  max="100"
+                  step="1"
+                  required
+              /></label>
+              <label
+                >Trading style<select id="timeframe">
+                  <option>Intraday</option>
+                  <option>Swing</option>
+                </select></label
+              >
+              <label
+                >Markets and instruments<input
+                  id="markets"
+                  maxlength="500"
+                  required
+              /></label>
+              <label
+                >Session and event rules<input
+                  id="session"
+                  maxlength="500"
+                  required
+              /></label>
+              <label
+                >Exit method<select id="exitRule">
+                  <option>Fixed stop and target</option>
+                  <option>Trailing stop: specify in notes</option>
+                  <option>Partial exits: specify in notes</option>
+                </select></label
+              >
+              <label
+                >Exact setup / exit rules<textarea
+                  id="notes"
+                  rows="3"
+                  maxlength="2000"
+                  placeholder="Record timeframe, trigger, invalidation and exit rules. The ledger closes whole positions manually; it does not automate trailing or partial exits."
+                ></textarea>
+              </label>
+            </div>
+            <div class="plan-actions">
+              <button class="primary" type="submit">Save plan</button
+              ><button id="exportPlan" type="button">Export saved plan</button>
+            </div>
+          </form>
+          <p
+            id="planStatus"
+            class="plan-status"
+            role="status"
+            aria-live="polite"
+          ></p>
+          <p id="planSummary"></p>
+        </div>
+      </section>
+      <section class="card strategy-notes">
+        <h2>Strategy notebook</h2>
+        <div class="content">
+          <p>
+            Review notes from your uploaded guides. These are research
+            candidates, not new automatic Buy/Sell signals. Record exact rules,
+            costs and failed setups, then test on unseen data before considering
+            live use.
+          </p>
+          <details open>
+            <summary>Intraday: opening-range breakout</summary>
+            <p>
+              Choose a 15- or 30-minute opening range before the session. Wait
+              for it to finish, then evaluate a completed candle outside its
+              high or low. Define direct-breakout versus retest entry
+              separately, an invalidation level and a last-entry time. Skip
+              incomplete session history.
+            </p>
+            <p>
+              Use the actual instrument's exchange session and holiday calendar.
+              A 24-hour crypto market has no single equity-style opening bell.
+              Source: Opening Range Breakout guide, pp. 2–8.
+            </p>
+          </details>
+          <details>
+            <summary>Swing: trend pullback and breakout/retest</summary>
+            <p>
+              Separate the higher-timeframe trend from the entry timeframe.
+              Record the prior level, pullback, completed confirmation candle
+              and invalidation. Compare volume with that instrument's own
+              history when reliable volume exists. Do not substitute index spot
+              volume with zero or assume crypto volume is global.
+            </p>
+            <p>
+              Sources: Swing Trading Strategies guide, pp. 5–8; Trend Trading
+              Strategies guide, pp. 5–8; Volume guide, pp. 7–9.
+            </p>
+          </details>
+          <details>
+            <summary>Market cycle: EMA crossback and base breakout</summary>
+            <p>
+              Track whether price is reclaiming averages, making its first
+              pullback, consolidating, or extending away from them. Review
+              relative strength against a suitable benchmark. Define “tight
+              base” and “extended” numerically before automated testing.
+            </p>
+            <p>
+              The Oliver Kell workbook uses 10/20 EMA context and separates
+              weekly context, daily setups and lower-timeframe execution. It is
+              not the same rule as the existing portal's 20/50 trend filter.
+              Source: workbook pp. 3–7; slides p. 8. The bullish Base n’ Break
+              slide repeats Crossback text; the workbook provides the distinct
+              explanation.
+            </p>
+          </details>
+          <details>
+            <summary>Supply/demand, order blocks and candle patterns</summary>
+            <p>
+              Record zone creation time, boundaries, retests and invalidation. A
+              chart zone is a price-derived hypothesis; candles do not prove
+              institutional orders. Pin bars, divergence, Fibonacci levels and
+              gaps need explicit confirmation rules. Gaps need not fill, and
+              divergence can persist.
+            </p>
+            <p>
+              Sources: Supply and Demand guide pp. 6–8; Order Block guide pp.
+              5–6; Pin Bar guide pp. 4–9; Divergence guide pp. 5 and 13; Gap
+              guide p. 4. No claimed success rate has been adopted.
+            </p>
+          </details>
+          <details>
+            <summary>Keep exit methods separate</summary>
+            <p>
+              Your materials disagree about moving stops to entry, trailing
+              stops and partial exits. Keep each as a named test variant with
+              identical entries and realistic costs. Entry-price stops do not
+              eliminate fees, slippage or gap risk. Do not tighten a stop solely
+              to manufacture an attractive reward/risk number.
+            </p>
+            <p>
+              Sources: Trend Following guide p. 29; Pip Factory p. 29; Swing
+              Trading beginner guide pp. 81–83. The paper ledger records manual
+              full-position exits; an exit-method note is not an automated
+              order.
+            </p>
+          </details>
+          <details>
+            <summary>What needs more data before automation?</summary>
+            <p>
+              Order flow requires an appropriate trades/order-book feed. Options
+              require fresh bid/ask quotes and contract details. Deep-value
+              screening requires point-in-time financials. Historical foreign
+              exchange rules, broker recommendations and US dollar tick offsets
+              do not transfer directly to Indian instruments. FYERS remains
+              deferred.
+            </p>
+            <p>
+              The new YouTube page loaded, but its full video/transcript was
+              unavailable during this review; its proprietary indicator rules
+              have not been copied or inferred from promotional descriptions.
+            </p>
+          </details>
+          <details>
+            <summary>Testing checklist</summary>
+            <ul>
+              <li>
+                Freeze entry, stop, target, timeframe and exit rules before
+                testing.
+              </li>
+              <li>
+                Use only candles and confirmed pivots available at the decision
+                time.
+              </li>
+              <li>
+                Include fees, spreads, slippage, missed fills and
+                gap-through-stop losses.
+              </li>
+              <li>
+                Keep development data separate from an untouched test period.
+              </li>
+              <li>
+                Report trade count, net expectancy, drawdown and losing streaks,
+                including no-trade periods.
+              </li>
+              <li>
+                Paper-test forward. A high reward/risk ratio or selected winning
+                charts is not evidence of an edge.
+              </li>
+            </ul>
+          </details>
+        </div>
+      </section>
+    </main>
+    <script src="assets/js/shell.js"></script>
+    <script type="module" src="assets/js/trading-plan-ui.js"></script>
+  </body>
+</html>
