@@ -2,8 +2,11 @@ name: visual portal QA
 
 on:
   pull_request:
-    branches: [main]
+    branches: [main, portal/cloudflare-migration]
     paths:
+      - "trading-plan.html"
+      - "account.html"
+      - "index-scanner.html"
       - "index.html"
       - "signin.html"
       - "performance.html"
