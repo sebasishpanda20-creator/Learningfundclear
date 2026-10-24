@@ -4,6 +4,7 @@ on:
   pull_request:
     branches: [main, portal/cloudflare-migration]
     paths:
+      - "market-scanner.html"
       - "trading-plan.html"
       - "account.html"
       - "index-scanner.html"
