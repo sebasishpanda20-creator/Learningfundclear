@@ -10,6 +10,7 @@ fi
 node qa/audit.cjs
 node qa/flows.cjs
 node qa/trade-plan-flows.cjs
+node qa/quality-scanner-flows.cjs
 node qa/clean-routes.cjs
 node qa/feed-flows.cjs
 node qa/crypto-flows.cjs

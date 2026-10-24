@@ -1,0 +1,161 @@
+<!doctype html>
+<html lang="en-IN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <meta name="robots" content="noindex,nofollow" />
+    <title>Stock & crypto scanner · LearningFundClear</title>
+    <link rel="stylesheet" href="assets/css/tokens.css" />
+    <link rel="stylesheet" href="assets/css/app.css" />
+    <link rel="stylesheet" href="assets/css/quality-scanner.css" />
+    <script src="assets/vendor/supabase.js"></script>
+    <script src="assets/js/config.js"></script>
+    <script src="auth-guard.js"></script>
+    <script src="assets/js/theme.js"></script>
+  </head>
+  <body data-page="market-scanner">
+    <main id="main">
+      <p class="eyebrow">WATCHLIST RESEARCH</p>
+      <h1>Stock &amp; crypto scanner</h1>
+      <p>Find confirmed setups. See why other symbols are waiting.</p>
+      <section class="card qs-controls">
+        <div class="qs-grid">
+          <label
+            >Market<select id="qsMarket">
+              <option value="stocks">Indian stocks · INR</option>
+              <option value="crypto">Crypto spot · USDT</option>
+            </select></label
+          ><label
+            >Style<select id="qsMode">
+              <option value="intraday">Intraday</option>
+              <option value="swing">Swing</option>
+            </select></label
+          ><label
+            >Source<select id="qsSource">
+              <option value="public">Public historical API</option>
+              <option value="csv">Local stock CSV · Swing</option>
+            </select></label
+          >
+        </div>
+        <p id="qsCoverage"></p>
+        <label
+          >Watchlist · up to 30 symbols<textarea
+            id="qsWatch"
+            rows="3"
+          ></textarea>
+        </label>
+        <p>
+          Stock symbols need .NS or .BO. Crypto uses USDT spot pairs, e.g.
+          BTCUSDT. Editing controls clears previous results.
+        </p>
+        <div class="qs-grid">
+          <label
+            >Minimum relative volume<input
+              id="qsRvol"
+              type="number"
+              value="1.2"
+              min="1"
+              max="10"
+              step="0.1" /></label
+          ><label
+            >Minimum average turnover / candle<input
+              id="qsTurnover"
+              type="number"
+              value="10000000"
+              min="0"
+              step="100000" /></label
+          ><label
+            >Round-trip costs + slippage (bps)<input
+              id="qsCosts"
+              type="number"
+              value="30"
+              min="0"
+              max="1000"
+              step="1" /></label
+          ><label
+            >Minimum net reward/risk<input
+              id="qsRR"
+              type="number"
+              value="2"
+              min="1"
+              max="10"
+              step="0.1"
+          /></label>
+        </div>
+        <p>
+          Turnover is mean close × volume over 20 prior candles, in the selected
+          quote currency. 30 bps means 0.30% of entry value across entry and
+          exit; adjust for your actual costs. These are research thresholds, not
+          optimised settings.
+        </p>
+        <label
+          >Import daily stock CSV<input
+            id="qsFile"
+            type="file"
+            accept=".csv,text/csv"
+        /></label>
+        <p>
+          Columns: symbol,date,open,high,low,close,volume. At least 100
+          completed daily candles per stock; daily higher trend uses 100 weekly
+          aggregates, so supply at least two years of history. CSV stays in this
+          tab. Check price adjustments yourself.
+        </p>
+        <button id="qsRun" class="primary">Scan watchlist</button>
+        <button id="qsCancel" disabled>Cancel</button>
+        <button id="qsExport" disabled>Export results</button>
+        <p id="qsStatus" role="status" aria-live="polite">Ready to scan.</p>
+      </section>
+      <section class="card qs-controls">
+        <h2>Ranked results</h2>
+        <label
+          ><input id="qsOnly" type="checkbox" /> Show qualifying setups
+          only</label
+        >
+        <p id="qsSummary">No scan yet.</p>
+        <div id="qsResults" class="qs-results"></div>
+      </section>
+      <section class="card qs-controls">
+        <h2>How qualification works</h2>
+        <p>
+          Intraday: stocks 15-minute + daily trend; crypto 15-minute + hourly
+          trend. Swing: stocks daily + weekly trend; crypto hourly + daily
+          trend. Both timeframes need at least 100 completed candles. EMA20/50
+          trend agreement, a 20-candle breakout or EMA20 pullback, relative
+          volume, turnover, and net reward/risk must all pass. Extended entries
+          above 2.5 ATR from EMA20 are rejected.
+        </p>
+        <p>
+          Stops use the signal candle extreme or one ATR, whichever is farther.
+          Targets start at 3× price risk; pullback targets are capped at the
+          prior 20-candle extreme. Estimated round-trip costs reduce reward and
+          increase risk. Levels are historical research references, not current
+          executable quotes.
+        </p>
+        <p>
+          Score: trend agreement 30 + confirmation 25 + volume up to 20 + net
+          reward/risk up to 25. This score is a sorting rule, not a win
+          probability. Volume compares equal-length bars, not the same time of
+          day. Intraday opening-volume effects can distort it.
+        </p>
+        <p>
+          Bearish / avoid is a direction warning, not a spot short-sale order.
+          No orders are placed. Public data may be delayed or unavailable. Stale
+          or missing data blocks qualification; refresh before use. No exchange
+          holiday calendar, earnings/event filter, bid/ask validation or
+          performance backtest is included. FYERS is not connected.
+        </p>
+        <p>
+          Use <a href="trading-plan.html">Trading plan</a> and
+          <a href="setups.html">paper trades</a> to record and review setups.
+          This scanner covers spot price setups; funding research remains
+          separate.
+        </p>
+      </section>
+    </main>
+    <script src="assets/js/shell.js"></script>
+    <script src="assets/js/market-data.js"></script>
+    <script src="assets/js/csv-history.js"></script>
+    <script src="assets/js/quality-scanner.js"></script>
+    <script src="assets/js/quality-scanner-ui.js"></script>
+  </body>
+</html>
