@@ -86,7 +86,7 @@ function optionCandidates(tickers,trend,asset,lockedSymbols=[]) {
   const nearest=valid.filter(x=>x.expiry===expiry);
   return ["C","P"].flatMap(type=>nearest.filter(x=>x.ticker.symbol.startsWith(type+"-"))
    .sort((a,b)=>Math.abs(a.strike-trend.current)-Math.abs(b.strike-trend.current))
-   .slice(0,20).map(x=>x.ticker.symbol));
+   .slice(0,12).map(x=>x.ticker.symbol));
  });
 }
 async function readOptions(asset,trend,lockedSymbols=[]) {
