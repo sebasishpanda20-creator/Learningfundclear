@@ -52,12 +52,49 @@ async function readTrend(asset) {
  const result=await Promise.all([history(asset+"USD","15m",36*3600),history(asset+"USD","1h",120*3600)]);
  return D.direction(result[0],result[1]);
 }
-async function readOptions(asset){
- return getDelta("/tickers?contract_types=call_options,put_options&underlying_asset_symbols="+asset);
+// Ticker payloads do not carry complete contract metadata. Pull product specs
+// separately for the small set of near-ATM, near-expiry candidate contracts.
+const productCache=new Map();
+async function product(symbol) {
+ const cached=productCache.get(symbol);
+ if(cached&&Date.now()-cached.at<10*60000)return cached.value;
+ const data=await get(API+"/products/"+encodeURIComponent(symbol),12000);
+ const p=data?.result;
+ if(!data?.success||!p||p.symbol!==symbol||!Number.isFinite(Number(p.contract_value))||Number(p.contract_value)<=0)
+  throw Error("Cannot verify Delta product specification: "+symbol);
+ productCache.set(symbol,{at:Date.now(),value:p});return p;
+}
+async function hydrate(tickers,symbols) {
+ const unique=[...new Set(symbols)].filter(Boolean);
+ const details=await Promise.allSettled(unique.map(product));
+ const mapped=new Map(details.flatMap((x,i)=>x.status==="fulfilled"?[[unique[i],x.value]]:[]));
+ return tickers.map(t=>({...t,product:t.product||mapped.get(t.symbol)||null}));
+}
+function optionCandidates(tickers,trend,asset,lockedSymbols=[]) {
+ if(lockedSymbols.length)return lockedSymbols;
+ if(!Number.isFinite(trend?.current))return[];
+ const side=trend.side==="UP"?"C":"P";
+ const now=Date.now(),valid=tickers.filter(t=>typeof t.symbol==="string"&&t.symbol.startsWith(side+"-"+asset+"-"))
+  .map(t=>({ticker:t,match:/^[CP]-[A-Z0-9]+-([0-9.]+)-(\d{6})$/.exec(t.symbol)}))
+  .filter(x=>x.match).map(x=>{
+   const code=x.match[2],expiry=Date.UTC(2000+Number(code.slice(4)),Number(code.slice(2,4))-1,Number(code.slice(0,2)),12);
+   return {...x,expiry,strike:Number(x.match[1])};
+  }).filter(x=>x.expiry>now+8*3600000&&x.expiry<now+10*86400000&&
+   Number.isFinite(x.strike)&&Math.abs(x.strike-trend.current)/trend.current<=0.08);
+ const expiry=[...new Set(valid.map(x=>x.expiry))].sort((a,b)=>a-b)[0];
+ return valid.filter(x=>x.expiry===expiry).sort((a,b)=>Math.abs(a.strike-trend.current)-Math.abs(b.strike-trend.current))
+  .slice(0,24).map(x=>x.ticker.symbol);
+}
+async function readOptions(asset,trend,lockedSymbols=[]) {
+ const rows=await getDelta("/tickers?contract_types=call_options,put_options&underlying_asset_symbols="+asset);
+ const chosen=optionCandidates(rows,trend,asset,lockedSymbols);
+ return hydrate(rows,chosen);
 }
 async function readPerps(){
  const out=await getDelta("/tickers?contract_types=perpetual_futures");
- return out.map(t=>({...t,contract_type:t.contract_type||t.product?.contract_type}));
+ const symbols=["BTCUSD","ETHUSD","XAUTUSD","PAXGUSD"];
+ const hydrated=await hydrate(out,symbols.filter(x=>out.some(t=>t.symbol===x)));
+ return hydrated.map(t=>({...t,contract_type:t.contract_type||t.product?.contract_type}));
 }
 function rowTrend(asset,x){
  return[asset==="XAUT"?"Tokenized gold · XAUT":asset,x.side,
@@ -98,7 +135,7 @@ function showMonitor(current){
 async function refreshOption(isMonitor=false) {
  if(locked){
   try{
-   const asset=locked.long.split("-")[1],rows=await readOptions(asset);
+   const asset=locked.long.split("-")[1],rows=await readOptions(asset,null,[locked.long,locked.short]);
    latestTickers=rows;
    showPlan(locked);
    showMonitor(D.monitor(locked,rows));
@@ -113,7 +150,7 @@ async function refreshOption(isMonitor=false) {
    const trend=await readTrend(asset);
    results.push({asset,trend});
    if(!trend.actionable)return{asset,trend,plan:{status:"NO TRADE",reason:trend.why}};
-   const ticks=await readOptions(asset);
+   const ticks=await readOptions(asset,trend);
    return{asset,trend,plan:D.chooseSpread(ticks,trend,asset,capitalUSD())};
   }catch(e){
    const trend={side:"UNKNOWN",actionable:false,why:"Feed unavailable: "+e.message};
