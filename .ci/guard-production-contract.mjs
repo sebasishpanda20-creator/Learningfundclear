@@ -3,7 +3,7 @@ import {readFileSync,existsSync} from 'node:fs';
 import path from 'node:path';
 import assert from 'node:assert/strict';
 const read=p=>readFileSync(p,'utf8');
-const pages={'index.html':'dashboard','performance.html':'performance','admin.html':'admin','nifty500.html':'nifty500','scanner.html':'scanner','setups.html':'setups','gex.html':'gex','crypto.html':'crypto','funds/top-returns.html':'funds','funds/index.html':'funds','funds/funds.html':'funds','funds/scheme.html':'funds','funds/compare.html':'funds','funds/calculators.html':'funds','funds/methodology.html':'funds','funds/legal.html':'funds'};
+const pages={'index.html':'dashboard','performance.html':'performance','admin.html':'admin','nifty500.html':'nifty500','scanner.html':'scanner','setups.html':'setups','gex.html':'gex','crypto.html':'crypto','crypto-options.html':'crypto-options','crypto-funding.html':'crypto-funding','funds/top-returns.html':'funds','funds/index.html':'funds','funds/funds.html':'funds','funds/scheme.html':'funds','funds/compare.html':'funds','funds/calculators.html':'funds','funds/methodology.html':'funds','funds/legal.html':'funds'};
 for(const [page,key] of Object.entries(pages)){
  const h=read(page),prefix=page.startsWith('funds/')?'../':'';
  assert(h.includes('name="viewport"'),page+' viewport');assert(h.includes(`data-page="${key}"`),page+' active navigation key');
@@ -24,7 +24,9 @@ const hooks={
  'scanner.html':['pLeft','pRight','tfDaily','tfWeekly','tfMonthly','tfHourly','tf15','trendFilter','scanBtn','watchInput','saveWatch','importFile','resultsBody','downloadBtn','chart','historySource','historyFile','forceRefresh','feedIssues'],
  'setups.html':['sigBody','refreshSigs','scanList','scanAdd','scanAddBtn','addManual','riskCard','paperOpen','ledgerBody'],
  'gex.html':['sym','exp','load','auto','mkt','stamp','stats','bars','flip','chainMeta','chain'],
- 'crypto.html':['venue','asset','interval','lastPrice','spotStatus','cryptoChart','deltaRows']};
+ 'crypto.html':['venue','asset','interval','lastPrice','spotStatus','cryptoChart','deltaRows'],
+ 'crypto-options.html':['capital','refreshNow','fxStatus','status','tradePlan','monitorPanel','directionRows'],
+ 'crypto-funding.html':['capital','refreshNow','fxStatus','status','tradePlan','fundRows']};
 for(const [page,ids] of Object.entries(hooks))for(const id of ids)assert(read(page).includes(`id="${id}"`),page+' missing #'+id);
 const tokens=new Set([...read('assets/css/tokens.css').matchAll(/--(lfc-[\w-]+)\s*:/g)].map(m=>m[1]));for(const [,ref] of read('funds/assets/css/style.css').matchAll(/var\(--(lfc-[\w-]+)/g))assert(tokens.has(ref),'undefined fund token '+ref);
 for(const file of ['tools/signal-scan.js','tools/test-signal-guards.js','tools/test-weekly-line.js','tools/engine/candle.js','tools/engine/zone.js','tools/engine/pipeline.js','.github/workflows/deploy-pages.yml','.github/workflows/signal-scan.yml','.github/workflows/scan-watchdog.yml','.github/workflows/pre-push-html-guard.yml'])assert(existsSync(file),'required '+file);

@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="en-IN">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex,nofollow"><title>Crypto Options Desk · LearningFundClear</title>
+<link rel="stylesheet" href="assets/css/tokens.css"><link rel="stylesheet" href="assets/css/app.css"><link rel="stylesheet" href="assets/css/crypto-desk.css">
+<script src="assets/vendor/supabase.js"></script><script src="assets/js/config.js"></script><script src="auth-guard.js"></script><script src="assets/js/theme.js"></script>
+</head>
+<body data-page="crypto-options"><main id="main">
+<p class="eyebrow">READ-ONLY • DELTA INDIA PUBLIC MARKET DATA</p>
+<h1>Crypto Options Desk</h1>
+<p class="sub">Your capital is the only required input. The desk scans BTC, ETH and XAUT tokenized-gold options, checks 15-minute and hourly structure, chooses at most one defined-risk debit vertical, calculates contracts, and monitors both legs. It will explicitly say <strong>NO TRADE</strong> when inputs or market conditions fail.</p>
+<nav class="desk-tabs" aria-label="Crypto research pages"><a aria-current="page" href="crypto-options.html">Options &amp; spreads</a><a href="crypto-funding.html">Funding &amp; hedges</a><a href="crypto.html">Raw markets</a></nav>
+<section class="card desk-inputs" aria-label="Capital and refresh">
+<div class="row"><div class="capital-field"><label for="capital">Trading capital (₹ INR)</label><input id="capital" type="number" min="100" max="1000000000" step="100" inputmode="decimal" placeholder="e.g. 50000" autocomplete="off"></div>
+<button id="refreshNow" class="primary" type="button">Refresh &amp; analyse</button>
+<button id="resetPlan" type="button">Clear locked paper plan</button></div>
+<p id="fxStatus" class="desk-minor">Waiting for live indicative INR/USD conversion.</p>
+<p id="status" class="msg" aria-live="polite" role="status">Enter capital to begin.</p>
+<small id="lastChecked">No exchange check yet</small></section>
+<section id="tradePlan" class="card" aria-live="polite"><h2>NO TRADE</h2><p>Enter your capital to begin.</p></section>
+<section id="monitorPanel" class="card" aria-live="polite"><h2>Trade exit watch</h2><p>If a plan qualifies, exit is tracked using the long-leg bid and short-leg ask, not a midpoint or last trade.</p></section>
+<section class="card"><h2>Which direction is the market moving?</h2>
+<p class="sub">Direction is calculated from actual completed Delta perpetual candles. SMC evidence is a completed 15m break of structure (BOS) or sweep/reclaim, checked against 15m and 1h EMA20/50. A directional trend without confirmation is watch-only, not a recommendation.</p>
+<div class="table-wrap"><table><thead><tr><th>Asset</th><th>Trend</th><th>SMC BOS</th><th>Liquidity sweep</th><th>Trade gate</th><th>Why</th></tr></thead><tbody id="directionRows"><tr><td colspan="6">Waiting for exchange data</td></tr></tbody></table></div>
+<p class="desk-minor">XAUT options, if listed, reference tokenized gold, <strong>not</strong> spot XAUUSD. Missing gold option liquidity results in NO TRADE; no synthetic quote is inserted.</p>
+</section>
+<section class="card"><h2>How the automation decides</h2>
+<p>Scan → determine direction → require completed BOS or sweep → check option-chain timestamps, expiry, spread, open interest and exact contract value → select a debit vertical → size from at most 2% of capital at maximum theoretical spread loss → lock one plan for a three-hour research exit watch. If no plan qualifies, do not force a trade.</p>
+<p class="desk-minor">Spread entry = buy-leg ask minus sell-leg bid. Spread exit = buy-leg bid minus sell-leg ask. Stop and target displayed here apply to the <strong>combined spread</strong>; they are <strong>not</strong> Delta terminal's independent leg order prices. Currency conversion, fees and taxes are estimates; costs, margin, executable fills and trading permissions must be verified on your broker.</p>
+<p class="desk-minor"><strong>Research only:</strong> no positions are imported; no live order, stop or target is placed. Options are high risk. A stop can gap past the alert and a defined-risk spread may incur additional fees and execution risks.</p>
+</section>
+</main>
+<script src="assets/js/shell.js"></script><script src="assets/js/crypto-desk-engine.js"></script><script src="assets/js/crypto-desk-ui.js"></script>
+</body></html>
