@@ -82,7 +82,7 @@ function chooseSpread(tickers,trend,asset,capitalUSD,now=Date.now()){
 }
 function monitor(plan,tickers,now=Date.now()){
  if(plan?.status!=="PAPER PLAN")return wait("No locked spread");
- const rows=Array.isArray(tickers)?tickers:[],a=rows.find(t=>t.symbol===plan.long),b=rows.find(t=>t.symbol===plan.short);
+ const rows=Array.isArray(tickers)?tickers:[],a=rows.find(t=>(t.symbol||t.product_symbol)===plan.long),b=rows.find(t=>(t.symbol||t.product_symbol)===plan.short);
  if(!a||!b||!fresh(a.timestamp,now)||!fresh(b.timestamp,now))return wait("Both leg timestamps must be current");
  const bid=number(a.quotes?.best_bid),ask=number(b.quotes?.best_ask);
  if(!ok(bid)||!ok(ask)||bid<=0||ask<=0)return wait("Cannot determine executable spread exit quote");
