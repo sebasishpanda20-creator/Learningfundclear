@@ -73,17 +73,17 @@ async function hydrate(tickers,symbols) {
 function optionCandidates(tickers,trend,asset,lockedSymbols=[]) {
  if(lockedSymbols.length)return lockedSymbols;
  if(!Number.isFinite(trend?.current))return[];
- const side=trend.side==="UP"?"C":"P";
- const now=Date.now(),valid=tickers.filter(t=>typeof t.symbol==="string"&&t.symbol.startsWith(side+"-"+asset+"-"))
+ const side=trend.side==="UP"?"C":trend.side==="DOWN"?"P":null;
+ const now=Date.now(),valid=tickers.filter(t=>typeof t.symbol==="string"&&t.symbol.startsWith("C-"+asset+"-")||t.symbol.startsWith("P-"+asset+"-"))
   .map(t=>({ticker:t,match:/^[CP]-[A-Z0-9]+-([0-9.]+)-(\d{6})$/.exec(t.symbol)}))
   .filter(x=>x.match).map(x=>{
    const code=x.match[2],expiry=Date.UTC(2000+Number(code.slice(4)),Number(code.slice(2,4))-1,Number(code.slice(0,2)),12);
    return {...x,expiry,strike:Number(x.match[1])};
-  }).filter(x=>x.expiry>now+8*3600000&&x.expiry<now+10*86400000&&
+  }).filter(x=>x.expiry>now+(Number($("tradeHorizon")?.value)||4)*3600000+3600000&&x.expiry<now+10*86400000&&
    Number.isFinite(x.strike)&&Math.abs(x.strike-trend.current)/trend.current<=0.08);
  const expiry=[...new Set(valid.map(x=>x.expiry))].sort((a,b)=>a-b)[0];
  return valid.filter(x=>x.expiry===expiry).sort((a,b)=>Math.abs(a.strike-trend.current)-Math.abs(b.strike-trend.current))
-  .slice(0,24).map(x=>x.ticker.symbol);
+  .slice(0,40).map(x=>x.ticker.symbol);
 }
 async function readOptions(asset,trend,lockedSymbols=[]) {
  const rows=await getDelta("/tickers?contract_types=call_options,put_options&underlying_asset_symbols="+asset);
@@ -107,7 +107,7 @@ function showPlan(plan){
  if(plan.status!=="PAPER PLAN"){box.append(node("p",plan.reason||"No verified opportunity"));return;}
  const dl=document.createElement("dl");
  const fields=[
- ["Direction",plan.direction],["Buy to open",plan.long],["Sell to open",plan.short],
+ ["Direction",plan.direction],["Buy to open",plan.long],[plan.long2?"Buy put to open":"Sell to open",plan.short],
  ["Number of contracts (each leg)",plan.quantity],["Entry debit, USD per underlying unit",fnum(plan.entrySpread,6)],
  ["Watch stop, spread USD per underlying unit",fnum(plan.stopSpread,6)],
  ["Watch target, spread USD per underlying unit",fnum(plan.targetSpread,6)],
@@ -127,7 +127,7 @@ function showMonitor(current){
  p.append(node("h2",current.status));
  p.append(node("p",current.reason||""));
  if(Number.isFinite(current.exitSpread)){
-  p.append(node("p","Executable NET exit (long bid − short ask): "+fnum(current.exitSpread,6)+" USD per unit."));
+  p.append(node("p","Executable NET exit value (bid-based two-leg calculation): "+fnum(current.exitSpread,6)+" USD per unit."));
   p.append(node("p","Gross indicative P/L: "+money(current.grossPnlUSD)+" · approx. ₹"+fnum(current.grossPnlUSD/fx,0)+" before commissions and FX changes."));
  }
  if(["TARGET WATCH","STOP WATCH","TIME EXIT"].includes(current.status))
@@ -150,15 +150,23 @@ async function refreshOption(isMonitor=false) {
   try{
    const trend=await readTrend(asset);
    results.push({asset,trend});
-   if(!trend.actionable)return{asset,trend,plan:{status:"NO TRADE",reason:trend.why}};
    const ticks=await readOptions(asset,trend);
-   return{asset,trend,plan:D.chooseSpread(ticks,trend,asset,capitalUSD(),Date.now(),Number($("tradeHorizon").value))};
+   const evaluated=D.assessStrategies(ticks,trend,asset,capitalUSD(),Date.now(),Number($("tradeHorizon").value));
+   return{asset,trend,plan:evaluated.strategy,alternatives:evaluated.alternatives};
   }catch(e){
    const trend={side:"UNKNOWN",actionable:false,why:"Feed unavailable: "+e.message};
    results.push({asset,trend});return{asset,trend,plan:{status:"NO TRADE",reason:e.message}};
   }
  }));
  setRows("directionRows",assets.map(asset=>rowTrend(asset,results.find(x=>x.asset===asset)?.trend||{side:"UNKNOWN",why:"No exchange response"})));
+ const report=$("strategyDiagnostics");
+ if(report){
+  report.replaceChildren();
+  for(const item of search)for(const alt of item.alternatives||[]){
+   const p=node("p",item.asset+" · "+alt.name+" · "+alt.status+" · "+alt.reason);
+   report.append(p);
+  }
+ }
  const plans=search.map(x=>x.plan).filter(x=>x.status==="PAPER PLAN");
  plans.sort((a,b)=>b.score-a.score);
  if(plans.length){
@@ -167,7 +175,10 @@ async function refreshOption(isMonitor=false) {
   showPlan(locked);showMonitor({status:"MONITOR",reason:"Plan created and locked; waiting for next quote"});
   safeText("status","One spread selected for the requested "+$("tradeHorizon").value+"-hour horizon using verified public inputs.");
  }else{
-  showPlan({status:"NO TRADE",reason:"No verified spread passed direction/liquidity/risk gates. "+search.map(x=>x.asset+": "+x.plan.reason).join(" · ")});
+  const watches=search.filter(x=>x.plan.status==="WATCH ONLY");
+  showPlan({status:"NO TRADE",reason:"No risk-qualified directional entry. "+
+   (watches.length?"Potential straddle/strangle watchlist (NOT a trade signal): "+watches.map(x=>x.asset+" "+x.plan.label).join(", ")+". ":"")+
+   search.map(x=>x.asset+": "+(x.plan.reason||x.plan.why)).join(" · ")});
   safeText("status","Scan complete · no eligible setup · "+stamp(Date.now()));
  }
 }
