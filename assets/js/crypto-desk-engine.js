@@ -45,8 +45,9 @@ function parseOption(t){
 function liquid(x,asset,now){return x&&x.asset===asset&&x.live&&x.unit===asset&&ok(x.cv)&&x.cv>0&&
  ok(x.bid)&&x.bid>0&&ok(x.ask)&&x.ask>x.bid&&
  (x.ask-x.bid)/((x.ask+x.bid)/2)<=0.20&&ok(x.oi)&&x.oi>=500&&
- fresh(x.timestamp,now)&&x.expiry>now+8*3600000&&x.expiry<now+10*86400000;}
-function chooseSpread(tickers,trend,asset,capitalUSD,now=Date.now()){
+ fresh(x.timestamp,now)&&x.expiry>now+3600000&&x.expiry<now+10*86400000;}
+function chooseSpread(tickers,trend,asset,capitalUSD,now=Date.now(),hours=4){
+ if(![2,4,8].includes(hours))return wait("Choose a valid 2, 4 or 8 hour trade horizon");
  if(!ok(capitalUSD)||capitalUSD<20)return wait("Capital or verified FX missing (minimum $20 equivalent)");
  if(!trend?.actionable||!["UP","DOWN"].includes(trend.side))return wait("No confirmed direction: "+(trend?.why||"no data"));
  const side=trend.side==="UP"?"C":"P",chain=(Array.isArray(tickers)?tickers:[]).map(parseOption).filter(t=>liquid(t,asset,now)&&t.side===side);
@@ -54,6 +55,7 @@ function chooseSpread(tickers,trend,asset,capitalUSD,now=Date.now()){
  let best=null;
  const expiries=[...new Set(chain.map(t=>t.expiry))].sort((a,b)=>a-b);
  for(const expiry of expiries.slice(0,3)){
+  if(expiry<=now+hours*3600000+3600000)continue;
   const rows=chain.filter(x=>x.expiry===expiry).sort((a,b)=>a.strike-b.strike);
   const longs=[...rows].sort((a,b)=>Math.abs(a.strike-trend.current)-Math.abs(b.strike-trend.current)).slice(0,5);
   for(const long of longs)for(const short of rows){
@@ -70,7 +72,7 @@ function chooseSpread(tickers,trend,asset,capitalUSD,now=Date.now()){
     long:long.symbol,short:short.symbol,expiry,contractValue:long.cv,
     quantity,entrySpread:debit/long.cv,stopSpread:debit*0.5/long.cv,
     targetSpread:Math.min(width*0.9,debit*1.6)/long.cv,
-    timeExit:Math.min(now+3*3600000,expiry-3600000),
+    timeExit:now+hours*3600000,horizonHours:hours,
     riskUSD:loss*quantity,estimatedFeesUSD:buffer*quantity,estimatedMaxGainUSD:gain*quantity,
     why:"15m/1h trend plus SMC → executable quotes → liquid expiry → 2% approximate spread-risk and 30% underlying-notional caps",
     score:gain/loss-Math.abs(long.strike-trend.current)/trend.current};
@@ -78,7 +80,71 @@ function chooseSpread(tickers,trend,asset,capitalUSD,now=Date.now()){
   }
   if(best)break;
  }
- return best||wait("No option vertical passes 2% max-loss, expiry, liquidity and reward gates");
+ return best||wait("No option vertical passes selected timeframe, 2% max-loss, expiry, liquidity and reward gates");
+}
+// Long-volatility alternatives are research-only: a sideways market does not by
+// itself imply imminent movement. Liquidity, fresh quotes and premium risk still apply.
+function chooseVolatility(tickers,trend,asset,capitalUSD,now=Date.now(),hours=4) {
+ if(![2,4,8].includes(hours))return wait("Invalid duration");
+ if(!ok(capitalUSD)||capitalUSD<20)return wait("Capital or FX quote unavailable");
+ if(!trend||!Number.isFinite(trend.current)||trend.side==="UNKNOWN")
+  return wait("Underlying history unavailable; no volatility setup");
+ const all=(Array.isArray(tickers)?tickers:[]).map(parseOption)
+  .filter(x=>liquid(x,asset,now)&&x.expiry>now+(hours+1)*3600000);
+ const expiries=[...new Set(all.map(x=>x.expiry))].sort((a,b)=>a-b);
+ if(!expiries.length)return wait("No fresh call and put contract pairs with sufficient expiry");
+ let best=null;
+ for(const expiry of expiries.slice(0,3)){
+  const calls=all.filter(x=>x.expiry===expiry&&x.side==="C"),
+   puts=all.filter(x=>x.expiry===expiry&&x.side==="P");
+  if(!calls.length||!puts.length)continue;
+  for(const call of calls)for(const put of puts){
+   if(call.cv!==put.cv||call.unit!==put.unit)continue;
+   const straddle=call.strike===put.strike;
+   const strangle=call.strike>put.strike&&call.strike!==put.strike;
+   if(!straddle&&!strangle)continue;
+   if(straddle&&Math.abs(call.strike-trend.current)/trend.current>0.025)continue;
+   if(strangle&&(call.strike-trend.current)/trend.current>0.05||
+      strangle&&(trend.current-put.strike)/trend.current>0.05)continue;
+   if(strangle&&(call.strike<trend.current||put.strike>trend.current))continue;
+   const debit=(call.ask+put.ask)*call.cv;
+   const feeReserve=(call.ask+put.ask+call.bid+put.bid)*call.cv*0.005;
+   const risk=debit+feeReserve;
+   if(risk<=0||!ok(risk))continue;
+   const qty=Math.floor(Math.min(capitalUSD*0.02/risk,capitalUSD*0.3/(trend.current*call.cv)));
+   if(qty<1)continue;
+   const score=(straddle?1:0.8)-
+    Math.abs(call.strike-trend.current)/trend.current-
+    Math.abs(put.strike-trend.current)/trend.current-
+    (call.ask-call.bid+put.ask-put.bid)/(call.ask+put.ask);
+   const candidate={status:"PAPER PLAN",type:straddle?"LONG_STRADDLE":"LONG_STRANGLE",
+    label:straddle?"Long straddle":"Long strangle",
+    direction:"VOLATILITY / TWO-SIDED",long:call.symbol,short:put.symbol,
+    long2:put.symbol,expiry,contractValue:call.cv,quantity:qty,
+    entrySpread:call.ask+put.ask,stopSpread:(call.ask+put.ask)*0.5,
+    targetSpread:(call.ask+put.ask)*1.5,timeExit:now+hours*3600000,horizonHours:hours,
+    riskUSD:risk*qty,estimatedFeesUSD:feeReserve*qty,
+    estimatedMaxGainUSD:null,
+    score,why:"Both legs bought for potential movement in either direction. Requires strong realised movement to beat two premiums, fees and time decay. No verified implied-volatility edge."};
+   if(!best||candidate.score>best.score)best=candidate;
+  }
+  if(best)break;
+ }
+ return best||wait("Straddle/strangle failed live bid-ask, matched expiry, 2% premium-risk or contract-size checks");
+}
+function assessStrategies(tickers,trend,asset,capitalUSD,now=Date.now(),hours=4){
+ const directional=chooseSpread(tickers,trend,asset,capitalUSD,now,hours);
+ const volatility=chooseVolatility(tickers,trend,asset,capitalUSD,now,hours);
+ const alternatives=[
+  {name:"Bull call / bear put debit vertical",status:directional.status,reason:directional.reason||directional.why},
+  {name:"Long straddle / strangle",status:volatility.status,reason:volatility.reason||volatility.why}
+ ];
+ // Neutral strategies require verified volatility catalysts / IV. Without these,
+ // show a qualified WATCH candidate, not a recommendation for execution.
+ const strategy=directional.status==="PAPER PLAN"?directional:
+  volatility.status==="PAPER PLAN"?{...volatility,status:"WATCH ONLY"}:
+  {status:"NO TRADE",reason:alternatives.map(x=>x.name+": "+x.reason).join(" | ")};
+ return{strategy,alternatives,volatility};
 }
 function monitor(plan,tickers,now=Date.now()){
  if(plan?.status!=="PAPER PLAN")return wait("No locked spread");
@@ -86,7 +152,9 @@ function monitor(plan,tickers,now=Date.now()){
  if(!a||!b||!fresh(a.timestamp,now)||!fresh(b.timestamp,now))return wait("Both leg timestamps must be current");
  const bid=number(a.quotes?.best_bid),ask=number(b.quotes?.best_ask);
  if(!ok(bid)||!ok(ask)||bid<=0||ask<=0)return wait("Cannot determine executable spread exit quote");
- const exitSpread=bid-ask, grossPnlUSD=(exitSpread-plan.entrySpread)*plan.contractValue*plan.quantity;
+ const exitSpread=plan.long2?bid+number(b.quotes?.best_bid):bid-ask;
+ if(!Number.isFinite(exitSpread)||!Number.isFinite(plan.entrySpread))return wait("Cannot validate two-leg net exit");
+ const grossPnlUSD=(exitSpread-plan.entrySpread)*plan.contractValue*plan.quantity;
  const status=now>=plan.timeExit?"TIME EXIT":exitSpread<=plan.stopSpread?"STOP WATCH":exitSpread>=plan.targetSpread?"TARGET WATCH":"MONITOR";
  return{status,exitSpread,grossPnlUSD,reason:status==="MONITOR"?"Neither spread stop, target nor time reached":"Multi-leg exit alert only; no broker orders created"};
 }
@@ -105,6 +173,6 @@ function fundingDesk(tickers,asset,capitalUSD,now=Date.now()){
   route:funding>0?"SHORT perp + LONG matching spot":funding<0?"LONG perp + SHORT matching spot":"NO CARRY",
   reason:"No spot borrow/executable hedge, basis, taxes, fees or funding settlement verified. Zero trades placed."};
 }
-root.LfcCryptoDesk={milliseconds,fresh,candles,direction,chooseSpread,monitor,fundingDesk};
+root.LfcCryptoDesk={milliseconds,fresh,candles,direction,chooseSpread,chooseVolatility,assessStrategies,monitor,fundingDesk};
 if(typeof module!=="undefined"&&module.exports)module.exports=root.LfcCryptoDesk;
 })(typeof window!=="undefined"?window:globalThis);
