@@ -73,6 +73,7 @@ const server=http.createServer((req,res)=>{
    assert.match(await page.locator("#creditCandidates").innerText(),/BTC.*NO TRADE/s);
    assert.equal(await page.locator("#verifyDeltaAccount").count(),0);
    assert.equal(await page.locator("#exportResearch").count(),0);
+   await page.locator(".desk-advanced > summary").click();
    await page.locator("#runBacktest").click();
    await page.locator("#backtestResults").getByText("UNDERLYING signal proxy",{exact:false}).waitFor({timeout:25000});
    assert.match(await page.locator("#backtestResults").innerText(),/BTC.*NO TRADE/s);
