@@ -81,11 +81,13 @@ function optionCandidates(tickers,trend,asset,lockedSymbols=[]) {
    return {...x,expiry,strike:Number(x.match[1])};
   }).filter(x=>x.expiry>now+(Number($("tradeHorizon")?.value)||4)*3600000+3600000&&x.expiry<now+10*86400000&&
    Number.isFinite(x.strike)&&Math.abs(x.strike-trend.current)/trend.current<=0.08);
- const expiry=[...new Set(valid.map(x=>x.expiry))].sort((a,b)=>a-b)[0];
- const nearest=valid.filter(x=>x.expiry===expiry);
- return ["C","P"].flatMap(type=>nearest.filter(x=>x.ticker.symbol.startsWith(type+"-"))
-  .sort((a,b)=>Math.abs(a.strike-trend.current)-Math.abs(b.strike-trend.current))
-  .slice(0,24).map(x=>x.ticker.symbol));
+ const expiries=[...new Set(valid.map(x=>x.expiry))].sort((a,b)=>a-b).slice(0,3);
+ return expiries.flatMap(expiry=>{
+  const nearest=valid.filter(x=>x.expiry===expiry);
+  return ["C","P"].flatMap(type=>nearest.filter(x=>x.ticker.symbol.startsWith(type+"-"))
+   .sort((a,b)=>Math.abs(a.strike-trend.current)-Math.abs(b.strike-trend.current))
+   .slice(0,20).map(x=>x.ticker.symbol));
+ });
 }
 async function readOptions(asset,trend,lockedSymbols=[]) {
  const rows=await getDelta("/tickers?contract_types=call_options,put_options&underlying_asset_symbols="+asset);
@@ -115,12 +117,19 @@ function showPlan(plan){
  ["Watch target, spread USD per underlying unit",fnum(plan.targetSpread,6)],
  ["Selected trade duration",plan.horizonHours+" hours"],
  ["Time exit (whichever comes first)",stamp(plan.timeExit)],
- ["Risk budget incl. fee reserve",money(plan.riskUSD)+" · approximately ₹"+fnum(plan.riskUSD/fx,0)],
+ ["Estimated max premium risk + four-fill costs",money(plan.riskUSD)+" · approximately ₹"+fnum(plan.riskUSD/fx,0)],
+ ["Estimated net at target",money(plan.expectedTargetNetUSD)+" · approximately ₹"+fnum(plan.expectedTargetNetUSD/fx,0)],
+ ["Estimated net at stop",money(plan.expectedStopNetUSD)+" · approximately ₹"+fnum(plan.expectedStopNetUSD/fx,0)],
+ ["Estimated spread breakeven, USD per unit",fnum(plan.breakevenSpread,6)],
  ["Theoretical maximum gain after fee reserve",money(plan.estimatedMaxGainUSD)],
- ["Indicative estimated fee reserve",money(plan.estimatedFeesUSD)],
+ ["Estimated total round-trip deductions",money(plan.costBreakdown?.totalUSD)+" · approximately ₹"+fnum(plan.costBreakdown?.totalUSD/fx,0)],
+ ["Estimated exchange commission",money(plan.costBreakdown?.commissionUSD)],
+ ["Estimated GST on commission",money(plan.costBreakdown?.gstUSD)],
+ ["Estimated slippage allowance",money(plan.costBreakdown?.slippageUSD)],
+ ["Fee input",plan.costBreakdown?.feeRateSource||"UNAVAILABLE"],
  ["Options expire",stamp(plan.expiry)]];
  for(const [label,value]of fields){dl.append(node("dt",label),node("dd",value));}
- box.append(dl,node("p",plan.why));
+ box.append(dl,node("p",plan.why),node("p",plan.costBreakdown?.note||"Cost input missing; net projections unavailable."));
  box.append(node("p","Research alert, NOT an exchange order. Stop/target are for the NET two-leg spread, not standalone Delta leg stop orders. Exits can slip; fees, taxes, funding and INR settlement FX must be checked on Delta."));
 }
 function showMonitor(current){
@@ -130,7 +139,7 @@ function showMonitor(current){
  p.append(node("p",current.reason||""));
  if(Number.isFinite(current.exitSpread)){
   p.append(node("p","Executable NET exit value (bid-based two-leg calculation): "+fnum(current.exitSpread,6)+" USD per unit."));
-  p.append(node("p","Gross indicative P/L: "+money(current.grossPnlUSD)+" · approx. ₹"+fnum(current.grossPnlUSD/fx,0)+" before commissions and FX changes."));
+  p.append(node("p","Gross indicative P/L: "+money(current.grossPnlUSD)+" · estimated net after cost reserve: "+money(current.estimatedNetPnlUSD)+" (approx. ₹"+fnum(current.estimatedNetPnlUSD/fx,0)+"). Costs are indicative, not a confirmed fill."));
  }
  if(["TARGET WATCH","STOP WATCH","TIME EXIT"].includes(current.status))
   p.append(node("strong","Check Delta terminal NOW. No order has been submitted. Confirm BOTH legs, price and risk."));
@@ -210,7 +219,7 @@ async function refresh(){
  try{
   const c=cash();
   if(!Number.isFinite(c)||c<100||c>1e9){
-   safeText("status","Enter your capital in INR (₹100–₹100 crore). This is the ONLY required input.");
+   safeText("status","Enter capital in INR (₹100–₹100 crore) and select your 2/4/8-hour duration.");
    if(view==="crypto-options")showPlan({status:"NO TRADE",reason:"Enter valid capital first."});
    return;
   }
