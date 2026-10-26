@@ -1,6 +1,6 @@
 .desk-tabs{display:flex;flex-wrap:wrap;gap:10px;margin:18px 0 24px}
-.desk-tabs a{display:inline-block;padding:10px 16px;border:1px solid var(--line,#b8c3c8);border-radius:12px;text-decoration:none;color:inherit;background:var(--card,#fff)}
-.desk-tabs a[aria-current="page"]{background:var(--accent,#177568);color:white;border-color:transparent}
+.desk-tabs a{display:inline-block;padding:10px 16px;border:1px solid var(--line,#b8c3c8);border-radius:12px;text-decoration:none;color:inherit;background:var(--lfc-surface)}
+.desk-tabs a[aria-current="page"]{background:var(--lfc-primary);color:var(--lfc-bg);border-color:transparent}
 .desk-inputs .row{align-items:flex-end;flex-wrap:wrap;gap:12px}
 .capital-field{min-width:min(100%,280px)}.capital-field input{display:block;width:100%;max-width:320px;padding:12px;font-size:1.1rem}
 .desk-minor{font-size:.9rem;line-height:1.55;opacity:.82}
