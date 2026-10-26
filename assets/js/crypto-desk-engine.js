@@ -40,12 +40,29 @@ function parseOption(t){
  const p=t.product||{},q=t.quotes||{};
  return{symbol,side:m[1],asset:m[2],strike:number(m[3]),expiry,
   cv:number(p.contract_value),unit:p.contract_unit_currency,live:p.state==="live"&&p.trading_status==="operational",
-  bid:number(q.best_bid),ask:number(q.best_ask),oi:number(t.oi_value_usd),timestamp:t.timestamp};
+  bid:number(q.best_bid),ask:number(q.best_ask),oi:number(t.oi_value_usd),timestamp:t.timestamp,takerRate:number(p.taker_commission_rate)};
 }
 function liquid(x,asset,now){return x&&x.asset===asset&&x.live&&x.unit===asset&&ok(x.cv)&&x.cv>0&&
  ok(x.bid)&&x.bid>0&&ok(x.ask)&&x.ask>x.bid&&
  (x.ask-x.bid)/((x.ask+x.bid)/2)<=0.20&&ok(x.oi)&&x.oi>=500&&
  fresh(x.timestamp,now)&&x.expiry>now+3600000&&x.expiry<now+10*86400000;}
+// Conservative cost estimates: four taker fills and no premium fee-cap discounts.
+const GST_RATE=0.18,SLIPPAGE_RATE=0.001,FALLBACK_TAKER_RATE=0.0005;
+function roundTripCosts(legs,spot,cv,qty=1){
+ if(!ok(spot)||spot<=0||!ok(cv)||cv<=0||!Number.isInteger(qty)||qty<1||!Array.isArray(legs)||legs.length!==2)return null;
+ let taker=0,premiums=0,fallback=false;
+ for(const leg of legs){
+  const rate=number(leg.takerRate),valid=ok(rate)&&rate>=0&&rate<=0.01;
+  const used=valid?rate:FALLBACK_TAKER_RATE;
+  if(!valid)fallback=true;
+  taker+=spot*cv*qty*used*2;
+  premiums+=(leg.ask+leg.bid)*cv*qty;
+ }
+ const gst=taker*GST_RATE,slippage=premiums*SLIPPAGE_RATE*2;
+ return{commissionUSD:taker,gstUSD:gst,slippageUSD:slippage,totalUSD:taker+gst+slippage,
+  feeRateSource:fallback?"CONSERVATIVE FALLBACK (0.05% each leg per side)":"PRODUCT TAKER RATES",
+  note:"Estimated four taker fills, no premium cap or discounts; GST 18% on fees; slippage 0.1% each side on option premiums. Actual fill, expiry settlement, INR settlement FX, TDS and income taxes excluded."};
+}
 function chooseSpread(tickers,trend,asset,capitalUSD,now=Date.now(),hours=4){
  if(![2,4,8].includes(hours))return wait("Choose a valid 2, 4 or 8 hour trade horizon");
  if(!ok(capitalUSD)||capitalUSD<20)return wait("Capital or verified FX missing (minimum $20 equivalent)");
@@ -62,9 +79,11 @@ function chooseSpread(tickers,trend,asset,capitalUSD,now=Date.now(),hours=4){
    if((side==="C"&&short.strike<=long.strike)||(side==="P"&&short.strike>=long.strike))continue;
    if(long.cv!==short.cv||Math.abs(long.strike-trend.current)/trend.current>0.03||Math.abs(short.strike-long.strike)/trend.current>0.08)continue;
    const width=Math.abs(short.strike-long.strike)*long.cv,debit=(long.ask-short.bid)*long.cv;
-   const buffer=(long.ask+long.bid+short.ask+short.bid)*long.cv*0.005;
+   const costs=roundTripCosts([long,short],trend.current,long.cv);
+   if(!costs)continue;
+   const buffer=costs.totalUSD;
    const loss=debit+buffer,gain=width-debit-buffer;
-   if(debit<=0||loss<=0||gain/loss<1.15)continue;
+   if(debit<=0||loss<=0||gain<=0||gain/loss<1.15)continue;
    const quantity=Math.floor(Math.min(capitalUSD*0.02/loss,capitalUSD*0.30/(long.cv*trend.current)));
    if(quantity<1)continue;
    const candidate={status:"PAPER PLAN",direction:trend.side,
@@ -73,12 +92,16 @@ function chooseSpread(tickers,trend,asset,capitalUSD,now=Date.now(),hours=4){
     quantity,entrySpread:debit/long.cv,stopSpread:debit*0.5/long.cv,
     targetSpread:Math.min(width*0.9,debit*1.6)/long.cv,
     timeExit:now+hours*3600000,horizonHours:hours,
-    riskUSD:loss*quantity,estimatedFeesUSD:buffer*quantity,estimatedMaxGainUSD:gain*quantity,
+    riskUSD:loss*quantity,estimatedFeesUSD:costs.commissionUSD*quantity,
+    costBreakdown:roundTripCosts([long,short],trend.current,long.cv,quantity),
+    estimatedMaxGainUSD:gain*quantity,
+    expectedTargetNetUSD:(Math.min(width*0.9,debit*1.6)-debit-buffer)*quantity,
+    expectedStopNetUSD:(debit*0.5-debit-buffer)*quantity,
+    breakevenSpread:(debit+buffer)/long.cv,
     why:"15m/1h trend plus SMC → executable quotes → liquid expiry → 2% approximate spread-risk and 30% underlying-notional caps",
     score:gain/loss-Math.abs(long.strike-trend.current)/trend.current};
    if(!best||candidate.score>best.score)best=candidate;
   }
-  if(best)break;
  }
  return best||wait("No option vertical passes selected timeframe, 2% max-loss, expiry, liquidity and reward gates");
 }
@@ -108,7 +131,9 @@ function chooseVolatility(tickers,trend,asset,capitalUSD,now=Date.now(),hours=4)
       strangle&&(trend.current-put.strike)/trend.current>0.05)continue;
    if(strangle&&(call.strike<trend.current||put.strike>trend.current))continue;
    const debit=(call.ask+put.ask)*call.cv;
-   const feeReserve=(call.ask+put.ask+call.bid+put.bid)*call.cv*0.005;
+   const costEstimate=roundTripCosts([call,put],trend.current,call.cv);
+   if(!costEstimate)continue;
+   const feeReserve=costEstimate.totalUSD;
    const risk=debit+feeReserve;
    if(risk<=0||!ok(risk))continue;
    const qty=Math.floor(Math.min(capitalUSD*0.02/risk,capitalUSD*0.3/(trend.current*call.cv)));
@@ -123,7 +148,8 @@ function chooseVolatility(tickers,trend,asset,capitalUSD,now=Date.now(),hours=4)
     long2:put.symbol,expiry,contractValue:call.cv,quantity:qty,
     entrySpread:call.ask+put.ask,stopSpread:(call.ask+put.ask)*0.5,
     targetSpread:(call.ask+put.ask)*1.5,timeExit:now+hours*3600000,horizonHours:hours,
-    riskUSD:risk*qty,estimatedFeesUSD:feeReserve*qty,
+    riskUSD:risk*qty,estimatedFeesUSD:costEstimate.commissionUSD*qty,
+    costBreakdown:roundTripCosts([call,put],trend.current,call.cv,qty),
     estimatedMaxGainUSD:null,
     score,why:"Both legs bought for potential movement in either direction. Requires strong realised movement to beat two premiums, fees and time decay. No verified implied-volatility edge."};
    if(!best||candidate.score>best.score)best=candidate;
@@ -155,8 +181,9 @@ function monitor(plan,tickers,now=Date.now()){
  const exitSpread=plan.long2?bid+number(b.quotes?.best_bid):bid-ask;
  if(!Number.isFinite(exitSpread)||!Number.isFinite(plan.entrySpread))return wait("Cannot validate two-leg net exit");
  const grossPnlUSD=(exitSpread-plan.entrySpread)*plan.contractValue*plan.quantity;
+ const estimatedNetPnlUSD=grossPnlUSD-(plan.costBreakdown?.totalUSD??NaN);
  const status=now>=plan.timeExit?"TIME EXIT":exitSpread<=plan.stopSpread?"STOP WATCH":exitSpread>=plan.targetSpread?"TARGET WATCH":"MONITOR";
- return{status,exitSpread,grossPnlUSD,reason:status==="MONITOR"?"Neither spread stop, target nor time reached":"Multi-leg exit alert only; no broker orders created"};
+ return{status,exitSpread,grossPnlUSD,estimatedNetPnlUSD,reason:status==="MONITOR"?"Neither spread stop, target nor time reached":"Multi-leg exit alert only; no broker orders created"};
 }
 function fundingDesk(tickers,asset,capitalUSD,now=Date.now()){
  if(!ok(capitalUSD)||capitalUSD<20)return wait("Capital or FX conversion unavailable");
@@ -173,6 +200,6 @@ function fundingDesk(tickers,asset,capitalUSD,now=Date.now()){
   route:funding>0?"SHORT perp + LONG matching spot":funding<0?"LONG perp + SHORT matching spot":"NO CARRY",
   reason:"No spot borrow/executable hedge, basis, taxes, fees or funding settlement verified. Zero trades placed."};
 }
-root.LfcCryptoDesk={milliseconds,fresh,candles,direction,chooseSpread,chooseVolatility,assessStrategies,monitor,fundingDesk};
+root.LfcCryptoDesk={milliseconds,fresh,candles,direction,roundTripCosts,chooseSpread,chooseVolatility,assessStrategies,monitor,fundingDesk};
 if(typeof module!=="undefined"&&module.exports)module.exports=root.LfcCryptoDesk;
 })(typeof window!=="undefined"?window:globalThis);
