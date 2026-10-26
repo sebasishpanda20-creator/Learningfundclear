@@ -176,10 +176,18 @@ function monitor(plan,tickers,now=Date.now()){
  if(plan?.status!=="PAPER PLAN")return wait("No locked spread");
  const rows=Array.isArray(tickers)?tickers:[],a=rows.find(t=>(t.symbol||t.product_symbol)===plan.long),b=rows.find(t=>(t.symbol||t.product_symbol)===plan.short);
  if(!a||!b||!fresh(a.timestamp,now)||!fresh(b.timestamp,now))return wait("Both leg timestamps must be current");
- const bid=number(a.quotes?.best_bid),ask=number(b.quotes?.best_ask);
- if(!ok(bid)||!ok(ask)||bid<=0||ask<=0)return wait("Cannot determine executable spread exit quote");
- const exitSpread=plan.long2?bid+number(b.quotes?.best_bid):bid-ask;
- if(!Number.isFinite(exitSpread)||!Number.isFinite(plan.entrySpread))return wait("Cannot validate two-leg net exit");
+ // Validate BOTH complete bid/ask books, not just the side used in the calculation.
+ // A stale, crossed or absent leg must not produce an apparently executable exit.
+ const bid=number(a.quotes?.best_bid),longAsk=number(a.quotes?.best_ask);
+ const shortBid=number(b.quotes?.best_bid),ask=number(b.quotes?.best_ask);
+ if(![bid,longAsk,shortBid,ask].every(ok)||bid<=0||longAsk<bid||shortBid<=0||ask<shortBid)
+  return wait("Missing, invalid or crossed two-leg order book; check Delta terminal");
+ if(!Number.isInteger(plan.quantity)||plan.quantity<1||!ok(plan.contractValue)||plan.contractValue<=0||
+    !ok(plan.entrySpread)||!ok(plan.stopSpread)||!ok(plan.targetSpread)||
+    !ok(plan.costBreakdown?.totalUSD))
+  return wait("Locked plan has incomplete sizing, stops or cost estimates; clear and rescan");
+ const exitSpread=plan.long2?bid+shortBid:bid-ask;
+ if(!Number.isFinite(exitSpread))return wait("Cannot validate two-leg net exit");
  const grossPnlUSD=(exitSpread-plan.entrySpread)*plan.contractValue*plan.quantity;
  const estimatedNetPnlUSD=grossPnlUSD-(plan.costBreakdown?.totalUSD??NaN);
  const status=now>=plan.timeExit?"TIME EXIT":exitSpread<=plan.stopSpread?"STOP WATCH":exitSpread>=plan.targetSpread?"TARGET WATCH":"MONITOR";
