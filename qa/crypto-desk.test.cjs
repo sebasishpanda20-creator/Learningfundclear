@@ -21,7 +21,7 @@ function option(type,asset,strike,bid,ask,when=now){
 }
 const pair=(type="C",asset="BTC",when=now)=>[
  option(type,asset,type==="C"?110:88,type==="C"?4.7:4.2,type==="C"?5:4.5,when),
- option(type,asset,type==="C"?118:81,type==="C"?1.5:2,type==="C"?1.6:2.1,when)
+ option(type,asset,type==="C"?118:81,type==="C"?1.8:2,type==="C"?1.9:2.1,when)
 ];
 test("confirmed completed structure is directional; uncertain bars fail closed",()=>{
  const up=trend(true),down=trend(false);
