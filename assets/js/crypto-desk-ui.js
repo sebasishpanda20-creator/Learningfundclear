@@ -241,6 +241,29 @@ async function refreshOption(isMonitor=false) {
   safeText("status","Scan complete · no eligible setup · "+stamp(Date.now()));
  }
 }
+// Exchange-documented funding_rate websocket: fr is in percent; nfr and ts are microsecond epochs.
+// Unlike REST ticker's ambiguous funding_rate field, only recent websocket fr may drive an estimate.
+const fundingLive=new Map();let fundingWebsocket=null;
+if(view==="crypto-funding"&&typeof WebSocket!=="undefined"){
+ try{
+  fundingWebsocket=new WebSocket("wss://public-socket.india.delta.exchange");
+  fundingWebsocket.addEventListener("open",()=>fundingWebsocket.send(JSON.stringify({
+   type:"subscribe",payload:{channels:[{name:"funding_rate",symbols:["BTCUSD","ETHUSD","XAUTUSD","PAXGUSD"]}]}})));
+  fundingWebsocket.addEventListener("message",event=>{
+   try{
+    const q=JSON.parse(event.data);
+    if(q.type!=="funding_rate"||!["BTCUSD","ETHUSD","XAUTUSD","PAXGUSD"].includes(q.sy))return;
+    const stampMs=D.milliseconds(q.ts),nextMs=D.milliseconds(q.nfr);
+    if(!Number.isFinite(stampMs)||Math.abs(Date.now()-stampMs)>120000||
+     !Number.isFinite(nextMs)||nextMs<Date.now()||nextMs>Date.now()+86400000||
+     !Number.isFinite(Number(q.fr))||Math.abs(Number(q.fr))>2)return;
+    fundingLive.set(q.sy,{ratePercent:Number(q.fr),settlement:nextMs,intervalSeconds:Number(q.fi),updated:Date.now()});
+    if(!running&&Number.isFinite(capitalUSD())&&capitalUSD()>=20)refresh();
+   }catch{}
+  });
+ }catch{}
+ addEventListener("pagehide",()=>fundingWebsocket?.close());
+}
 function fundingClock(t,now=Date.now()){
  // Delta's documented 8-hour schedule; other schedules remain unverified.
  const interval=Number(t.product?.rate_exchange_interval??t.rate_exchange_interval);
@@ -262,17 +285,19 @@ function timeLeft(at){if(!Number.isFinite(at))return"Exchange timing unavailable
   String(secs%60).padStart(2,"0");
 }
 function indicativeFunding(t,asset,cap){
- const base=D.fundingDesk([t],asset,cap),raw=Number(base.fundingRaw);
- if(base.status!=="WATCH ONLY"||!Number.isFinite(raw)||Math.abs(raw)>1)return null;
- // Delta's funding documentation expresses e.g. 0.01 as 0.01 PERCENT.
- const rate=Math.abs(raw)/100;
- const receipt=base.notionalUSD*rate;
- // Two taker fills at 0.05% each, GST on commission, plus 0.10% slip each way.
- // Excludes hedge costs, P&L, taxes, liquidation, borrowing and all basis risk.
- const cost=base.notionalUSD*(0.0005*2*1.18+0.001*2);
- return{...base,ratePercent:raw,receiptUSD:receipt,costUSD:cost,
-  afterCostsUSD:receipt-cost,clock:fundingClock(t)};
+ const base=D.fundingDesk([t],asset,cap),live=fundingLive.get(t.symbol);
+ if(base.status!=="WATCH ONLY"||!live||Date.now()-live.updated>120000)return null;
+ if(!Number.isFinite(live.ratePercent)||Math.abs(live.ratePercent)>2)return null;
+ const receipt=base.notionalUSD*Math.abs(live.ratePercent)/100;
+ // Illustrative round trip for ONE perpetual leg: 0.05% taker each way,
+ // 18% GST on fee and 0.1% slippage each way. NOT hedge/borrow costs.
+ const cost=base.notionalUSD*(.0005*2*1.18+.001*2);
+ return{...base,ratePercent:live.ratePercent,route:live.ratePercent>0?
+  "SHORT perp + LONG matching spot":"LONG perp + SHORT matching spot",
+  receiptUSD:receipt,costUSD:cost,afterCostsUSD:receipt-cost,
+  clock:{at:live.settlement,verified:true},fundingRateAt:live.updated};
 }
+
 async function refreshFunding(){
  safeText("status","Checking BTC, ETH and gold funding estimates in Indian rupees…");
  const tickers=await readPerps(),assets=["BTC","ETH","XAUT","PAXG"],cap=capitalUSD();
@@ -281,7 +306,7 @@ async function refreshFunding(){
   return{asset,data:tick?indicativeFunding(tick,asset,cap):null};
  });
  const rupees=x=>"₹"+fnum(x/fx,2);
- setRows("fundRows",rows.map(({asset,data:x})=>!x?[asset,"Not available","—","—","—","—","—"]:[
+ setRows("fundRows",rows.map(({asset,data:x})=>!x?[asset,"Awaiting verified live rate","—","—","—","—","—"]:[
   asset,x.route.startsWith("SHORT")?"SELL perpetual":"BUY perpetual",
   fnum(x.ratePercent,4)+"% (indicative)",
   x.clock.at?timeLeft(x.clock.at)+(x.clock.verified?" · Exchange time":" · Estimated IST schedule"):"Unverified",
@@ -290,8 +315,8 @@ async function refreshFunding(){
  const candidates=rows.filter(x=>x.data&&Number.isFinite(x.data.afterCostsUSD))
   .sort((a,b)=>b.data.afterCostsUSD-a.data.afterCostsUSD);
  if(!candidates.length){
-  box.append(node("h2","WAIT — no qualified funding data"),
-   node("p","No fresh market rate, coin size or INR estimate available. Please try again."));
+  box.append(node("h2","WAIT — no exchange-confirmed funding rate"),
+   node("p","Funding websocket must confirm the rate and exact next settlement time. No estimated payment is shown until verified."));
  }else{
   const best=candidates[0],x=best.data,positive=candidates.filter(v=>v.data.afterCostsUSD>0);
   if(!positive.length){
