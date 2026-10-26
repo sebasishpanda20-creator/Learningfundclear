@@ -20,8 +20,8 @@ function option(type,asset,strike,bid,ask,when=now){
   product:{state:"live",trading_status:"operational",contract_value:0.001,contract_unit_currency:asset}};
 }
 const pair=(type="C",asset="BTC",when=now)=>[
- option(type,asset,type==="C"?108:108,4.7,5,when),
- option(type,asset,type==="C"?116:100,1.5,1.6,when)
+ option(type,asset,type==="C"?108:88,type==="C"?4.7:4.2,type==="C"?5:4.5,when),
+ option(type,asset,type==="C"?116:81,type==="C"?1.5:2,type==="C"?1.6:2.1,when)
 ];
 test("confirmed completed structure is directional; uncertain bars fail closed",()=>{
  const up=trend(true),down=trend(false);
