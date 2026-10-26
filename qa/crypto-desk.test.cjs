@@ -98,3 +98,22 @@ test("volatility refuses missing put, stale quotes and unaffordable premium",()=
  option("C","BTC",112,999,1000),option("P","BTC",112,999,1000)
  ],neutral,"BTC",20,now,2).status,"NO TRADE");
 });
+
+test("cost reserve includes commission, GST and slippage without pretending to know actual fills",()=>{
+ const c=D.roundTripCosts([{ask:5,bid:4.7,takerRate:0.0003},{ask:1.6,bid:1.5,takerRate:0.0003}],100,0.001,2);
+ assert(c&&c.commissionUSD>0&&c.gstUSD>0&&c.slippageUSD>0);
+ assert(Math.abs(c.gstUSD/c.commissionUSD-0.18)<1e-8);
+ assert.equal(c.feeRateSource,"PRODUCT TAKER RATES");
+ const missing=D.roundTripCosts([{ask:5,bid:4.7},{ask:1.6,bid:1.5}],100,0.001,2);
+ assert.match(missing.feeRateSource,/FALLBACK/);
+});
+test("plan net projection deducts expenses at target, stop and monitoring",()=>{
+ const p=D.chooseSpread(pair(),trend(),"BTC",1000,now,2);
+ assert.equal(p.status,"PAPER PLAN");
+ assert(p.costBreakdown.totalUSD>0);
+ assert(p.expectedTargetNetUSD<(p.targetSpread-p.entrySpread)*p.contractValue*p.quantity);
+ assert(p.expectedStopNetUSD<0);
+ assert(p.riskUSD<=20.00001);
+ const m=D.monitor(p,pair(),now);
+ assert(Math.abs(m.estimatedNetPnlUSD-(m.grossPnlUSD-p.costBreakdown.totalUSD))<1e-10);
+});
