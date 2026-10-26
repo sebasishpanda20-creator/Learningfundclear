@@ -1,0 +1,52 @@
+name: Deploy research portal to Cloudflare
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: production-cloudflare
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install deployment tools
+        run: npm install --ignore-scripts --no-audit --no-fund
+      - name: Validate production research contracts
+        run: bash .ci/guard.sh
+      - name: Build Cloudflare worker and static assets
+        run: npm run build:cloudflare
+      - name: Validate worker bundle
+        run: npm run check:cloudflare
+      - name: Check optional Cloudflare deployment credentials
+        id: credentials
+        shell: bash
+        run: |
+          if [[ -n "$CLOUDFLARE_API_TOKEN" && -n "$CLOUDFLARE_ACCOUNT_ID" ]]; then
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+            echo "::warning::Cloudflare deploy NOT performed: configure CLOUDFLARE_API_TOKEN and CLOUDFLARE_ACCOUNT_ID in repository Actions secrets. GitHub Pages deployment is separate."
+          fi
+      - name: Deploy to existing learningfundclear Workers service
+        if: steps.credentials.outputs.ready == 'true'
+        run: npm run deploy:cloudflare
+      - name: Summarize Cloudflare deployment status
+        shell: bash
+        run: |
+          if [[ "${{ steps.credentials.outputs.ready }}" == "true" ]]; then
+            echo "Cloudflare deploy command completed for Worker: learningfundclear" >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "Cloudflare deployment skipped: missing repository-scoped Cloudflare credentials." >> "$GITHUB_STEP_SUMMARY"
+          fi
