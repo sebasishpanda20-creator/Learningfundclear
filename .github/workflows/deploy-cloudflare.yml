@@ -1,6 +1,8 @@
 name: Deploy research portal to Cloudflare
 
 on:
+  pull_request:
+    branches: [main]
   push:
     branches: [main]
   workflow_dispatch:
@@ -40,12 +42,14 @@ jobs:
             echo "::warning::Cloudflare deploy NOT performed: configure CLOUDFLARE_API_TOKEN and CLOUDFLARE_ACCOUNT_ID in repository Actions secrets. GitHub Pages deployment is separate."
           fi
       - name: Deploy to existing learningfundclear Workers service
-        if: steps.credentials.outputs.ready == 'true'
+        if: github.event_name != 'pull_request' && steps.credentials.outputs.ready == 'true'
         run: npm run deploy:cloudflare
       - name: Summarize Cloudflare deployment status
         shell: bash
         run: |
-          if [[ "${{ steps.credentials.outputs.ready }}" == "true" ]]; then
+          if [[ "${{ github.event_name }}" == "pull_request" ]]; then
+            echo "Cloudflare Worker preflight passed in PR; production deploy is limited to main pushes." >> "$GITHUB_STEP_SUMMARY"
+          elif [[ "${{ steps.credentials.outputs.ready }}" == "true" ]]; then
             echo "Cloudflare deploy command completed for Worker: learningfundclear" >> "$GITHUB_STEP_SUMMARY"
           else
             echo "Cloudflare deployment skipped: missing repository-scoped Cloudflare credentials." >> "$GITHUB_STEP_SUMMARY"
