@@ -135,7 +135,8 @@ function backtestUnderlying(raw15,raw60,{hours=4,feeBps=20,from,until}={}){
   if(distance/entry<.0015||distance/entry>.03||
     (t.side==="UP"&&stop>=entry)||(t.side==="DOWN"&&stop<=entry)){i++;continue;}
   const sign=t.side==="UP"?1:-1,target=entry+sign*1.5*distance;
-  // The entry candle is i+1: holding N hours means exactly N*4 closed bars.\n  let outcome="TIME EXIT",exitIndex=i+hours*4,exitPrice=small[exitIndex].close;
+  // The entry candle is i+1: holding N hours means exactly N*4 closed bars.
+  let outcome="TIME EXIT",exitIndex=i+hours*4,exitPrice=small[exitIndex].close;
   for(let j=i+1;j<=i+hours*4;j++){
    const b=small[j],hitStop=t.side==="UP"?b.low<=stop:b.high>=stop,
     hitTarget=t.side==="UP"?b.high>=target:b.low<=target;
