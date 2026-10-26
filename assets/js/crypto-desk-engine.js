@@ -58,12 +58,12 @@ function chooseSpread(tickers,trend,asset,capitalUSD,now=Date.now()){
   const longs=[...rows].sort((a,b)=>Math.abs(a.strike-trend.current)-Math.abs(b.strike-trend.current)).slice(0,5);
   for(const long of longs)for(const short of rows){
    if((side==="C"&&short.strike<=long.strike)||(side==="P"&&short.strike>=long.strike))continue;
-   if(long.cv!==short.cv||Math.abs(short.strike-long.strike)/trend.current>0.08)continue;
+   if(long.cv!==short.cv||Math.abs(long.strike-trend.current)/trend.current>0.03||Math.abs(short.strike-long.strike)/trend.current>0.08)continue;
    const width=Math.abs(short.strike-long.strike)*long.cv,debit=(long.ask-short.bid)*long.cv;
    const buffer=(long.ask+long.bid+short.ask+short.bid)*long.cv*0.005;
    const loss=debit+buffer,gain=width-debit-buffer;
    if(debit<=0||loss<=0||gain/loss<1.15)continue;
-   const quantity=Math.floor(capitalUSD*0.02/loss);
+   const quantity=Math.floor(Math.min(capitalUSD*0.02/loss,capitalUSD*0.30/(long.cv*trend.current)));
    if(quantity<1)continue;
    const candidate={status:"PAPER PLAN",direction:trend.side,
     label:side==="C"?"Bull call debit spread":"Bear put debit spread",
@@ -72,7 +72,7 @@ function chooseSpread(tickers,trend,asset,capitalUSD,now=Date.now()){
     targetSpread:Math.min(width*0.9,debit*1.6)/long.cv,
     timeExit:Math.min(now+3*3600000,expiry-3600000),
     riskUSD:loss*quantity,estimatedFeesUSD:buffer*quantity,estimatedMaxGainUSD:gain*quantity,
-    why:"15m/1h direction → fresh executable quotes → liquid nearest expiry → defined risk, under 2% capital",
+    why:"15m/1h trend plus SMC → executable quotes → liquid expiry → 2% approximate spread-risk and 30% underlying-notional caps",
     score:gain/loss-Math.abs(long.strike-trend.current)/trend.current};
    if(!best||candidate.score>best.score)best=candidate;
   }
