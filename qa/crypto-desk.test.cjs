@@ -117,3 +117,19 @@ test("plan net projection deducts expenses at target, stop and monitoring",()=>{
  const m=D.monitor(p,pair(),now);
  assert(Math.abs(m.estimatedNetPnlUSD-(m.grossPnlUSD-p.costBreakdown.totalUSD))<1e-10);
 });
+
+test("exit monitor fails closed on crossed, incomplete and corrupt two-leg quotes",()=>{
+ const p=D.chooseSpread(pair(),trend(),"BTC",1000,now);
+ assert.equal(p.status,"PAPER PLAN");
+ const badLong=pair();
+ badLong[0].quotes.best_ask=badLong[0].quotes.best_bid-0.01;
+ assert.equal(D.monitor(p,badLong,now).status,"NO TRADE");
+ const badShort=pair();
+ badShort[1].quotes.best_bid=badShort[1].quotes.best_ask+0.01;
+ assert.equal(D.monitor(p,badShort,now).status,"NO TRADE");
+ const missing=pair();
+ delete missing[1].quotes.best_bid;
+ assert.equal(D.monitor(p,missing,now).status,"NO TRADE");
+ assert.equal(D.monitor({...p,quantity:0},pair(),now).status,"NO TRADE");
+ assert.equal(D.monitor({...p,costBreakdown:null},pair(),now).status,"NO TRADE");
+});
