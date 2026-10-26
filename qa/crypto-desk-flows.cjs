@@ -61,6 +61,8 @@ const server=http.createServer((req,res)=>{
    await page.locator("#tradeHorizon").selectOption("2");
    await page.locator("#capital").fill("100000");
    await page.locator("#tradePlan").getByText("Selected research setup", {exact:false}).waitFor({timeout:30000});
+   assert.match(await page.locator("#simpleDirection").innerText(),/BTC.*UP/s);
+   assert.match(await page.locator("#simpleDecision").innerText(),/Suggested/);
    const plan=await page.locator("#tradePlan").innerText();
    assert.match(plan,/Bull call debit spread/);assert.match(plan,/2 hours/);assert.match(plan,/C-BTC-110-/);assert.match(plan,/C-BTC-118-/);
    assert.match(await page.locator("#directionRows").innerText(),/BULLISH BOS/);
@@ -77,10 +79,11 @@ const server=http.createServer((req,res)=>{
    results.push("Options direction, auto vertical, locked execution quote and layout "+width);
    await page.goto(origin+"/crypto-funding.html");
    await page.locator("html.auth-ready").waitFor();
-   await page.locator("#fundRows tr").first().getByText("WATCH ONLY").waitFor({timeout:30000});
+   await page.locator("#fundRows tr").first().getByText("SELL perpetual").waitFor({timeout:30000});
    assert.equal(await page.locator("#fundRows tr").count(),4);
    assert.match(await page.locator("#fundRows").innerText(),/PAXG/);
-   assert.match(await page.locator("#tradePlan").innerText(),/No spot borrow/);
+   assert.match(await page.locator("#tradePlan").innerText(),/WAIT|WATCH ONLY/);
+   assert.match(await page.locator("#fundRows").innerText(),/₹/);
    assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),true);
    assert.deepEqual(errors,[]);
    results.push("Funding watch-only, tokenized gold and responsive layout "+width);
