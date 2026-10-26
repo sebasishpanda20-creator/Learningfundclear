@@ -2,7 +2,7 @@
 (async function () {
 "use strict";
 if (!await LfcAuth.ready) return;
-const D=window.LfcCryptoDesk,API="https://api.india.delta.exchange/v2",view=document.body.dataset.page;
+const D=window.LfcCryptoDesk,A=window.LfcCryptoAdvanced,API="https://api.india.delta.exchange/v2",view=document.body.dataset.page;
 const $=id=>document.getElementById(id), money=v=>Number.isFinite(v)?"$"+v.toLocaleString("en-US",{maximumFractionDigits:2}):"—";
 const fnum=(v,d=4)=>Number.isFinite(v)?v.toLocaleString("en-US",{maximumFractionDigits:d}):"—";
 const stamp=t=>new Date(t).toLocaleString("en-IN",{timeZone:"Asia/Kolkata",hour12:false})+" IST";
@@ -68,13 +68,13 @@ async function hydrate(tickers,symbols) {
  const unique=[...new Set(symbols)].filter(Boolean);
  const details=await Promise.allSettled(unique.map(product));
  const mapped=new Map(details.flatMap((x,i)=>x.status==="fulfilled"?[[unique[i],x.value]]:[]));
- return tickers.map(t=>({...t,product:t.product||mapped.get(t.symbol)||null}));
+ return tickers.map(t=>({...t,product:mapped.get(t.symbol)||t.product||null}));
 }
 function optionCandidates(tickers,trend,asset,lockedSymbols=[]) {
  if(lockedSymbols.length)return lockedSymbols;
  if(!Number.isFinite(trend?.current))return[];
  const side=trend.side==="UP"?"C":trend.side==="DOWN"?"P":null;
- const now=Date.now(),valid=tickers.filter(t=>typeof t.symbol==="string"&&t.symbol.startsWith("C-"+asset+"-")||t.symbol.startsWith("P-"+asset+"-"))
+ const now=Date.now(),valid=tickers.filter(t=>typeof t.symbol==="string"&&(t.symbol.startsWith("C-"+asset+"-")||t.symbol.startsWith("P-"+asset+"-")))
   .map(t=>({ticker:t,match:/^[CP]-[A-Z0-9]+-([0-9.]+)-(\d{6})$/.exec(t.symbol)}))
   .filter(x=>x.match).map(x=>{
    const code=x.match[2],expiry=Date.UTC(2000+Number(code.slice(4)),Number(code.slice(2,4))-1,Number(code.slice(0,2)),12);
@@ -163,7 +163,8 @@ async function refreshOption(isMonitor=false) {
    results.push({asset,trend});
    const ticks=await readOptions(asset,trend);
    const evaluated=D.assessStrategies(ticks,trend,asset,capitalUSD(),Date.now(),Number($("tradeHorizon").value));
-   return{asset,trend,plan:evaluated.strategy,alternatives:evaluated.alternatives};
+   const credit=A.evaluateCredit(ticks,trend,asset,capitalUSD(),Date.now(),Number($("tradeHorizon").value));
+    return{asset,trend,plan:evaluated.strategy,alternatives:evaluated.alternatives,credit};
   }catch(e){
    const trend={side:"UNKNOWN",actionable:false,why:"Feed unavailable: "+e.message};
    results.push({asset,trend});return{asset,trend,plan:{status:"NO TRADE",reason:e.message}};
@@ -176,6 +177,23 @@ async function refreshOption(isMonitor=false) {
   for(const item of search)for(const alt of item.alternatives||[]){
    const p=node("p",item.asset+" · "+alt.name+" · "+alt.status+" · "+alt.reason);
    report.append(p);
+  }
+ }
+ const panel=$("creditCandidates");
+ if(panel){
+  panel.replaceChildren();
+  for(const x of search){
+   panel.append(node("h3",x.asset+" · "+(x.credit?.status||"FEED UNAVAILABLE")),
+    node("p",x.credit?.reason||"No credit structure data"));
+   for(const c of x.credit?.candidates||[]){
+    const d=document.createElement("details");
+    d.append(node("summary",c.label+" · "+c.quantity+" contract(s) · max modeled loss "+
+     money(c.estimatedMaxLossUSD)+" · modeled gain "+money(c.estimatedMaxGainUSD)),
+     node("p",c.legs.map(l=>l.side+" "+l.symbol).join(" | ")),
+     node("p","Premium credit "+fnum(c.creditPerUnit)+" per unit · cost reserve "+
+      money(c.costBreakdown.totalUSD)+" · "+c.reason));
+    panel.append(d);
+   }
   }
  }
  const plans=search.map(x=>x.plan).filter(x=>x.status==="PAPER PLAN");
@@ -228,6 +246,57 @@ async function refresh(){
  }catch(e){safeText("status","Market data unavailable: "+e.message+" · NO TRADE. Retry when feed recovers.");}
  finally{$("refreshNow").disabled=false;running=false;safeText("lastChecked","Last checked "+stamp(Date.now()));}
 }
+// On-demand backtest on perpetual OHLC; not historical option profitability.
+async function runBacktest(){
+ const button=$("runBacktest"),out=$("backtestResults");if(!button||!out)return;
+ button.disabled=true;out.replaceChildren(node("p","Fetching completed Delta candles…"));
+ try{
+  const hours=Number($("tradeHorizon").value),days=14,results=[];
+  for(const asset of ["BTC","ETH"]){
+   try{
+    const [a,b]=await Promise.all([history(asset+"USD","15m",days*86400),
+     history(asset+"USD","1h",(days+5)*86400)]);
+    results.push({asset,result:A.backtestUnderlying(a,b,{hours,feeBps:20})});
+   }catch(e){results.push({asset,result:{status:"NO TRADE",reason:e.message}});}
+  }
+  out.replaceChildren();
+  for(const {asset,result:r}of results)out.append(node("p",asset+" · "+r.status+" · sample "+(r.trades??0)+
+   " trades · net win rate "+(Number.isFinite(r.winRate)?(100*r.winRate).toFixed(1)+"%":"—")+
+   " · mean net R "+(Number.isFinite(r.meanNetR)?fnum(r.meanNetR,3):"—")+
+   " · historical max drawdown "+(Number.isFinite(r.maxDrawdownR)?fnum(r.maxDrawdownR,2)+"R":"—")+
+   " · "+r.reason));
+  out.append(node("p","UNDERLYING signal proxy only. No historical option premiums, implied volatility, fills, liquidity or margin; not a strategy performance claim."));
+ }catch(e){out.replaceChildren(node("p","Backtest unavailable: "+e.message));}
+ finally{button.disabled=false;}
+}
+if($("runBacktest"))$("runBacktest").onclick=runBacktest;
+if($("exportResearch"))$("exportResearch").onclick=async()=>{
+ const out=$("exportStatus");
+ if(!locked){out.textContent="No qualified paper plan to export.";return;}
+ const payload={source:"LearningFundClear",kind:"NON_EXECUTABLE_RESEARCH",
+  exportedAt:new Date().toISOString(),strategy:locked.label,
+  legs:locked.long2?[locked.long,locked.long2]:[locked.long,locked.short],
+  quantity:locked.quantity,expiry:locked.expiry,timeExit:locked.timeExit,
+  requiresIndependentVerification:true};
+ try{await navigator.clipboard.writeText(JSON.stringify(payload,null,2));
+  out.textContent="Research JSON copied. No Mirror Pip webhook or order submitted.";}
+ catch{out.textContent="Clipboard unavailable; a secure browser is required.";}
+};
+if($("verifyDeltaAccount"))$("verifyDeltaAccount").onclick=async()=>{
+ const out=$("deltaAccountStatus");out.textContent="Checking owner-only Delta read-only bridge…";
+ try{
+  const {data:{session}}=await LfcAuth.client.auth.getSession();
+  if(!session)throw Error("Sign in first");
+  const r=await fetch(new URL("api/delta/account?view=wallet",LfcAuth.base),
+   {headers:{Authorization:"Bearer "+session.access_token},cache:"no-store",credentials:"omit",
+    signal:AbortSignal.timeout(15000)});
+  const data=await r.json();
+  if(!r.ok)throw Error(data.error||"Read-data service unavailable");
+  out.textContent="Owner-only read-data connection verified · "+data.result.length+
+   " wallet records · "+stamp(Date.parse(data.asOf))+". No orders enabled.";
+ }catch(e){out.textContent="Delta read-only account not connected: "+e.message+
+  ". Configure account-owner ID and read-only API keys privately on the host.";}
+};
 $("refreshNow").onclick=()=>refresh();
 let debounce=null;
 $("capital").addEventListener("input",()=>{

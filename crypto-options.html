@@ -8,7 +8,7 @@
 <body data-page="crypto-options"><main id="main">
 <p class="eyebrow">READ-ONLY • DELTA INDIA PUBLIC MARKET DATA</p>
 <h1>Crypto Options Desk</h1>
-<p class="sub">Enter capital and choose how long you want to hold a trade. The desk scans BTC, ETH and available tokenized-gold option listings, checks 15-minute and hourly structure, evaluates debit spreads and long straddles/strangles, and monitors eligible research plans. Neutral long-volatility structures remain watch-only without a verified edge. It will explicitly say <strong>NO TRADE</strong> when inputs or market conditions fail.</p>
+<p class="sub">Enter capital and choose how long you want to hold a trade. The desk scans BTC, ETH and available tokenized-gold option listings, checks 15-minute and hourly structure, evaluates debit spreads, credit structures, iron condors and long straddles/strangles, and monitors eligible paper research plans. Neutral long-volatility structures remain watch-only without a verified edge. It will explicitly say <strong>NO TRADE</strong> when inputs or market conditions fail.</p>
 <nav class="desk-tabs" aria-label="Crypto research pages"><a aria-current="page" href="crypto-options.html">Options &amp; spreads</a><a href="crypto-funding.html">Funding &amp; hedges</a><a href="crypto.html">Raw markets</a></nav>
 <section class="card desk-inputs" aria-label="Capital and refresh">
 <div class="row"><div class="capital-field"><label for="capital">Trading capital (₹ INR)</label><input id="capital" type="number" min="100" max="1000000000" step="100" inputmode="decimal" placeholder="e.g. 50000" autocomplete="off"></div>
@@ -28,11 +28,26 @@
 <section class="card"><h2>Why WAIT / NO TRADE?</h2>
 <p class="sub">Every asset is checked for bullish/bearish debit spreads and long straddles/strangles. Market direction, signal confirmation, live contract prices, expiry, liquidity and risk sizing are separate gates. A neutral structure can produce a <strong>volatility watch</strong>, but without a verified volatility edge it is not labelled an executable trade.</p>
 <div id="strategyDiagnostics" aria-live="polite"><p>Run a scan to see each strategy's status and blocking reason.</p></div></section>
+<section class="card" id="creditResearch"><h2>Credit spreads &amp; iron condors — risk-gated research</h2>
+<p class="sub">Screen all quoted legs with liquidity, completed-candle direction, theoretical defined risk, costs and capital-based contract limits. These are <strong>WATCH ONLY</strong> until verified account margin, exchange execution sequence and implied-volatility evidence are available. Never treat theoretical payoff as a fill or margin guarantee.</p>
+<div id="creditCandidates" aria-live="polite"><p>Run market analysis to inspect qualified research candidates.</p></div></section>
+<section class="card" id="historicalResearch"><h2>Historical signal backtest (underlying proxy)</h2>
+<p class="sub">Tests completed 15m and hourly perpetual candles without future leakage, includes an indicative round-trip cost and conservative stop-first same-candle assumptions. Does not simulate historical option bid/ask, implied volatility, credit structures, actual margin or fills.</p>
+<button id="runBacktest" type="button">Run historical proxy (BTC &amp; ETH)</button>
+<div id="backtestResults" role="status" aria-live="polite"><p>Historical research not run.</p></div></section>
+<section class="card" id="exchangeConnectivity"><h2>Delta account and Mirror Pip</h2>
+<p class="sub">Delta account verification uses an owner-restricted server bridge with a read-data-only API key stored in deployment secrets. It cannot place orders. Mirror Pip's independently authenticated trading web app is not a verified webhook integration.</p>
+<button id="verifyDeltaAccount" type="button">Check owner-only Delta account link</button>
+<p id="deltaAccountStatus" role="status">Not connected or not checked.</p>
+<button id="exportResearch" type="button">Copy non-executable research JSON</button>
+<p id="exportStatus" role="status">No trading signal sent to Mirror Pip.</p>
+<p><a href="https://trade.mirrorpip.com/" target="_blank" rel="noopener noreferrer">Open Mirror Pip independently</a>. Import compatibility and trade execution are not asserted.</p>
+</section>
 <section class="card"><h2>How the automation decides</h2>
 <p>Scan → determine direction → require completed BOS or sweep → check option-chain timestamps, expiry, spread, open interest and exact contract value → compare debit spreads and long-volatility structures → size from at most 2% of capital at maximum theoretical spread loss → lock one plan for a selected 2-, 4- or 8-hour research exit watch. If no plan qualifies, do not force a trade.</p>
 <p class="desk-minor">Spread entry = buy-leg ask minus sell-leg bid. Spread exit = buy-leg bid minus sell-leg ask. Stop and target displayed here apply to the <strong>combined spread</strong>; they are <strong>not</strong> Delta terminal's independent leg order prices. Currency conversion, fees and taxes are estimates; costs, margin, executable fills and trading permissions must be verified on your broker.</p>
 <p class="desk-minor"><strong>Research only:</strong> no positions are imported; no live order, stop or target is placed. Options are high risk. A stop can gap past the alert and a defined-risk spread may incur additional fees and execution risks.</p>
 </section>
 </main>
-<script src="assets/js/shell.js"></script><script src="assets/js/crypto-desk-engine.js"></script><script src="assets/js/crypto-desk-ui.js"></script>
+<script src="assets/js/shell.js"></script><script src="assets/js/crypto-desk-engine.js"></script><script src="assets/js/crypto-advanced-engine.js"></script><script src="assets/js/crypto-desk-ui.js"></script>
 </body></html>
