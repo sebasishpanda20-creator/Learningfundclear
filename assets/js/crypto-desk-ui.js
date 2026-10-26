@@ -313,6 +313,12 @@ async function refreshFunding(){
   fnum(x.ratePercent,4)+"% (indicative)",
   x.clock.at?timeLeft(x.clock.at)+(x.clock.verified?" · Exchange time":" · Estimated IST schedule"):"Unverified",
   rupees(x.receiptUSD),rupees(x.afterCostsUSD),x.contracts]));
+ // Keep the settlement countdown ticking in IST between market refreshes.
+ const liveCells=$("fundRows")?.querySelectorAll("tr")||[];
+ rows.forEach((entry,i)=>{
+  const cell=liveCells[i]?.children?.[3];
+  if(cell&&entry.data?.clock?.at){cell.dataset.fundingEnd=String(entry.data.clock.at);}
+ });
  const box=$("tradePlan");box.replaceChildren();
  const candidates=rows.filter(x=>x.data&&Number.isFinite(x.data.afterCostsUSD))
   .sort((a,b)=>b.data.afterCostsUSD-a.data.afterCostsUSD);
@@ -410,6 +416,15 @@ if($("resetPlan"))$("resetPlan").onclick=()=>{
 document.addEventListener("visibilitychange",()=>{if(!document.hidden)refresh();});
 window.addEventListener("pagehide",()=>clearInterval(timer));
 timer=setInterval(()=>refresh(),view==="crypto-options"?25000:60000);
+if(view==="crypto-funding"){
+ const countdown=setInterval(()=>{
+  for(const cell of document.querySelectorAll("[data-funding-end]")){
+   const end=Number(cell.dataset.fundingEnd);
+   cell.textContent="in "+timeLeft(end)+" · "+stamp(end);
+  }
+ },1000);
+ addEventListener("pagehide",()=>clearInterval(countdown));
+}
 if(locked&&view==="crypto-options"){showPlan(locked);showMonitor({status:"NO TRADE",reason:"Awaiting fresh quotes"});}
 refresh();
 })();
