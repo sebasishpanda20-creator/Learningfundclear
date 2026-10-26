@@ -10,3 +10,18 @@
 .table-wrap{overflow:auto}table{width:100%;border-collapse:collapse}th,td{padding:10px 12px;border-bottom:1px solid var(--line,#cbd5d8);text-align:left;vertical-align:top}
 th{white-space:nowrap}td{min-width:80px;font-variant-numeric:tabular-nums}button{cursor:pointer}
 @media(max-width:620px){#tradePlan dl{grid-template-columns:1fr}#tradePlan dt{margin-top:8px}#tradePlan dd{padding-bottom:5px}}
+
+/* Plain-language first screen: capital is the only required manual control. */
+body[data-page="crypto-options"] .desk-advanced-input{display:none}
+.simple-trend-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(185px,1fr));gap:12px;margin-top:16px}
+.trend-tile{display:flex;flex-direction:column;gap:9px;padding:18px;border:1px solid var(--line,#cbd5d8);border-radius:13px}
+.trend-tile span{font-weight:800;font-size:clamp(1.4rem,3vw,2rem)}
+.trend-tile[data-direction="UP"] span{color:#16834c}
+.trend-tile[data-direction="DOWN"] span{color:#be3131}
+.trend-tile[data-direction="SIDEWAYS"] span{color:#a5740e}
+.trend-tile small{opacity:.83}
+.simple-recommendation{border-inline-start:5px solid var(--lfc-primary,#247c7d)}
+.simple-recommendation h3{font-size:1.3rem}
+.desk-advanced>summary{font-weight:700;cursor:pointer;padding:6px 0}
+.desk-advanced>.card{margin-top:16px}
+body[data-page="crypto-options"] #tradePlan{order:unset}
