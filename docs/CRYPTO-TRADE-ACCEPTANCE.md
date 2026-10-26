@@ -1,35 +1,32 @@
-# Crypto Trading Desk — Integration & Acceptance Status (27 October 2026)
+# LearningFundClear crypto desk — research-only release (27 October 2026)
 
-This is a **research / paper-plan system**. It does not place orders or connect to Mirror Pip for execution.
+## Production scope
 
-## Delivered
-- Live-public Delta India market candles, options tickers, contract metadata, completed-candle direction, executable-bid/ask paper monitoring (unchanged).
-- Two-leg **credit-spread and four-leg iron-condor** cost/risk screen in `assets/js/crypto-advanced-engine.js`, separate from the existing debit vertical and straddle logic. All credit structures are `WATCH ONLY`, never sent as orders. Max theoretical loss uses worst wing **minus total net premium credit plus full-leg estimated fees/GST/slippage**. Candidate integer sizing is capped at 2% of submitted USD-equivalent capital modeled risk and 30% underlying notional, and is *not* account buying power.
-- On-demand gap-rejecting non-overlapping walk-forward backtest of completed underlying perpetual candles (BTC/ETH). Entry is next 15-minute candle open; stop on structure invalidation; target at 1.5R; conservative stop-first when both barriers occur inside a candle; 20 bps round-trip assumed execution burden. **This does not backtest historical options or spreads.** No calibrated volatility regime, out-of-sample holdout, tax modeling or order-book replay. Minimum 20 signals to label a historical proxy.
-- Owner-only authenticated **Delta read-only** account API bridge: `GET /api/delta/account?view=wallet|positions|orders`. HMAC signatures are generated server-side and never exposed to the browser. Backend denies anonymous, non-admin, non-owner sessions, all write methods, and all unlisted upstream paths. Requires secrets:
-  - `DELTA_API_KEY`: **read-data-only** Delta India API key.
-  - `DELTA_API_SECRET`: associated Delta API secret.
-  - `DELTA_ACCOUNT_OWNER_USER_ID`: exact Supabase auth user UUID with active admin role. **Do not commit these, paste them in chat, put them in frontend JS, or expose them in logging.**
-- Non-executable JSON export for manual strategy review and a separately labeled Mirror Pip external link. Mirror Pip documents a TradingView **single-leg** webhook message and endpoint at https://docs.mirrorpip.com/indicator-automation, but this does not establish compatibility with four-leg options or risk-synchronized spread exits. There is **no tested Mirror Pip multi-leg submission**, and exported JSON is **not** presented as an accepted Mirror Pip order schema.
+This is a standalone browser research portal, not a trade execution system. **No ChatGPT or OpenAI subscription, Delta account link, API trading key, Mirror Pip link, or broker login is required for options or funding research.** The portal runs the market scan automatically after INR capital is entered (a 2/4/8-hour horizon has a default). It checks public market data, completed 15m and hourly candles, EMA and SMC BOS/sweep evidence, option quotes and products, indicative exchange fees, funds/capital-based limits, and shows entry, spread stop/target, and quote-based monitoring for paper plans.
 
-## Live trading remains deliberately disabled
-Never deploy trading API credentials simply by replacing the read-only key: the server exposes only `GET` and never signs an order mutation. There is no unattended trade execution, no valid multi-leg atomic fill guarantee, and no stop/target bracket placement. Paper plans cannot be interpreted as actual positions.
+- BTC, ETH and available XAUT tokenized-gold option listings are checked independently. No made-up strikes or gold options.
+- Debit verticals may be shown as **PAPER PLAN** if gates pass. Credit spreads/iron condors are strictly **WATCH ONLY** without verified multi-leg margin/fills.
+- Funding is separately displayed as **WATCH ONLY** when carry and hedge economics are unverified.
+- Backtest is an on-demand **underlying-only historical signal proxy** (not a historical options backtest). It rejects gaps, follows completed bars, charges an indicative cost allowance and tests exact 2/4/8-hour time exits. It is not a claim of profitability.
+- All outputs require recent data; stale/missing market inputs lead to **NO TRADE**. Bid/ask watch stops are alerts, never exchange bracket orders.
+- No live execution, order placement, broker credential access, position importing, autonomous background trades or ChatGPT requests.
 
-**Prerequisites before considering a live release:**
-1. Verify active Delta India trading permissions, sub-account/margin type, fee schedule, order size units and tick increments using a controlled test account.
-2. Model and verify official exchange buying power and the order sequence for 2-leg and 4-leg structures; handle partially filled shorts and cancellations/rollback, slippage, exchange downtime and uncertain order acknowledgments.
-3. Prove server-side trade authorisation, isolated secret storage, maximum daily loss, notional/exposure caps across *all* positions, one-live-order idempotency, heartbeat/kill switch, auditable event log, error alerts and explicit operator consent to enabling trade execution.
-4. Confirm Mirror Pip's official support for multi-leg Delta options beyond its published TradingView single-leg webhook schema, obtain the account's private routing code, and prove authenticated delivery, cancellation, duplicate protection and position reconciliation. Public third-party snippets are not authoritative API documentation.
-5. Run historical **option-chain** replay with contemporaneous IV, quote depth, executions, funding/fees and margin, strict out-of-sample research and forward paper trading. Underlying directional proxies cannot establish options-strategy expectancy.
-6. Test authenticated deployment against real account read-only responses, browser same-origin requests, failure injection and mobile layouts. GitHub fixture tests are not proof of live account availability.
+## Hosting / deployment
 
-## Vendor references
-- https://docs.delta.exchange/
-- https://guides.delta.exchange/delta-exchange-india-user-guide/trading-guide/margin-explainer
-- https://www.mirrorpip.com/
-- https://docs.mirrorpip.com/indicator-automation
+**Cloudflare Workers (preferred existing production domain)**: `learningfundclear.sebasish-panda20.workers.dev`. Build from `main`: `npm install`, `npm run build:cloudflare`, then `npm run deploy:cloudflare`. The worker and static assets use `wrangler.jsonc`. Existing `NIFTY_FEED_PRIVATE_KEY` is only required for the optional Nifty feed API; it is **not needed for the crypto research pages**. Never put hosting or broker secrets in source files.
 
-## Offline validation
-`node --test qa/crypto-desk.test.cjs qa/crypto-advanced.test.cjs`
+For automatic main-branch Cloudflare deployment, add the GitHub Actions repository secrets `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID` to the owner's repo. The deployment workflow **reports a skip rather than falsely claiming a deploy** when either secret is missing. The workflow validates production code, builds, checks Worker packaging and then deploys if access is configured. Do not share tokens in chat.
 
-The automatic workflow runs this alongside production contract guards.
+**GitHub Pages (fallback static hosting)**: `main` also triggers `.github/workflows/deploy-pages.yml`. The crypto research pages can use the public exchange endpoints in supported browsers, but GitHub Pages **cannot host Worker `/api/*` endpoints** (not needed for the crypto options/funding research scope). Supabase account login still applies to protected portal pages.
+
+## Acceptance checks
+
+- `bash .ci/guard.sh` — HTML/JS contracts, scanner tests and crypto desk unit tests.
+- `node qa/crypto-desk-flows.cjs` — authenticated browser integration with **mock** market feeds in mobile and desktop viewports.
+- `npm run build:cloudflare && npm run check:cloudflare` — Worker packaging preflight.
+- Verify production browser sign-in, latest market timestamps and public exchange API access separately; mocks cannot certify external CORS, provider uptime or liquidity.
+- A Cloudflare deploy has **not** been verified solely by merging a PR: check the new deployment workflow and public domain for a successful release.
+
+## Future features deliberately out of scope
+
+Delta balance/position account retrieval, Mirror Pip integration, automated real orders, account buying-power checks and broker-managed stop/target placement are not required for this release. An owner-only read-only account bridge remains dormant in server source but is neither configured nor used by these pages. Never add live execution without separately authorized design/testing and account-specific safety controls.
