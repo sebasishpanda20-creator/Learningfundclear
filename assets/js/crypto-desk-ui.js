@@ -180,6 +180,9 @@ async function refreshOption(isMonitor=false) {
    const asset=locked.long.split("-")[1],rows=await readOptions(asset,null,[locked.long,locked.short]);
    latestTickers=rows;
    showPlan(locked);
+   // Restore the simple answer even after page reload while a paper plan is locked.
+   simpleSummary([{asset,trend:{side:locked.direction,actionable:true},
+    plan:locked}]);
    showMonitor(D.monitor(locked,rows));
    safeText("status","Plan locked; monitoring both legs · "+stamp(Date.now())+" · read-only");
   }catch(e){showMonitor({status:"DATA UNAVAILABLE",reason:"Cannot monitor live exit: "+e.message});safeText("status","Exchange feed unavailable; verify Delta terminal immediately.");}
