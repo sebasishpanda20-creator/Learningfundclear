@@ -8,10 +8,11 @@
 <body data-page="crypto-options"><main id="main">
 <p class="eyebrow">READ-ONLY • DELTA INDIA PUBLIC MARKET DATA</p>
 <h1>Crypto Options Desk</h1>
-<p class="sub">Your capital is the only required input. The desk scans BTC, ETH and XAUT tokenized-gold options, checks 15-minute and hourly structure, chooses at most one defined-risk debit vertical, calculates contracts, and monitors both legs. It will explicitly say <strong>NO TRADE</strong> when inputs or market conditions fail.</p>
+<p class="sub">Enter capital and choose how long you want to hold a trade. The desk scans BTC, ETH and XAUT tokenized-gold options, checks 15-minute and hourly structure, chooses at most one defined-risk debit vertical, calculates contracts, and monitors both legs. It will explicitly say <strong>NO TRADE</strong> when inputs or market conditions fail.</p>
 <nav class="desk-tabs" aria-label="Crypto research pages"><a aria-current="page" href="crypto-options.html">Options &amp; spreads</a><a href="crypto-funding.html">Funding &amp; hedges</a><a href="crypto.html">Raw markets</a></nav>
 <section class="card desk-inputs" aria-label="Capital and refresh">
 <div class="row"><div class="capital-field"><label for="capital">Trading capital (₹ INR)</label><input id="capital" type="number" min="100" max="1000000000" step="100" inputmode="decimal" placeholder="e.g. 50000" autocomplete="off"></div>
+<div><label for="tradeHorizon">Trade duration</label><select id="tradeHorizon"><option value="2">2 hours</option><option value="4" selected>4 hours</option><option value="8">8 hours</option></select></div>
 <button id="refreshNow" class="primary" type="button">Refresh &amp; analyse</button>
 <button id="resetPlan" type="button">Clear locked paper plan</button></div>
 <p id="fxStatus" class="desk-minor">Waiting for live indicative INR/USD conversion.</p>
@@ -25,7 +26,7 @@
 <p class="desk-minor">XAUT options, if listed, reference tokenized gold, <strong>not</strong> spot XAUUSD. Missing gold option liquidity results in NO TRADE; no synthetic quote is inserted.</p>
 </section>
 <section class="card"><h2>How the automation decides</h2>
-<p>Scan → determine direction → require completed BOS or sweep → check option-chain timestamps, expiry, spread, open interest and exact contract value → select a debit vertical → size from at most 2% of capital at maximum theoretical spread loss → lock one plan for a three-hour research exit watch. If no plan qualifies, do not force a trade.</p>
+<p>Scan → determine direction → require completed BOS or sweep → check option-chain timestamps, expiry, spread, open interest and exact contract value → select a debit vertical → size from at most 2% of capital at maximum theoretical spread loss → lock one plan for a selected 2-, 4- or 8-hour research exit watch. If no plan qualifies, do not force a trade.</p>
 <p class="desk-minor">Spread entry = buy-leg ask minus sell-leg bid. Spread exit = buy-leg bid minus sell-leg ask. Stop and target displayed here apply to the <strong>combined spread</strong>; they are <strong>not</strong> Delta terminal's independent leg order prices. Currency conversion, fees and taxes are estimates; costs, margin, executable fills and trading permissions must be verified on your broker.</p>
 <p class="desk-minor"><strong>Research only:</strong> no positions are imported; no live order, stop or target is placed. Options are high risk. A stop can gap past the alert and a defined-risk spread may incur additional fees and execution risks.</p>
 </section>

@@ -111,6 +111,7 @@ function showPlan(plan){
  ["Number of contracts (each leg)",plan.quantity],["Entry debit, USD per underlying unit",fnum(plan.entrySpread,6)],
  ["Watch stop, spread USD per underlying unit",fnum(plan.stopSpread,6)],
  ["Watch target, spread USD per underlying unit",fnum(plan.targetSpread,6)],
+ ["Selected trade duration",plan.horizonHours+" hours"],
  ["Time exit (whichever comes first)",stamp(plan.timeExit)],
  ["Risk budget incl. fee reserve",money(plan.riskUSD)+" · approximately ₹"+fnum(plan.riskUSD/fx,0)],
  ["Theoretical maximum gain after fee reserve",money(plan.estimatedMaxGainUSD)],
@@ -151,7 +152,7 @@ async function refreshOption(isMonitor=false) {
    results.push({asset,trend});
    if(!trend.actionable)return{asset,trend,plan:{status:"NO TRADE",reason:trend.why}};
    const ticks=await readOptions(asset,trend);
-   return{asset,trend,plan:D.chooseSpread(ticks,trend,asset,capitalUSD())};
+   return{asset,trend,plan:D.chooseSpread(ticks,trend,asset,capitalUSD(),Date.now(),Number($("tradeHorizon").value))};
   }catch(e){
    const trend={side:"UNKNOWN",actionable:false,why:"Feed unavailable: "+e.message};
    results.push({asset,trend});return{asset,trend,plan:{status:"NO TRADE",reason:e.message}};
@@ -164,7 +165,7 @@ async function refreshOption(isMonitor=false) {
   locked={...plans[0],createdAt:Date.now()};
   try{sessionStorage.setItem("lfc.crypto.plan",JSON.stringify(locked));}catch(e){}
   showPlan(locked);showMonitor({status:"MONITOR",reason:"Plan created and locked; waiting for next quote"});
-  safeText("status","One spread selected from three assets using only capital and verified public inputs.");
+  safeText("status","One spread selected for the requested "+$("tradeHorizon").value+"-hour horizon using verified public inputs.");
  }else{
   showPlan({status:"NO TRADE",reason:"No verified spread passed direction/liquidity/risk gates. "+search.map(x=>x.asset+": "+x.plan.reason).join(" · ")});
   safeText("status","Scan complete · no eligible setup · "+stamp(Date.now()));
@@ -216,6 +217,16 @@ $("capital").addEventListener("input",()=>{
   safeText("status","Existing research plan locked at its original size. Clear the plan to recalculate.");
  }else debounce=setTimeout(refresh,600);
 });
+if($("tradeHorizon")){
+ const savedH=Number(sessionStorage.getItem("lfc.crypto.horizon"));
+ if([2,4,8].includes(savedH))$("tradeHorizon").value=String(savedH);
+ if(locked&&locked.horizonHours)$("tradeHorizon").value=String(locked.horizonHours);
+ $("tradeHorizon").addEventListener("change",()=>{
+  sessionStorage.setItem("lfc.crypto.horizon",$("tradeHorizon").value);
+  if(locked){safeText("status","Existing paper plan remains locked at "+locked.horizonHours+" hours. Clear locked paper plan to scan at the new timeframe.");}
+  else refresh();
+ });
+}
 const saved=Number(sessionStorage.getItem("lfc.crypto.capital"));
 if(Number.isFinite(saved)&&saved>0)$("capital").value=String(saved);
 if($("resetPlan"))$("resetPlan").onclick=()=>{
