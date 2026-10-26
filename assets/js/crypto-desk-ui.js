@@ -285,8 +285,10 @@ function timeLeft(at){if(!Number.isFinite(at))return"Exchange timing unavailable
   String(secs%60).padStart(2,"0");
 }
 function indicativeFunding(t,asset,cap){
- const base=D.fundingDesk([t],asset,cap),live=fundingLive.get(t.symbol);
- if(base.status!=="WATCH ONLY"||!live||Date.now()-live.updated>120000)return null;
+ const live=fundingLive.get(t.symbol);
+ if(!live||Date.now()-live.updated>120000)return null;
+ const base=D.fundingDesk([{...t,funding_rate:live.ratePercent}],asset,cap);
+ if(base.status!=="WATCH ONLY")return null;
  if(!Number.isFinite(live.ratePercent)||Math.abs(live.ratePercent)>2)return null;
  const receipt=base.notionalUSD*Math.abs(live.ratePercent)/100;
  // Illustrative round trip for ONE perpetual leg: 0.05% taker each way,
