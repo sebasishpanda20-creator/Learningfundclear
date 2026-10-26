@@ -188,6 +188,6 @@ if($("resetPlan"))$("resetPlan").onclick=()=>{
 document.addEventListener("visibilitychange",()=>{if(!document.hidden)refresh();});
 window.addEventListener("pagehide",()=>clearInterval(timer));
 timer=setInterval(()=>refresh(),view==="crypto-options"?25000:60000);
-if(locked){showPlan(locked);showMonitor({status:"NO TRADE",reason:"Awaiting fresh quotes"});}
+if(locked&&view==="crypto-options"){showPlan(locked);showMonitor({status:"NO TRADE",reason:"Awaiting fresh quotes"});}
 refresh();
 })();
