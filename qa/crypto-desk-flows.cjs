@@ -52,7 +52,7 @@ const server=http.createServer((req,res)=>{
     }
     const asset=q.get("underlying_asset_symbols"),expiry=formatExpiry();
     const tickers=asset==="BTC"?
-     [quote("C-BTC-110-"+expiry,4.7,5),quote("C-BTC-118-"+expiry,1.5,1.6)]:[];
+     [quote("C-BTC-110-"+expiry,4.7,5),quote("C-BTC-118-"+expiry,1.8,1.9)]:[];
     return route.fulfill({json:{success:true,result:tickers}});
    });
    const page=await ctx.newPage(),errors=[];page.on("pageerror",e=>errors.push(e.message));
