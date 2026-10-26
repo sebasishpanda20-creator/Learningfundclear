@@ -106,31 +106,60 @@ function rowTrend(asset,x){
 }
 function showPlan(plan){
  const box=$("tradePlan");box.replaceChildren();
- const title=node("h2",plan.status==="PAPER PLAN"?"Selected research setup · "+plan.label:"NO TRADE");
- box.append(title);
- if(plan.status!=="PAPER PLAN"){box.append(node("p",plan.reason||"No verified opportunity"));return;}
+ if(plan.status!=="PAPER PLAN"){
+  box.append(node("h2","No suitable trade right now"),node("p","The market may have a direction, but available options do not meet the price, liquidity and risk checks."));
+  return;
+ }
+ box.append(node("h2","Selected research setup · "+plan.label),
+  node("p","This is a PAPER plan, not a placed order. The exchange can quote different prices."));
  const dl=document.createElement("dl");
  const fields=[
- ["Direction",plan.direction],["Buy to open",plan.long],[plan.long2?"Buy put to open":"Sell to open",plan.short],
- ["Number of contracts (each leg)",plan.quantity],["Entry debit, USD per underlying unit",fnum(plan.entrySpread,6)],
- ["Watch stop, spread USD per underlying unit",fnum(plan.stopSpread,6)],
- ["Watch target, spread USD per underlying unit",fnum(plan.targetSpread,6)],
- ["Selected trade duration",plan.horizonHours+" hours"],
- ["Time exit (whichever comes first)",stamp(plan.timeExit)],
- ["Estimated max premium risk + four-fill costs",money(plan.riskUSD)+" · approximately ₹"+fnum(plan.riskUSD/fx,0)],
- ["Estimated net at target",money(plan.expectedTargetNetUSD)+" · approximately ₹"+fnum(plan.expectedTargetNetUSD/fx,0)],
- ["Estimated net at stop",money(plan.expectedStopNetUSD)+" · approximately ₹"+fnum(plan.expectedStopNetUSD/fx,0)],
- ["Estimated spread breakeven, USD per unit",fnum(plan.breakevenSpread,6)],
- ["Theoretical maximum gain after fee reserve",money(plan.estimatedMaxGainUSD)],
- ["Estimated total round-trip deductions",money(plan.costBreakdown?.totalUSD)+" · approximately ₹"+fnum(plan.costBreakdown?.totalUSD/fx,0)],
- ["Estimated exchange commission",money(plan.costBreakdown?.commissionUSD)],
- ["Estimated GST on commission",money(plan.costBreakdown?.gstUSD)],
- ["Estimated slippage allowance",money(plan.costBreakdown?.slippageUSD)],
- ["Fee input",plan.costBreakdown?.feeRateSource||"UNAVAILABLE"],
- ["Options expire",stamp(plan.expiry)]];
- for(const [label,value]of fields){dl.append(node("dt",label),node("dd",value));}
- box.append(dl,node("p",plan.why),node("p",plan.costBreakdown?.note||"Cost input missing; net projections unavailable."));
- box.append(node("p","Research alert, NOT an exchange order. Stop/target are for the NET two-leg spread, not standalone Delta leg stop orders. Exits can slip; fees, taxes, funding and INR settlement FX must be checked on Delta."));
+  ["Market direction",plan.direction==="UP"?"UP ↗":"DOWN ↘"],
+  ["Suggested strategy",plan.label],
+  ["Buy this option",plan.long],
+  ["Sell this option",plan.short],
+  ["Contracts per leg",String(plan.quantity)+" (automatically calculated)"],
+  ["Estimated entry cost",money(plan.entrySpread*plan.contractValue*plan.quantity)],
+  ["Stop-loss alert",fnum(plan.stopSpread,4)+" USD net spread price"],
+  ["Target alert",fnum(plan.targetSpread,4)+" USD net spread price"],
+  ["Maximum estimated risk",money(plan.riskUSD)+" / approx. ₹"+fnum(plan.riskUSD/fx,0)],
+  ["Estimated profit at target",money(plan.expectedTargetNetUSD)+" / approx. ₹"+fnum(plan.expectedTargetNetUSD/fx,0)],
+  ["Estimated loss at stop",money(plan.expectedStopNetUSD)+" / approx. ₹"+fnum(plan.expectedStopNetUSD/fx,0)],
+  ["Close by",stamp(plan.timeExit)],
+  ["Option expiry",stamp(plan.expiry)]];
+ for(const [key,value] of fields)dl.append(node("dt",key),node("dd",value));
+ box.append(dl,node("p","Stop and target refer to the combined two-option price. They are monitoring alerts; no order will be placed automatically."));
+}
+function simpleSummary(search){
+ const area=$("simpleDirection"),decision=$("simpleDecision");
+ if(!area||!decision)return;
+ area.replaceChildren();
+ const items=search.map(x=>({asset:x.asset,trend:x.trend,plan:x.plan}));
+ for(const x of items){
+  const t=x.trend||{},card=document.createElement("div");card.className="trend-tile";
+  const direction=t.side==="UP"?"UP ↗":t.side==="DOWN"?"DOWN ↘":t.side==="SIDEWAYS"?"SIDEWAYS ↔":"DATA UNAVAILABLE";
+  card.dataset.direction=t.side||"UNKNOWN";
+  const label=x.asset==="XAUT"?"Gold (XAUT)":x.asset;
+  const call=t.actionable?"Trend confirmed":t.side==="UP"||t.side==="DOWN"?"Trend not confirmed":"Wait for a clear direction";
+  card.append(node("strong",label),node("span",direction),node("small",call));area.append(card);
+ }
+ const qualified=items.map(x=>x.plan).filter(p=>p?.status==="PAPER PLAN").sort((a,b)=>b.score-a.score);
+ decision.replaceChildren();
+ if(qualified.length){
+  const p=qualified[0];decision.append(node("h3","Suggested: "+p.label),
+   node("p","Market: "+(p.long.split("-")[1]||"crypto")+" · Direction: "+(p.direction==="UP"?"UP":"DOWN")),
+   node("p","Contracts per leg: "+p.quantity+" · Auto-sized from your capital."),
+   node("p","See entry, stop-loss, target and expiry below. Paper plan only."));
+ }else{
+  const trending=items.filter(x=>x.trend?.actionable&&["UP","DOWN"].includes(x.trend.side));
+  if(trending.length){
+   const x=trending[0],choice=x.trend.side==="DOWN"?"Bear Put Spread":"Bull Call Spread";
+   decision.append(node("h3","WAIT — "+x.asset+" looks "+(x.trend.side==="DOWN"?"bearish":"bullish")),
+    node("p","Strategy to watch: "+choice+"."),
+    node("p","No suitable option prices passed the safety checks. Contracts, entry, stop and target cannot be calculated reliably yet."));
+  }else decision.append(node("h3","WAIT — no confirmed opportunity"),
+   node("p","The market direction is unclear or not confirmed. No strategy, lots or prices will be invented."));
+ }
 }
 function showMonitor(current){
  const p=$("monitorPanel");if(!p)return;p.replaceChildren();
@@ -171,6 +200,7 @@ async function refreshOption(isMonitor=false) {
   }
  }));
  setRows("directionRows",assets.map(asset=>rowTrend(asset,results.find(x=>x.asset===asset)?.trend||{side:"UNKNOWN",why:"No exchange response"})));
+ simpleSummary(search);
  const report=$("strategyDiagnostics");
  if(report){
   report.replaceChildren();
