@@ -45,8 +45,9 @@ function parseOption(t){
 function liquid(x,asset,now){return x&&x.asset===asset&&x.live&&x.unit===asset&&ok(x.cv)&&x.cv>0&&
  ok(x.bid)&&x.bid>0&&ok(x.ask)&&x.ask>x.bid&&
  (x.ask-x.bid)/((x.ask+x.bid)/2)<=0.20&&ok(x.oi)&&x.oi>=500&&
- fresh(x.timestamp,now)&&x.expiry>now+8*3600000&&x.expiry<now+10*86400000;}
-function chooseSpread(tickers,trend,asset,capitalUSD,now=Date.now()){
+ fresh(x.timestamp,now)&&x.expiry>now+3600000&&x.expiry<now+10*86400000;}
+function chooseSpread(tickers,trend,asset,capitalUSD,now=Date.now(),hours=4){
+ if(![2,4,8].includes(hours))return wait("Choose a valid 2, 4 or 8 hour trade horizon");
  if(!ok(capitalUSD)||capitalUSD<20)return wait("Capital or verified FX missing (minimum $20 equivalent)");
  if(!trend?.actionable||!["UP","DOWN"].includes(trend.side))return wait("No confirmed direction: "+(trend?.why||"no data"));
  const side=trend.side==="UP"?"C":"P",chain=(Array.isArray(tickers)?tickers:[]).map(parseOption).filter(t=>liquid(t,asset,now)&&t.side===side);
@@ -54,6 +55,7 @@ function chooseSpread(tickers,trend,asset,capitalUSD,now=Date.now()){
  let best=null;
  const expiries=[...new Set(chain.map(t=>t.expiry))].sort((a,b)=>a-b);
  for(const expiry of expiries.slice(0,3)){
+  if(expiry<=now+hours*3600000+3600000)continue;
   const rows=chain.filter(x=>x.expiry===expiry).sort((a,b)=>a.strike-b.strike);
   const longs=[...rows].sort((a,b)=>Math.abs(a.strike-trend.current)-Math.abs(b.strike-trend.current)).slice(0,5);
   for(const long of longs)for(const short of rows){
@@ -70,7 +72,7 @@ function chooseSpread(tickers,trend,asset,capitalUSD,now=Date.now()){
     long:long.symbol,short:short.symbol,expiry,contractValue:long.cv,
     quantity,entrySpread:debit/long.cv,stopSpread:debit*0.5/long.cv,
     targetSpread:Math.min(width*0.9,debit*1.6)/long.cv,
-    timeExit:Math.min(now+3*3600000,expiry-3600000),
+    timeExit:now+hours*3600000,horizonHours:hours,
     riskUSD:loss*quantity,estimatedFeesUSD:buffer*quantity,estimatedMaxGainUSD:gain*quantity,
     why:"15m/1h trend plus SMC → executable quotes → liquid expiry → 2% approximate spread-risk and 30% underlying-notional caps",
     score:gain/loss-Math.abs(long.strike-trend.current)/trend.current};
@@ -78,7 +80,7 @@ function chooseSpread(tickers,trend,asset,capitalUSD,now=Date.now()){
   }
   if(best)break;
  }
- return best||wait("No option vertical passes 2% max-loss, expiry, liquidity and reward gates");
+ return best||wait("No option vertical passes selected timeframe, 2% max-loss, expiry, liquidity and reward gates");
 }
 function monitor(plan,tickers,now=Date.now()){
  if(plan?.status!=="PAPER PLAN")return wait("No locked spread");

@@ -41,7 +41,12 @@ test("single spread, correct side, upper bound on risk and notional",()=>{
  assert(p.quantity>=1);assert(p.riskUSD<=20.00001);
  assert(p.quantity*p.contractValue*t.current<=300.00001);
  assert(p.stopSpread<p.entrySpread&&p.targetSpread>p.entrySpread);
- assert(p.timeExit>now&&p.timeExit<=now+10800000);
+ assert.equal(p.horizonHours,4);assert.equal(p.timeExit,now+4*3600000);
+ const p2=D.chooseSpread(pair(),t,"BTC",1000,now,2);
+ assert.equal(p2.timeExit,now+2*3600000);
+ const p8=D.chooseSpread(pair(),t,"BTC",1000,now,8);
+ assert.equal(p8.timeExit,now+8*3600000);
+ assert.equal(D.chooseSpread(pair(),t,"BTC",1000,now,3).status,"NO TRADE");
  assert.equal(D.chooseSpread(pair("P"),trend(false),"BTC",1000,now).label,"Bear put debit spread");
  assert.equal(D.chooseSpread(pair("C","XAUT"),t,"XAUT",1000,now).status,"PAPER PLAN");
 });

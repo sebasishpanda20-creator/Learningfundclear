@@ -58,10 +58,11 @@ const server=http.createServer((req,res)=>{
    const page=await ctx.newPage(),errors=[];page.on("pageerror",e=>errors.push(e.message));
    await page.goto(origin+"/crypto-options.html");
    await page.locator("html.auth-ready").waitFor();
+   await page.locator("#tradeHorizon").selectOption("2");
    await page.locator("#capital").fill("100000");
    await page.locator("#tradePlan").getByText("Selected research setup", {exact:false}).waitFor({timeout:30000});
    const plan=await page.locator("#tradePlan").innerText();
-   assert.match(plan,/Bull call debit spread/);assert.match(plan,/C-BTC-110-/);assert.match(plan,/C-BTC-118-/);
+   assert.match(plan,/Bull call debit spread/);assert.match(plan,/2 hours/);assert.match(plan,/C-BTC-110-/);assert.match(plan,/C-BTC-118-/);
    assert.match(await page.locator("#directionRows").innerText(),/BULLISH BOS/);
    assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),true);
    await page.locator("#refreshNow").click();
