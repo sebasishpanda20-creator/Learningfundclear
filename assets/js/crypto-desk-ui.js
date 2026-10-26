@@ -241,26 +241,79 @@ async function refreshOption(isMonitor=false) {
   safeText("status","Scan complete · no eligible setup · "+stamp(Date.now()));
  }
 }
-async function refreshFunding(){
- safeText("status","Scanning BTC, ETH, XAUT and PAXG perpetuals. No assumed spot hedge.");
- const tickers=await readPerps(),assets=["BTC","ETH","XAUT","PAXG"],cap=capitalUSD();
- const rows=assets.map(asset=>D.fundingDesk(tickers,asset,cap));
- setRows("fundRows",assets.map((asset,i)=>{
-  const x=rows[i];return[asset,x.status,x.status==="WATCH ONLY"?fnum(x.fundingRaw,8):"—",
-   x.status==="WATCH ONLY"?x.route:"No verified carry",
-   x.status==="WATCH ONLY"?x.contracts:"—",x.status==="WATCH ONLY"?money(x.notionalUSD):"—",
-   x.status==="WATCH ONLY"?"Spot/borrow/fee verification required":x.reason];
- }));
- const viable=rows.filter(x=>x.status==="WATCH ONLY");
- viable.sort((a,b)=>Math.abs(b.fundingRaw)-Math.abs(a.fundingRaw));
- const box=$("tradePlan");box.replaceChildren();
- if(viable.length){
-  const x=viable[0];box.append(node("h2","Funding watch: "+x.perp+" · "+x.route),
-   node("p","Indicative hedge size: "+x.contracts+" perpetual contracts; notional "+money(x.notionalUSD)+". Raw funding field: "+fnum(x.fundingRaw,8)+"."),
-   node("p",x.reason));
- }else box.append(node("h2","NO FUNDING TRADE"),node("p","No tradable-sized verified perpetual quote for current capital."));
- safeText("status","Funding research snapshot · "+stamp(Date.now())+" · execution blocked until both hedge legs and settlement economics are verified.");
+function fundingClock(t,now=Date.now()){
+ // Delta's documented 8-hour schedule; other schedules remain unverified.
+ const interval=Number(t.product?.rate_exchange_interval??t.rate_exchange_interval);
+ const fixed=Number(t.next_funding_realization??t.next_funding_time??t.next_funding_timestamp);
+ const ms=D.milliseconds(fixed);
+ if(Number.isFinite(ms)&&ms>now&&ms<=now+24*3600000)return{at:ms,verified:true};
+ if(Number.isFinite(interval)&&interval!==28800)return{at:null,verified:false};
+ const ist=now+330*60000,day=Math.floor(ist/86400000)*86400000;
+ for(const minutes of [330,810,1290,1770]){
+  const at=day+minutes*60000-330*60000;
+  if(at>now)return{at,verified:false};
+ }
+ return{at:null,verified:false};
 }
+function timeLeft(at){if(!Number.isFinite(at))return"Exchange timing unavailable";
+ const secs=Math.max(0,Math.floor((at-Date.now())/1000));
+ return String(Math.floor(secs/3600)).padStart(2,"0")+":"+
+  String(Math.floor(secs%3600/60)).padStart(2,"0")+":"+
+  String(secs%60).padStart(2,"0");
+}
+function indicativeFunding(t,asset,cap){
+ const base=D.fundingDesk([t],asset,cap),raw=Number(base.fundingRaw);
+ if(base.status!=="WATCH ONLY"||!Number.isFinite(raw)||Math.abs(raw)>1)return null;
+ // Delta's funding documentation expresses e.g. 0.01 as 0.01 PERCENT.
+ const rate=Math.abs(raw)/100;
+ const receipt=base.notionalUSD*rate;
+ // Two taker fills at 0.05% each, GST on commission, plus 0.10% slip each way.
+ // Excludes hedge costs, P&L, taxes, liquidation, borrowing and all basis risk.
+ const cost=base.notionalUSD*(0.0005*2*1.18+0.001*2);
+ return{...base,ratePercent:raw,receiptUSD:receipt,costUSD:cost,
+  afterCostsUSD:receipt-cost,clock:fundingClock(t)};
+}
+async function refreshFunding(){
+ safeText("status","Checking BTC, ETH and gold funding estimates in Indian rupees…");
+ const tickers=await readPerps(),assets=["BTC","ETH","XAUT","PAXG"],cap=capitalUSD();
+ const rows=assets.map(asset=>{
+  const tick=tickers.find(t=>t.symbol===asset+"USD");
+  return{asset,data:tick?indicativeFunding(tick,asset,cap):null};
+ });
+ const rupees=x=>"₹"+fnum(x/fx,2);
+ setRows("fundRows",rows.map(({asset,data:x})=>!x?[asset,"Not available","—","—","—","—","—"]:[
+  asset,x.route.startsWith("SHORT")?"SELL perpetual":"BUY perpetual",
+  fnum(x.ratePercent,4)+"% (indicative)",
+  x.clock.at?timeLeft(x.clock.at)+(x.clock.verified?" · Exchange time":" · Estimated IST schedule"):"Unverified",
+  rupees(x.receiptUSD),rupees(x.afterCostsUSD),x.contracts]));
+ const box=$("tradePlan");box.replaceChildren();
+ const candidates=rows.filter(x=>x.data&&Number.isFinite(x.data.afterCostsUSD))
+  .sort((a,b)=>b.data.afterCostsUSD-a.data.afterCostsUSD);
+ if(!candidates.length){
+  box.append(node("h2","WAIT — no qualified funding data"),
+   node("p","No fresh market rate, coin size or INR estimate available. Please try again."));
+ }else{
+  const best=candidates[0],x=best.data,positive=candidates.filter(v=>v.data.afterCostsUSD>0);
+  if(!positive.length){
+   box.append(node("h2","WAIT — funding does not cover estimated trading costs"),
+    node("p","Highest gross funding receipt: "+best.asset+" · "+rupees(x.receiptUSD)+
+     ". After a sample round-trip fee/GST/slippage allowance: "+rupees(x.afterCostsUSD)+"."),
+    node("p","This estimate excludes price movement, hedge cost and taxes. Do not chase the last-minute funding payment."));
+  }else{
+   const pick=positive[0],p=pick.data;
+   box.append(node("h2","WATCH ONLY — "+pick.asset+" has the highest illustrative funding after costs"),
+    node("p","Estimated funding receipt: "+rupees(p.receiptUSD)+
+     " · After sample trading charges: "+rupees(p.afterCostsUSD)+"."),
+    node("p","Suggested funding side: "+(p.route.startsWith("SHORT")?"SELL perpetual":"BUY perpetual")+
+     " · Example contracts: "+p.contracts+". These are NOT confirmed hedge profits."),
+    node("p","Next event in "+(p.clock.at?timeLeft(p.clock.at):"unknown time")+
+     ". Actual eligible funding and exchange timestamps must be verified before any trade."));
+  }
+ }
+ box.append(node("p","IMPORTANT: This is a one-leg funding estimate, not net trading profit. Unhedged price changes can produce a much larger loss. Funding rates change and funding is paid only if the position is included in the exchange snapshot."));
+ safeText("status","Live public funding snapshot · "+stamp(Date.now())+" · no orders placed");
+}
+
 async function refresh(){
  if(running||document.hidden)return;
  running=true;$("refreshNow").disabled=true;
