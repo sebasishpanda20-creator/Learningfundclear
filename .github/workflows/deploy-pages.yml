@@ -57,6 +57,15 @@ jobs:
             node --check "$f"
           done
 
+      - name: Validate the standalone crypto research pages before publishing
+        run: |
+          node --check assets/js/crypto-desk-engine.js
+          node --check assets/js/crypto-advanced-engine.js
+          node --check assets/js/crypto-desk-ui.js
+          node --test qa/crypto-desk.test.cjs qa/crypto-advanced.test.cjs
+          grep -q 'crypto-advanced-engine.js' crypto-options.html
+          grep -q 'id="runBacktest"' crypto-options.html
+
       - name: Verify each page loads its stylesheet and the data file
         run: |
           missing=0
