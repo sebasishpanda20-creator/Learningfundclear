@@ -82,8 +82,10 @@ function optionCandidates(tickers,trend,asset,lockedSymbols=[]) {
   }).filter(x=>x.expiry>now+(Number($("tradeHorizon")?.value)||4)*3600000+3600000&&x.expiry<now+10*86400000&&
    Number.isFinite(x.strike)&&Math.abs(x.strike-trend.current)/trend.current<=0.08);
  const expiry=[...new Set(valid.map(x=>x.expiry))].sort((a,b)=>a-b)[0];
- return valid.filter(x=>x.expiry===expiry).sort((a,b)=>Math.abs(a.strike-trend.current)-Math.abs(b.strike-trend.current))
-  .slice(0,40).map(x=>x.ticker.symbol);
+ const nearest=valid.filter(x=>x.expiry===expiry);
+ return ["C","P"].flatMap(type=>nearest.filter(x=>x.ticker.symbol.startsWith(type+"-"))
+  .sort((a,b)=>Math.abs(a.strike-trend.current)-Math.abs(b.strike-trend.current))
+  .slice(0,24).map(x=>x.ticker.symbol));
 }
 async function readOptions(asset,trend,lockedSymbols=[]) {
  const rows=await getDelta("/tickers?contract_types=call_options,put_options&underlying_asset_symbols="+asset);
