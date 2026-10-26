@@ -21,7 +21,7 @@ function option(type,asset,strike,bid,ask,when=now){
 }
 const pair=(type="C",asset="BTC",when=now)=>[
  option(type,asset,type==="C"?110:88,type==="C"?4.7:4.2,type==="C"?5:4.5,when),
- option(type,asset,type==="C"?118:81,type==="C"?1.5:2,type==="C"?1.6:2.1,when)
+ option(type,asset,type==="C"?118:81,type==="C"?1.8:2,type==="C"?1.9:2.1,when)
 ];
 test("confirmed completed structure is directional; uncertain bars fail closed",()=>{
  const up=trend(true),down=trend(false);
@@ -97,4 +97,23 @@ test("volatility refuses missing put, stale quotes and unaffordable premium",()=
  assert.equal(D.chooseVolatility([
  option("C","BTC",112,999,1000),option("P","BTC",112,999,1000)
  ],neutral,"BTC",20,now,2).status,"NO TRADE");
+});
+
+test("cost reserve includes commission, GST and slippage without pretending to know actual fills",()=>{
+ const c=D.roundTripCosts([{ask:5,bid:4.7,takerRate:0.0003},{ask:1.6,bid:1.5,takerRate:0.0003}],100,0.001,2);
+ assert(c&&c.commissionUSD>0&&c.gstUSD>0&&c.slippageUSD>0);
+ assert(Math.abs(c.gstUSD/c.commissionUSD-0.18)<1e-8);
+ assert.equal(c.feeRateSource,"PRODUCT TAKER RATES");
+ const missing=D.roundTripCosts([{ask:5,bid:4.7},{ask:1.6,bid:1.5}],100,0.001,2);
+ assert.match(missing.feeRateSource,/FALLBACK/);
+});
+test("plan net projection deducts expenses at target, stop and monitoring",()=>{
+ const p=D.chooseSpread(pair(),trend(),"BTC",1000,now,2);
+ assert.equal(p.status,"PAPER PLAN");
+ assert(p.costBreakdown.totalUSD>0);
+ assert(p.expectedTargetNetUSD<(p.targetSpread-p.entrySpread)*p.contractValue*p.quantity);
+ assert(p.expectedStopNetUSD<0);
+ assert(p.riskUSD<=20.00001);
+ const m=D.monitor(p,pair(),now);
+ assert(Math.abs(m.estimatedNetPnlUSD-(m.grossPnlUSD-p.costBreakdown.totalUSD))<1e-10);
 });
