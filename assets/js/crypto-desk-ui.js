@@ -243,7 +243,7 @@ async function refreshOption(isMonitor=false) {
 }
 // Exchange-documented funding_rate websocket: fr is in percent; nfr and ts are microsecond epochs.
 // Unlike REST ticker's ambiguous funding_rate field, only recent websocket fr may drive an estimate.
-const fundingLive=new Map();let fundingWebsocket=null;
+const fundingLive=new Map();let fundingWebsocket=null,lastFundingRefreshAt=0;
 if(view==="crypto-funding"&&typeof WebSocket!=="undefined"){
  try{
   fundingWebsocket=new WebSocket("wss://public-socket.india.delta.exchange");
@@ -258,7 +258,9 @@ if(view==="crypto-funding"&&typeof WebSocket!=="undefined"){
      !Number.isFinite(nextMs)||nextMs<Date.now()||nextMs>Date.now()+86400000||
      !Number.isFinite(Number(q.fr))||Math.abs(Number(q.fr))>2)return;
     fundingLive.set(q.sy,{ratePercent:Number(q.fr),settlement:nextMs,intervalSeconds:Number(q.fi),updated:Date.now()});
-    if(!running&&Number.isFinite(capitalUSD())&&capitalUSD()>=20)refresh();
+    if(!running&&Date.now()-lastFundingRefreshAt>15000&&Number.isFinite(capitalUSD())&&capitalUSD()>=20){
+     lastFundingRefreshAt=Date.now();refresh();
+    }
    }catch{}
   });
  }catch{}
