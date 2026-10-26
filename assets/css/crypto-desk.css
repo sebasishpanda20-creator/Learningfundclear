@@ -1,0 +1,12 @@
+.desk-tabs{display:flex;flex-wrap:wrap;gap:10px;margin:18px 0 24px}
+.desk-tabs a{display:inline-block;padding:10px 16px;border:1px solid var(--line,#b8c3c8);border-radius:12px;text-decoration:none;color:inherit;background:var(--lfc-surface)}
+.desk-tabs a[aria-current="page"]{background:var(--lfc-primary);color:var(--lfc-bg);border-color:transparent}
+.desk-inputs .row{align-items:flex-end;flex-wrap:wrap;gap:12px}
+.capital-field{min-width:min(100%,280px)}.capital-field input{display:block;width:100%;max-width:320px;padding:12px;font-size:1.1rem}
+.desk-minor{font-size:.9rem;line-height:1.55;opacity:.82}
+#tradePlan dl{display:grid;grid-template-columns:minmax(210px,1fr) minmax(150px,2fr);gap:8px 16px}
+#tradePlan dt{font-weight:600}#tradePlan dd{margin:0;overflow-wrap:anywhere;font-variant-numeric:tabular-nums}
+#monitorPanel strong{display:block;padding:12px;border:2px solid currentColor;border-radius:12px}
+.table-wrap{overflow:auto}table{width:100%;border-collapse:collapse}th,td{padding:10px 12px;border-bottom:1px solid var(--line,#cbd5d8);text-align:left;vertical-align:top}
+th{white-space:nowrap}td{min-width:80px;font-variant-numeric:tabular-nums}button{cursor:pointer}
+@media(max-width:620px){#tradePlan dl{grid-template-columns:1fr}#tradePlan dt{margin-top:8px}#tradePlan dd{padding-bottom:5px}}
