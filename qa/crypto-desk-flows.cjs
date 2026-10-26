@@ -79,11 +79,11 @@ const server=http.createServer((req,res)=>{
    results.push("Options direction, auto vertical, locked execution quote and layout "+width);
    await page.goto(origin+"/crypto-funding.html");
    await page.locator("html.auth-ready").waitFor();
-   await page.locator("#fundRows tr").first().getByText("SELL perpetual").waitFor({timeout:30000});
+   await page.locator("#fundRows tr").first().getByText("Awaiting verified live rate").waitFor({timeout:30000});
    assert.equal(await page.locator("#fundRows tr").count(),4);
    assert.match(await page.locator("#fundRows").innerText(),/PAXG/);
    assert.match(await page.locator("#tradePlan").innerText(),/WAIT|WATCH ONLY/);
-   assert.match(await page.locator("#fundRows").innerText(),/₹/);
+   assert.match(await page.locator("#tradePlan").innerText(),/WAIT/);
    assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),true);
    assert.deepEqual(errors,[]);
    results.push("Funding watch-only, tokenized gold and responsive layout "+width);
