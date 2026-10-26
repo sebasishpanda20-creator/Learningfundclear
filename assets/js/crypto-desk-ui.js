@@ -246,6 +246,57 @@ async function refresh(){
  }catch(e){safeText("status","Market data unavailable: "+e.message+" · NO TRADE. Retry when feed recovers.");}
  finally{$("refreshNow").disabled=false;running=false;safeText("lastChecked","Last checked "+stamp(Date.now()));}
 }
+// On-demand backtest on perpetual OHLC; not historical option profitability.
+async function runBacktest(){
+ const button=$("runBacktest"),out=$("backtestResults");if(!button||!out)return;
+ button.disabled=true;out.replaceChildren(node("p","Fetching completed Delta candles…"));
+ try{
+  const hours=Number($("tradeHorizon").value),days=14,results=[];
+  for(const asset of ["BTC","ETH"]){
+   try{
+    const [a,b]=await Promise.all([history(asset+"USD","15m",days*86400),
+     history(asset+"USD","1h",(days+5)*86400)]);
+    results.push({asset,result:A.backtestUnderlying(a,b,{hours,feeBps:20})});
+   }catch(e){results.push({asset,result:{status:"NO TRADE",reason:e.message}});}
+  }
+  out.replaceChildren();
+  for(const {asset,result:r}of results)out.append(node("p",asset+" · "+r.status+" · sample "+(r.trades??0)+
+   " trades · net win rate "+(Number.isFinite(r.winRate)?(100*r.winRate).toFixed(1)+"%":"—")+
+   " · mean net R "+(Number.isFinite(r.meanNetR)?fnum(r.meanNetR,3):"—")+
+   " · historical max drawdown "+(Number.isFinite(r.maxDrawdownR)?fnum(r.maxDrawdownR,2)+"R":"—")+
+   " · "+r.reason));
+  out.append(node("p","UNDERLYING signal proxy only. No historical option premiums, implied volatility, fills, liquidity or margin; not a strategy performance claim."));
+ }catch(e){out.replaceChildren(node("p","Backtest unavailable: "+e.message));}
+ finally{button.disabled=false;}
+}
+if($("runBacktest"))$("runBacktest").onclick=runBacktest;
+if($("exportResearch"))$("exportResearch").onclick=async()=>{
+ const out=$("exportStatus");
+ if(!locked){out.textContent="No qualified paper plan to export.";return;}
+ const payload={source:"LearningFundClear",kind:"NON_EXECUTABLE_RESEARCH",
+  exportedAt:new Date().toISOString(),strategy:locked.label,
+  legs:locked.long2?[locked.long,locked.long2]:[locked.long,locked.short],
+  quantity:locked.quantity,expiry:locked.expiry,timeExit:locked.timeExit,
+  requiresIndependentVerification:true};
+ try{await navigator.clipboard.writeText(JSON.stringify(payload,null,2));
+  out.textContent="Research JSON copied. No Mirror Pip webhook or order submitted.";}
+ catch{out.textContent="Clipboard unavailable; a secure browser is required.";}
+};
+if($("verifyDeltaAccount"))$("verifyDeltaAccount").onclick=async()=>{
+ const out=$("deltaAccountStatus");out.textContent="Checking owner-only Delta read-only bridge…";
+ try{
+  const {data:{session}}=await LfcAuth.client.auth.getSession();
+  if(!session)throw Error("Sign in first");
+  const r=await fetch(new URL("api/delta/account?view=wallet",LfcAuth.base),
+   {headers:{Authorization:"Bearer "+session.access_token},cache:"no-store",credentials:"omit",
+    signal:AbortSignal.timeout(15000)});
+  const data=await r.json();
+  if(!r.ok)throw Error(data.error||"Read-data service unavailable");
+  out.textContent="Owner-only read-data connection verified · "+data.result.length+
+   " wallet records · "+stamp(Date.parse(data.asOf))+". No orders enabled.";
+ }catch(e){out.textContent="Delta read-only account not connected: "+e.message+
+  ". Configure account-owner ID and read-only API keys privately on the host.";}
+};
 $("refreshNow").onclick=()=>refresh();
 let debounce=null;
 $("capital").addEventListener("input",()=>{
