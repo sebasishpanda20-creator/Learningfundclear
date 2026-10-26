@@ -32,6 +32,13 @@ const server=http.createServer((req,res)=>{
    await ctx.route("https://open.er-api.com/**",route=>route.fulfill({json:{result:"success",time_last_update_unix:Math.floor(Date.now()/1000)-3600,rates:{USD:0.012}}}));
    await ctx.route("https://api.india.delta.exchange/**",route=>{
     const url=new URL(route.request().url()),q=url.searchParams;
+    if(url.pathname.includes("/products/")){
+     const symbol=decodeURIComponent(url.pathname.split("/").at(-1));
+     return route.fulfill({json:{success:true,result:{id:symbol,symbol,state:"live",
+      trading_status:"operational",contract_value:"0.001",
+      contract_unit_currency:symbol.includes("-")?symbol.split("-")[1]:symbol.replace("USD",""),
+      taker_commission_rate:"0.0005"}}});
+    }
     if(url.pathname.includes("history/candles")){
      const asset=(q.get("symbol")||"").replace("USD","");
      return route.fulfill({json:{success:true,result:bars(q.get("resolution")==="15m"?15:60,asset)}});
