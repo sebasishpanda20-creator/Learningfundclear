@@ -138,7 +138,7 @@ function showMonitor(current){
  p.append(node("h2",current.status));
  p.append(node("p",current.reason||""));
  if(Number.isFinite(current.exitSpread)){
-  p.append(node("p","Executable NET exit value (bid-based two-leg calculation): "+fnum(current.exitSpread,6)+" USD per unit."));
+  p.append(node("p","Indicative NET exit quote (two-leg bid/ask based, not a guaranteed executable fill): "+fnum(current.exitSpread,6)+" USD per unit."));
   p.append(node("p","Gross indicative P/L: "+money(current.grossPnlUSD)+" · estimated net after cost reserve: "+money(current.estimatedNetPnlUSD)+" (approx. ₹"+fnum(current.estimatedNetPnlUSD/fx,0)+"). Costs are indicative, not a confirmed fill."));
  }
  if(["TARGET WATCH","STOP WATCH","TIME EXIT"].includes(current.status))
@@ -270,33 +270,6 @@ async function runBacktest(){
  finally{button.disabled=false;}
 }
 if($("runBacktest"))$("runBacktest").onclick=runBacktest;
-if($("exportResearch"))$("exportResearch").onclick=async()=>{
- const out=$("exportStatus");
- if(!locked){out.textContent="No qualified paper plan to export.";return;}
- const payload={source:"LearningFundClear",kind:"NON_EXECUTABLE_RESEARCH",
-  exportedAt:new Date().toISOString(),strategy:locked.label,
-  legs:locked.long2?[locked.long,locked.long2]:[locked.long,locked.short],
-  quantity:locked.quantity,expiry:locked.expiry,timeExit:locked.timeExit,
-  requiresIndependentVerification:true};
- try{await navigator.clipboard.writeText(JSON.stringify(payload,null,2));
-  out.textContent="Research JSON copied. No Mirror Pip webhook or order submitted.";}
- catch{out.textContent="Clipboard unavailable; a secure browser is required.";}
-};
-if($("verifyDeltaAccount"))$("verifyDeltaAccount").onclick=async()=>{
- const out=$("deltaAccountStatus");out.textContent="Checking owner-only Delta read-only bridge…";
- try{
-  const {data:{session}}=await LfcAuth.client.auth.getSession();
-  if(!session)throw Error("Sign in first");
-  const r=await fetch(new URL("api/delta/account?view=wallet",LfcAuth.base),
-   {headers:{Authorization:"Bearer "+session.access_token},cache:"no-store",credentials:"omit",
-    signal:AbortSignal.timeout(15000)});
-  const data=await r.json();
-  if(!r.ok)throw Error(data.error||"Read-data service unavailable");
-  out.textContent="Owner-only read-data connection verified · "+data.result.length+
-   " wallet records · "+stamp(Date.parse(data.asOf))+". No orders enabled.";
- }catch(e){out.textContent="Delta read-only account not connected: "+e.message+
-  ". Configure account-owner ID and read-only API keys privately on the host.";}
-};
 $("refreshNow").onclick=()=>refresh();
 let debounce=null;
 $("capital").addEventListener("input",()=>{

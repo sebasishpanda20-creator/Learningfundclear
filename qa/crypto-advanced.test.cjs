@@ -98,3 +98,12 @@ test("owner bridge returns read-only account data for active admin owner",async(
  assert.equal((await result.json()).result.length,1);
  assert.equal(endpoints.length,3);
 });
+
+test("historical time exit is exactly the selected holding duration, not one extra candle",()=>{
+ const fifteen=bars(15,750,.2).map(x=>({...x,high:x.close+.1,low:x.open-.05}));
+ const hourly=bars(60,250,.4).map(x=>({...x,high:x.close+.1,low:x.open-.05}));
+ const report=A.backtestUnderlying(fifteen,hourly,{hours:2,feeBps:20});
+ const timed=report.records.find(x=>x.outcome==="TIME EXIT");
+ assert(timed,"a deterministic trending fixture must produce a time-exit event");
+ assert.equal(timed.exitAt-timed.entryAt,2*3600000);
+});
