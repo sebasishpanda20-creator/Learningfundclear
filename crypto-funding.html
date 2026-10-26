@@ -7,20 +7,18 @@
 </head>
 <body data-page="crypto-funding"><main id="main">
 <p class="eyebrow">READ-ONLY • PERPETUAL FUNDING RESEARCH</p>
-<h1>Crypto Funding &amp; Hedge Desk</h1>
-<p class="sub">Independent from crypto options. Enter only INR capital; the desk checks BTC, ETH, XAUT and PAXG tokenized-gold perpetuals, sizes an <em>indicative</em> hedge against public contract metadata, and distinguishes funding direction from genuinely executable cash-and-carry trades.</p>
+<h1>Funding: which coin is worth watching?</h1>
+<p class="sub">Enter your capital in rupees. Compare estimated funding payments, trading costs and the countdown in Indian Standard Time (IST). This is research, not a guaranteed profit or an instruction to place an order.</p>
 <nav class="desk-tabs" aria-label="Crypto research pages"><a href="crypto-options.html">Options &amp; spreads</a><a aria-current="page" href="crypto-funding.html">Funding &amp; hedges</a><a href="crypto.html">Raw markets</a></nav>
 <section class="card desk-inputs"><div class="row"><div class="capital-field"><label for="capital">Trading capital (₹ INR)</label><input id="capital" type="number" min="100" max="1000000000" step="100" inputmode="decimal" placeholder="e.g. 50000" autocomplete="off"></div>
-<button id="refreshNow" class="primary" type="button">Refresh funding market</button></div>
+<button id="refreshNow" class="primary" type="button">Compare coins</button></div>
 <p id="fxStatus" class="desk-minor">Waiting for live indicative INR/USD conversion.</p><p id="status" class="msg" role="status" aria-live="polite">Enter capital to begin.</p><small id="lastChecked">No exchange check yet</small></section>
-<section id="tradePlan" class="card" aria-live="polite"><h2>Funding overview</h2><p>Awaiting funding rates.</p></section>
-<section class="card"><h2>Live perpetual funding watchlist</h2><p class="sub">Raw API funding values appear <strong>without an assumed unit conversion or promised return</strong>. Ranking by rate alone is not an arbitrage signal.</p>
-<div class="table-wrap"><table><thead><tr><th>Asset</th><th>State</th><th>Raw funding field</th><th>Candidate hedge</th><th>Perp contracts</th><th>Notional (USD)</th><th>Blocking risk</th></tr></thead><tbody id="fundRows"><tr><td colspan="7">Waiting for live derivatives data</td></tr></tbody></table></div>
-</section>
-<section class="card"><h2>Why the desk does not automatically execute funding trades</h2>
-<p>Positive funding <em>can</em> pay shorts, but a hedged position needs a matching deliverable spot asset, current bid/ask for both legs, margin and borrow availability, fees and taxes, next settlement time, funding-rate units and basis risk. Negative funding reverses the hedge and typically needs borrowable spot inventory. Neither is guaranteed; financing and liquidation can exceed funding collected.</p>
-<p>A watchlist row is <strong>not</strong> a trade recommendation. There is deliberately no executable hedged order or net carry forecast while these inputs are unverified. Tokenized gold (XAUT and PAXG) is not physically delivered XAUUSD. At most 20% of entered capital is used for an indicative <strong>perpetual notional</strong> size; this is not a margin or leverage recommendation.</p>
-<p class="desk-minor">Data: Delta Exchange India public ticker API. No API keys, broker link, auto-hedge orders or background trading. Refreshing a page never opens, adjusts or closes positions.</p></section>
+<section id="tradePlan" class="card" aria-live="polite"><h2>1. Best coin to watch</h2><p>Enter capital to compare possible funding payments. We will say WAIT if costs or timing cannot be verified.</p></section>
+<section class="card"><h2>2. Compare coins and estimated payments</h2><p class="sub">Positive funding usually pays short positions; negative funding usually pays long positions. Funding and price movement are separate. Estimated profit after funding alone is <strong>not</strong> net trading profit.</p>
+<div class="table-wrap"><table><thead><tr><th>Coin</th><th>Funding direction</th><th>Rate (indicative)</th><th>Next funding in (IST)</th><th>Estimated funding ₹</th><th>After estimated one-leg costs ₹</th><th>Contracts</th></tr></thead><tbody id="fundRows"><tr><td colspan="7">Enter capital to compare</td></tr></tbody></table></div></section>
+<section class="card"><h2>3. How to use this page</h2><p>Enter your INR capital. The system automatically limits the <em>example notional</em> to 20% of capital and calculates indicative integer contracts. Compare the possible funding receipt with an illustrative 0.318% round-trip one-leg fee, GST and slippage allowance (0.10% taker fees + GST + 0.20% slippage). This excludes the spot hedge, borrowing, price movements and taxes. We recommend waiting unless the exchange's next funding timestamp, actual fees and a matching hedge are verified.</p>
+<p>Delta India generally settles perpetual funding around <strong>5:30 AM, 1:30 PM and 9:30 PM IST</strong> for 8-hour contracts; some contracts have different intervals. The live countdown is shown only when the exchange confirms a contract-specific funding time through its public funding-rate stream. Entering seconds before settlement does not lock in profits, and you may not qualify for a funding payment. Rates can change, price movement and liquidations can overwhelm funding, and last-second executions can fail.</p>
+<p class="desk-minor">Research only; no spot hedge, funding snapshot or live orders are placed. Amounts are approximate and not actual Delta INR settlement calculations.</p></section>
 </main>
 <script src="assets/js/shell.js"></script><script src="assets/js/crypto-desk-engine.js"></script><script src="assets/js/crypto-desk-ui.js"></script>
 </body></html>
