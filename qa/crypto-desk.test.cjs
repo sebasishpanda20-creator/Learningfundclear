@@ -65,3 +65,36 @@ test("funding hedge is watch-only and never treats a rate as guaranteed returns"
  assert(!("guaranteedReturn" in result));assert(result.notionalUSD<=200.00001);
  assert.equal(D.fundingDesk([t],"XAUT",1000,now+500000).status,"NO TRADE");
 });
+
+test("long straddle and strangle evaluated even without directional BOS",()=>{
+ const t=trend(true),neutral={...t,side:"SIDEWAYS",actionable:false};
+ const call=option("C","BTC",112,3.8,4.0);
+ const put=option("P","BTC",112,4.0,4.2);
+ const strad=D.chooseVolatility([call,put],neutral,"BTC",1000,now,2);
+ assert.equal(strad.status,"PAPER PLAN");
+ assert.equal(strad.type,"LONG_STRADDLE");
+ assert.equal(strad.timeExit,now+7200000);
+ assert(strad.riskUSD<=20.001);
+ const assessed=D.assessStrategies([call,put],neutral,"BTC",1000,now,2);
+ assert.equal(assessed.strategy.status,"WATCH ONLY");
+ assert.equal(assessed.alternatives.length,2);
+ assert.equal(assessed.alternatives[0].status,"NO TRADE");
+ assert.equal(assessed.alternatives[1].status,"PAPER PLAN");
+ const monitor=D.monitor(strad,[call,put],now);
+ assert.equal(monitor.status,"MONITOR");
+ assert.equal(monitor.exitSpread,7.8);
+ const strangle=D.chooseVolatility([
+ option("C","BTC",114,3.8,4),option("P","BTC",110,3.8,4)
+ ],neutral,"BTC",1000,now,2);
+ assert.equal(strangle.type,"LONG_STRANGLE");
+});
+test("volatility refuses missing put, stale quotes and unaffordable premium",()=>{
+ const neutral={...trend(true),side:"SIDEWAYS",actionable:false};
+ assert.equal(D.chooseVolatility([option("C","BTC",112,3.8,4)],neutral,"BTC",1000,now,2).status,"NO TRADE");
+ assert.equal(D.chooseVolatility([
+ option("C","BTC",112,3.8,4,now-500000),option("P","BTC",112,3.8,4,now-500000)
+ ],neutral,"BTC",1000,now,2).status,"NO TRADE");
+ assert.equal(D.chooseVolatility([
+ option("C","BTC",112,999,1000),option("P","BTC",112,999,1000)
+ ],neutral,"BTC",20,now,2).status,"NO TRADE");
+});
