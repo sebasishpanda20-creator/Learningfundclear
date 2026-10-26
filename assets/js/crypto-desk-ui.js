@@ -119,6 +119,7 @@ function showPlan(plan){
   ["Buy this option",plan.long],
   ["Sell this option",plan.short],
   ["Contracts per leg",String(plan.quantity)+" (automatically calculated)"],
+  ["Planned holding period",plan.horizonHours+" hours"],
   ["Estimated entry cost",money(plan.entrySpread*plan.contractValue*plan.quantity)],
   ["Stop-loss alert",fnum(plan.stopSpread,4)+" USD net spread price"],
   ["Target alert",fnum(plan.targetSpread,4)+" USD net spread price"],
