@@ -21,7 +21,7 @@
 - Illustrative fee floor in the dashboard: 0.05% each-side taker commission ×2, GST 18% on commission, and 0.10% each-side slippage ×2 = **0.318% of notional**. This is a scenario assumption, not the verified current account fee schedule; actual fee and slippage can differ, so do not label it realized profit. Funding rate can change until the snapshot.
 - If there is no fresh Delta funding WebSocket value/next timestamp, the system must show **WAIT**, not invent a coin ranking.
 - Funding 'last moments' tactics are particularly vulnerable to execution/settlement snapshot risk and liquidation or price moves. There is no dependable passive-income guarantee.
-- Directional options engine currently uses 15m/1h completed EMA20/EMA50 plus recent break-of-structure or sweep, then filters liquid vertical spreads and caps indicative risk. More indicators alone would not make it statistically world-class. It lacks verified historical options P&L, out-of-sample sample-size controls, historical bid/ask replay, volatility regime and execution benchmarking, so no forward edge is claimed.
+- Directional options research uses completed 15m/1h EMA20/50 with RSI, MACD, ADX, optional volume and SMC confirmations; BOS/sweep are not mandatory. The on-demand 42-day underlying-perpetual signal study compares a fixed multi-factor rule with two baselines across a chronological train/test split and prior ADX/ATR regimes, rejecting truncated or gapped datasets. **This is not a backtest of historical options premium, bid/ask, implied volatility, margin or actual fills, and it cannot establish a verified forward profitability edge.**
 
 ## Acceptance bar for better strategies
 
