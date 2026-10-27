@@ -16,6 +16,7 @@ node qa/feed-flows.cjs
 node qa/crypto-flows.cjs
 node qa/crypto-desk-flows.cjs
 node qa/crypto-context-flows.cjs
+node qa/registration-approvals-flows.cjs
 node qa/research-flows.cjs
 node qa/nifty500-flows.cjs
 node qa/index-scanner-flows.cjs
