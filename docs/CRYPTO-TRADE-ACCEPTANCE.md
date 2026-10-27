@@ -17,9 +17,9 @@ This is a standalone browser research portal, not a trade execution system. **No
 
 ## Hosting / deployment
 
-**Cloudflare Workers (preferred existing production domain)**: `learningfundclear.sebasish-panda20.workers.dev`. Build from `main`: `npm install`, `npm run build:cloudflare`, then `npm run deploy:cloudflare`. The worker and static assets use `wrangler.jsonc`. Existing `NIFTY_FEED_PRIVATE_KEY` is only required for the optional Nifty feed API; it is **not needed for the crypto research pages**. Never put hosting or broker secrets in source files.
+**Cloudflare Workers (existing linked production domain)**: `learningfundclear.sebasish-panda20.workers.dev`. Cloudflare Builds is connected to `portal/cloudflare-migration` and reads that branch directly. Build from `portal/cloudflare-migration`: `npm install`, `npm run build:cloudflare`, then `npm run deploy:cloudflare`. The worker and static assets use `wrangler.jsonc`. Existing `NIFTY_FEED_PRIVATE_KEY` is only required for the optional Nifty feed API; it is **not needed for the crypto research pages**. Never put hosting or broker secrets in source files.
 
-For automatic main-branch Cloudflare deployment, add the GitHub Actions repository secrets `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID` to the owner's repo. The deployment workflow **reports a skip rather than falsely claiming a deploy** when either secret is missing. The workflow validates production code, builds, checks Worker packaging and then deploys if access is configured. Do not share tokens in chat.
+**No additional Cloudflare GitHub Actions secrets are needed for this existing Cloudflare Builds connection.** A verified push/merge to `portal/cloudflare-migration` triggers the already-connected Cloudflare Build. `main` remains independently used by GitHub Pages and is not the active Cloudflare production branch. Do not change the Cloudflare production branch or worker runtime secrets.
 
 **GitHub Pages (fallback static hosting)**: `main` also triggers `.github/workflows/deploy-pages.yml`. The crypto research pages can use the public exchange endpoints in supported browsers, but GitHub Pages **cannot host Worker `/api/*` endpoints** (not needed for the crypto options/funding research scope). Supabase account login still applies to protected portal pages.
 
@@ -29,7 +29,7 @@ For automatic main-branch Cloudflare deployment, add the GitHub Actions reposito
 - `node qa/crypto-desk-flows.cjs` — authenticated browser integration with **mock** market feeds in mobile and desktop viewports.
 - `npm run build:cloudflare && npm run check:cloudflare` — Worker packaging preflight.
 - Verify production browser sign-in, latest market timestamps and public exchange API access separately; mocks cannot certify external CORS, provider uptime or liquidity.
-- A Cloudflare deploy has **not** been verified solely by merging a PR: check the new deployment workflow and public domain for a successful release.
+- A Cloudflare deploy has **not** been verified solely by merging a PR: inspect Cloudflare **Workers & Pages → learningfundclear → Deployments** for the exact production commit and a green build. GitHub Actions dry-run checks are not proof of a Cloudflare production deployment.
 
 ## Future features deliberately out of scope
 
