@@ -2,7 +2,8 @@
   function apply(dark) {
     document.documentElement.classList.toggle("theme-dark", dark);
     document.querySelectorAll("[data-lfc-theme-toggle]").forEach((b) => {
-      b.textContent = dark ? "Light appearance" : "Dark appearance";
+      b.textContent = b.classList.contains("topbar-theme") ? (dark ? "☀" : "☾") : (dark ? "Light appearance" : "Dark appearance");
+      b.setAttribute("aria-label",dark ? "Switch to light appearance" : "Switch to dark appearance");
       b.setAttribute("aria-pressed", String(dark));
     });
   }
