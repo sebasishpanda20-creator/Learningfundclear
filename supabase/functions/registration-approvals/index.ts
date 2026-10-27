@@ -14,7 +14,17 @@ export async function handle(req,env,send=fetch){
  let raw;
  try{raw=await req.text();if(raw.length>2048)return reply(413,{error:"Request too large"});}catch{return reply(400,{error:"Invalid request"});}
  let data;try{data=JSON.parse(raw);}catch{return reply(400,{error:"Invalid JSON"});}
- if(data?.action==="availability")return reply(200,{ready:true,registration:"admin-approval-required"});
+ if(data?.action==="availability"){
+  // The SQL migration installs restrictive RLS and an RPC readiness marker.
+  // Never open public signup if the DB-level approval gate is uninstalled.
+  try{
+   const checked=await send(env.url+"/rest/v1/rpc/lfc_registration_ready",{
+    method:"POST",headers:{apikey:env.key,Authorization:"Bearer "+env.key,"Content-Type":"application/json"},
+    body:"{}",signal:AbortSignal.timeout(12000)});
+   if(!checked.ok||await checked.json()!==true)return reply(503,{ready:false,error:"Registration database protection is not installed"});
+   return reply(200,{ready:true,registration:"admin-approval-required"});
+  }catch{return reply(503,{ready:false,error:"Registration database protection unavailable"});}
+ }
  if(!["list","approve","reject"].includes(data?.action))return reply(400,{error:"Unknown action"});
  const authorization=req.headers.get("Authorization")||"";
  if(!/^Bearer\s+\S+$/i.test(authorization))return reply(401,{error:"Sign in required"});
