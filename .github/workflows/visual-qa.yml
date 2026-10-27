@@ -11,6 +11,8 @@ on:
       - "setups.html"
       - "gex.html"
       - "crypto.html"
+      - "crypto-options.html"
+      - "crypto-funding.html"
       - "admin.html"
       - "qa/**"
       - "auth-guard.js"
