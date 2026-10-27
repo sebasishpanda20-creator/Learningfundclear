@@ -415,6 +415,91 @@ async function runBacktest(){
  finally{button.disabled=false;}
 }
 if($("runBacktest"))$("runBacktest").onclick=runBacktest;
+// Calendar-aligned inclusive Delta candle windows; max 1,500 candles per call.
+// Never infer a continuous series if any historical candle is missing.
+async function validationHistory(symbol,resolution,fromSec,endSec,progress){
+ const seconds=resolution==="15m"?900:3600,rows=[];
+ for(let start=fromSec;start<endSec;){
+  const end=Math.min(endSec,start+1499*seconds);
+  if(progress)progress();
+  const part=await getDelta("/history/candles?symbol="+encodeURIComponent(symbol)+
+    "&resolution="+resolution+"&start="+start+"&end="+end);
+  rows.push(...part);
+  start=end+seconds;
+ }
+ return rows;
+}
+const pct=n=>Number.isFinite(n)?(100*n).toFixed(1)+"%":"—";
+function validationGrid(columns,rows){
+ const wrap=document.createElement("div");wrap.className="table-wrap";
+ const t=document.createElement("table"),head=document.createElement("thead"),h=document.createElement("tr");
+ for(const column of columns)h.append(node("th",column));
+ head.append(h);t.append(head);
+ const body=document.createElement("tbody");
+ for(const row of rows){const tr=document.createElement("tr");for(const v of row)tr.append(node("td",v));body.append(tr);}
+ t.append(body);wrap.append(t);return wrap;
+}
+function validationStatRow(title,x){
+ return[title,String(x.trades),pct(x.winRate),x.wilson95?pct(x.wilson95.low)+"–"+pct(x.wilson95.high):"—",
+  fnum(x.meanNetR,3),fnum(x.maxDrawdownR,2),fnum(x.stress40bpsMeanR,3)];
+}
+function renderValidation(out,asset,r){
+ const part=document.createElement("section");part.className="validation-asset";
+ part.append(node("h3",asset+" · "+r.status));
+ if(!r.methods?.length){part.append(node("p",r.reason));out.append(part);return;}
+ part.append(node("p","Public Delta perpetuals · "+r.days+" days · "+r.candleCount15+
+  " completed 15-minute and "+r.candleCount60+" hourly candles · "+r.hours+"-hour maximum holding · "+
+  r.feeBps+" bps assumed round-trip costs. Train/test cutoff: "+stamp(Date.parse(r.splitAt))+"."));
+ part.append(node("p",r.reason));
+ part.append(validationGrid(["Predefined rule","Training trades","Training mean net R",
+  "Out-of-sample trades","OOS win rate","OOS win-rate interval (95%)","OOS mean net R",
+  "OOS max drawdown R","OOS mean R with 40bps cost","Evidence status"],
+  r.methods.map(m=>[m.label,String(m.train.trades),fnum(m.train.meanNetR,3),
+   String(m.oos.trades),pct(m.oos.winRate),
+   m.oos.wilson95?pct(m.oos.wilson95.low)+"–"+pct(m.oos.wilson95.high):"—",
+   fnum(m.oos.meanNetR,3),fnum(m.oos.maxDrawdownR,2),fnum(m.oos.stress40bpsMeanR,3),m.status])));
+ const current=r.methods.find(m=>m.key==="confluence");
+ if(current){
+  part.append(node("h4","Multi-factor results by prior market conditions (OOS only)"));
+  const regimes=[["Trending (ADX ≥25)",current.byTrend.trending],
+   ["Ranging (ADX ≤18)",current.byTrend.ranging],
+   ["Transition",current.byTrend.transition],
+   ["Normal volatility (relative ATR)",current.byVolatility.normal],
+   ["Elevated volatility (relative ATR)",current.byVolatility.elevated]];
+  part.append(validationGrid(["Observed trailing regime","Trades","Win rate","95% interval","Mean net R","Max drawdown R","40bps stressed mean R"],
+   regimes.map(([name,stats])=>validationStatRow(name,stats))));
+ }
+ part.append(node("p","BOTTOM LINE: "+(r.status==="PRELIMINARY HISTORICAL RESEARCH"?
+  "A limited historical test is available, but these samples DO NOT establish a profitable live options strategy.":
+  "NO VALIDATED EDGE. Minimum 30 training and 20 untouched test-period trades are required for each method.")));
+ part.append(node("p","UNDERLYING signal proxy only. No historical options bid/ask, option premiums, implied volatility, funding, actual executions or margin. No trade or automation is authorised."));
+ out.append(part);
+}
+async function runValidation(){
+ const button=$("runValidation"),out=$("validationResults");if(!button||!out)return;
+ if(!V){out.textContent="Historical validation module unavailable; no performance claim.";return;}
+ button.disabled=true;out.replaceChildren(node("p","Retrieving full candle history from Delta…"));
+ const days=42,hours=Number($("tradeHorizon").value),reference=Date.now();
+ const end15=Math.floor(reference/900000)*900,from15=end15-days*86400;
+ const end60=Math.floor(reference/3600000)*3600,from60=end60-(days+5)*86400;
+ const results=[];
+ try{
+  for(const asset of ["BTC","ETH"]){
+   try{
+    let fetched=0;const bump=()=>{fetched++;safeText("validationStatus","Loading "+asset+" historical batches ("+fetched+" requests)…");};
+    const [a,b]=await Promise.all([
+     validationHistory(asset+"USD","15m",from15,end15,bump),
+     validationHistory(asset+"USD","1h",from60,end60,bump)]);
+    results.push({asset,result:V.validate(a,b,{days,hours,feeBps:20,asOf:reference})});
+   }catch(e){results.push({asset,result:{status:"UNAVAILABLE",reason:"History request failed; refusing to invent results: "+e.message}});}
+  }
+  out.replaceChildren();
+  for(const x of results)renderValidation(out,x.asset,x.result);
+ }catch(e){out.replaceChildren(node("p","Historical validation unavailable: "+e.message));}
+ finally{button.disabled=false;safeText("validationStatus","Study checked "+stamp(Date.now())+"; no historical option P&L was simulated.");}
+}
+if($("runValidation"))$("runValidation").onclick=runValidation;
+
 $("refreshNow").onclick=()=>refresh();
 let debounce=null;
 $("capital").addEventListener("input",()=>{
