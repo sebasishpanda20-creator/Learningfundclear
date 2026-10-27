@@ -19,7 +19,7 @@
 <p id="status" class="msg" aria-live="polite" role="status">Enter capital to begin.</p>
 <small id="lastChecked">No exchange check yet</small></section>
 <section class="card simple-direction">
-<h2>1. Where is the market going?</h2><p class="sub">Green = rising, red = falling, grey = unclear. A trend is not permission to trade.</p>
+<h2>1. Where is the market going?</h2><p class="sub">Green = rising, red = falling, grey = unclear. Evidence includes 15m/1h EMA alignment, RSI, MACD, ADX, optional volume and SMC. A trend or score is not permission to trade.</p>
 <div id="simpleDirection" class="simple-trend-grid" aria-live="polite"><p>Enter your capital to check Bitcoin, Ethereum and Gold.</p></div>
 </section>
 <section class="card simple-recommendation">
@@ -30,8 +30,8 @@
 <section id="monitorPanel" class="card" aria-live="polite"><h2>3. Monitor the result</h2><p>Only qualified paper setups are monitored. No exchange trades are placed.</p></section>
 <details class="card desk-advanced"><summary>Advanced analysis and backtesting (optional)</summary>
 <section class="card"><h2>Which direction is the market moving?</h2>
-<p class="sub">Direction is calculated from actual completed Delta perpetual candles. SMC evidence is a completed 15m break of structure (BOS) or sweep/reclaim, checked against 15m and 1h EMA20/50. A directional trend without confirmation is watch-only, not a recommendation.</p>
-<div class="table-wrap"><table><thead><tr><th>Asset</th><th>Trend</th><th>SMC BOS</th><th>Liquidity sweep</th><th>Trade gate</th><th>Why</th></tr></thead><tbody id="directionRows"><tr><td colspan="6">Waiting for exchange data</td></tr></tbody></table></div>
+<p class="sub">Direction uses completed Delta perpetual candles with 15m/1h EMA trend, RSI(14), MACD(12,26,9), ADX(14), optional volume expansion and SMC breaks/sweeps. The 70-point evidence threshold requires momentum plus either SMC confirmation or combined RSI + MACD + ADX agreement. <strong>SMC is no longer mandatory.</strong> Points are heuristic evidence, <strong>not a probability or validated win rate</strong>. Missing volume is N/A, never invented.</p>
+<div class="table-wrap"><table><thead><tr><th>Asset</th><th>Trend (EMA 15m/1h)</th><th>SMC (BOS / sweep)</th><th>RSI 14</th><th>MACD histogram</th><th>ADX 14</th><th>Volume ratio</th><th>Evidence points</th><th>Trade gate</th><th>Why</th></tr></thead><tbody id="directionRows"><tr><td colspan="10">Waiting for exchange data</td></tr></tbody></table></div>
 <p class="desk-minor">XAUT options, if listed, reference tokenized gold, <strong>not</strong> spot XAUUSD. Missing gold option liquidity results in NO TRADE; no synthetic quote is inserted.</p>
 </section>
 <section class="card"><h2>Why WAIT / NO TRADE?</h2>
@@ -45,7 +45,7 @@
 <button id="runBacktest" type="button">Run historical proxy (BTC &amp; ETH)</button>
 <div id="backtestResults" role="status" aria-live="polite"><p>Historical research not run.</p></div></section>
 <section class="card"><h2>How the automation decides</h2>
-<p>Scan → determine direction → require completed BOS or sweep → check option-chain timestamps, expiry, spread, open interest and exact contract value → compare debit spreads, credit structures and long-volatility research → size from at most 2% of capital at maximum theoretical spread loss → lock one plan for a selected 2-, 4- or 8-hour research exit watch. If no plan qualifies, do not force a trade. Credit spreads and iron condors remain WATCH ONLY because their live margin and fill risks are not broker verified.</p>
+<p>Scan → require aligned 15m/1h trend plus weighted momentum and SMC/ADX evidence (SMC optional) → check option-chain timestamps, expiry, spread, open interest and exact contract value → compare debit spreads, credit structures and long-volatility research → size from at most 2% of capital at maximum theoretical spread loss → lock one plan for a selected 2-, 4- or 8-hour research exit watch. If no plan qualifies, do not force a trade. Credit spreads and iron condors remain WATCH ONLY because their live margin and fill risks are not broker verified.</p>
 <p class="desk-minor">Spread entry = buy-leg ask minus sell-leg bid. Spread exit = buy-leg bid minus sell-leg ask. Stop and target displayed here apply to the <strong>combined spread</strong>; they are <strong>not</strong> Delta terminal's independent leg order prices. Currency conversion, fees and taxes are estimates; costs, margin, executable fills and trading permissions must be verified on your broker.</p>
 <p class="desk-minor"><strong>Research only:</strong> no positions are imported; no live order, stop or target is placed. Options are high risk. A stop can gap past the alert and a defined-risk spread may incur additional fees and execution risks.</p>
 </section>
