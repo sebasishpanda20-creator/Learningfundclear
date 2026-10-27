@@ -2,8 +2,9 @@
 
 ## Production scope
 
-This is a standalone browser research portal, not a trade execution system. **No ChatGPT or OpenAI subscription, Delta account link, API trading key, Mirror Pip link, or broker login is required for options or funding research.** The portal runs the market scan automatically after INR capital is entered (a 2/4/8-hour horizon has a default). It checks public market data, completed 15m and hourly candles, EMA and SMC BOS/sweep evidence, option quotes and products, indicative exchange fees, funds/capital-based limits, and shows entry, spread stop/target, and quote-based monitoring for paper plans.
+This is a standalone browser research portal, not a trade execution system. **No ChatGPT or OpenAI subscription, Delta account link, API trading key, Mirror Pip link, or broker login is required for options or funding research.** The portal runs the market scan automatically after INR capital is entered (a 2/4/8-hour horizon has a default). It checks public market data, completed 15m and hourly candles, 15m/1h EMA trend, RSI(14), MACD(12,26,9), ADX(14), optional traded volume and SMC BOS/sweep evidence, option quotes and products, indicative exchange fees, funds/capital-based limits, and shows entry, spread stop/target, and quote-based monitoring for paper plans.
 
+- **Directional gate**: both 15m and 1h EMA20/50 must align; weighted evidence from RSI, MACD, ADX, optional real volume and SMC BOS/sweep must total at least 70 points. SMC is **optional**: without it, both momentum indicators **and** directional ADX must agree. BOS/sweep without momentum does **not** qualify. These heuristic points are not a calibrated probability of success. Missing volume is N/A and does not block scoring, but provides zero supporting points.
 - BTC, ETH and available XAUT tokenized-gold option listings are checked independently. No made-up strikes or gold options.
 - Debit verticals may be shown as **PAPER PLAN** if gates pass. Credit spreads/iron condors are strictly **WATCH ONLY** without verified multi-leg margin/fills.
 - Funding is separately displayed as **WATCH ONLY** when carry and hedge economics are unverified.
