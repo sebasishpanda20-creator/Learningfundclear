@@ -61,10 +61,12 @@ jobs:
         run: |
           node --check assets/js/crypto-desk-engine.js
           node --check assets/js/crypto-advanced-engine.js
+          node --check assets/js/crypto-validation-engine.js
           node --check assets/js/crypto-desk-ui.js
-          node --test qa/crypto-desk.test.cjs qa/crypto-advanced.test.cjs
+          node --test qa/crypto-desk.test.cjs qa/crypto-advanced.test.cjs qa/crypto-validation.test.cjs
           grep -q 'crypto-advanced-engine.js' crypto-options.html
           grep -q 'id="runBacktest"' crypto-options.html
+          grep -q 'id="runValidation"' crypto-options.html
 
       - name: Verify each page loads its stylesheet and the data file
         run: |

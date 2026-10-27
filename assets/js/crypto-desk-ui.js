@@ -2,15 +2,16 @@
 (async function () {
 "use strict";
 if (!await LfcAuth.ready) return;
-const D=window.LfcCryptoDesk,A=window.LfcCryptoAdvanced,API="https://api.india.delta.exchange/v2",view=document.body.dataset.page;
+const D=window.LfcCryptoDesk,A=window.LfcCryptoAdvanced,V=window.LfcCryptoValidation,API="https://api.india.delta.exchange/v2",view=document.body.dataset.page;
 const $=id=>document.getElementById(id), money=v=>Number.isFinite(v)?"$"+v.toLocaleString("en-US",{maximumFractionDigits:2}):"—";
 const fnum=(v,d=4)=>Number.isFinite(v)?v.toLocaleString("en-US",{maximumFractionDigits:d}):"—";
 const stamp=t=>new Date(t).toLocaleString("en-IN",{timeZone:"Asia/Kolkata",hour12:false})+" IST";
 const cash=()=>Number($("capital").value);
 const safeText=(id,text)=>{const node=$(id);if(node)node.textContent=text;};
-let fx=null,fxAt=0,running=false,locked=null,latestTickers=[],timer=null,controller=null;
+let fx=null,fxAt=0,running=false,pendingRefresh=false,locked=null,latestTickers=[],timer=null,controller=null;
 try{const cached=JSON.parse(sessionStorage.getItem("lfc.crypto.plan")||"null");
- if(cached?.status==="PAPER PLAN"&&cached.timeExit>Date.now()&&cached.signalMethod==="MULTI_FACTOR_V1")locked=cached;
+ if(cached?.status==="PAPER PLAN"&&cached.timeExit>Date.now()&&cached.signalMethod==="MULTI_FACTOR_V1"&&
+ Number.isFinite(cached.sizedCapitalINR)&&Number(sessionStorage.getItem("lfc.crypto.capital"))===cached.sizedCapitalINR)locked=cached;
  else if(cached?.status==="PAPER PLAN")sessionStorage.removeItem("lfc.crypto.plan");
 }catch(e){}
 async function get(path,timeout=10000) {
@@ -33,9 +34,9 @@ async function conversion(){
   const quote=Number(data?.rates?.USD),age=Date.now()-Number(data?.time_last_update_unix)*1000;
   if(data.result!=="success"||!Number.isFinite(quote)||quote<0.005||quote>0.03||age>48*3600000||age<0)
    throw Error("FX snapshot invalid or stale");
-  fx=quote;fxAt=Date.now();
+  fx=quote;fxAt=Date.now();capitalDiagnostics();
   safeText("fxStatus","Indicative FX: ₹1 = "+fnum(fx,6)+" USD · provider "+stamp(Number(data.time_last_update_unix)*1000)+". INR conversion is illustrative; Delta settlement FX/fees can differ.");
- }catch(e){fx=null;safeText("fxStatus","No recent INR/USD FX quote — lot sizing blocked. "+e.message);}
+ }catch(e){fx=null;capitalDiagnostics();safeText("fxStatus","No recent INR/USD FX quote — lot sizing blocked. "+e.message);}
  return fx;
 }
 function node(tag,text){const el=document.createElement(tag);el.textContent=String(text);return el;}
@@ -45,6 +46,19 @@ function setRows(id,data){
   for(const val of line)tr.append(node("td",val));tbody.append(tr);}
 }
 function capitalUSD(){const c=cash();return fx&&Number.isFinite(c)&&c>0?c*fx:NaN;}
+function capitalDiagnostics(){
+ const out=$("capitalDiagnostics"),impact=$("capitalImpact");if(!out)return;
+ const c=cash();
+ if(!Number.isFinite(c)||c<100||c>1e9){out.textContent="Enter valid capital to calculate limits.";return;}
+ const inr=n=>"₹"+n.toLocaleString("en-IN",{maximumFractionDigits:2}),usd=capitalUSD();
+ out.textContent="Capital "+inr(c)+" · 2% maximum modeled spread loss = "+inr(c*.02)+
+  " · 30% notional cap = "+inr(c*.30)+
+  (Number.isFinite(usd)?" · approximate USD "+fnum(usd,2):" · INR/USD conversion unavailable")+
+  ". Limits are models, not broker buying power.";
+ if(impact)impact.textContent=Number.isFinite(usd)&&usd<20?
+  "CAPITAL BLOCK: below the portal's $20-equivalent research threshold (~"+inr(Math.ceil(20/fx))+" at current FX).":
+  "Market direction never depends on capital; trade eligibility may still fail on price, liquidity, contract minimum, expiry or risk/reward.";
+}
 async function history(symbol,resolution,seconds){
  const end=Math.floor(Date.now()/1000),start=end-seconds;
  return getDelta("/history/candles?symbol="+encodeURIComponent(symbol)+
@@ -241,7 +255,7 @@ async function refreshOption(isMonitor=false) {
  const plans=search.map(x=>x.plan).filter(x=>x.status==="PAPER PLAN");
  plans.sort((a,b)=>b.score-a.score);
  if(plans.length){
-  locked={...plans[0],createdAt:Date.now()};
+  locked={...plans[0],createdAt:Date.now(),sizedCapitalINR:cash()};
   try{sessionStorage.setItem("lfc.crypto.plan",JSON.stringify(locked));}catch(e){}
   showPlan(locked);showMonitor({status:"MONITOR",reason:"Plan created and locked; waiting for next quote"});
   safeText("status","One spread selected for the requested "+$("tradeHorizon").value+"-hour horizon using verified public inputs.");
@@ -362,10 +376,11 @@ async function refreshFunding(){
 }
 
 async function refresh(){
- if(running||document.hidden)return;
+ if(running){pendingRefresh=true;return;}
+ if(document.hidden)return;
  running=true;$("refreshNow").disabled=true;
  try{
-  const c=cash();
+  const c=cash();capitalDiagnostics();
   if(!Number.isFinite(c)||c<100||c>1e9){
    safeText("status","Enter capital in INR (₹100–₹100 crore) and select your 2/4/8-hour duration.");
    if(view==="crypto-options")showPlan({status:"NO TRADE",reason:"Enter valid capital first."});
@@ -374,7 +389,7 @@ async function refresh(){
   if(!await conversion()){safeText("status","FX unavailable. Not sizing or recommending a trade.");return;}
   if(view==="crypto-options")await refreshOption();else await refreshFunding();
  }catch(e){safeText("status","Market data unavailable: "+e.message+" · NO TRADE. Retry when feed recovers.");}
- finally{$("refreshNow").disabled=false;running=false;safeText("lastChecked","Last checked "+stamp(Date.now()));}
+ finally{$("refreshNow").disabled=false;running=false;safeText("lastChecked","Last checked "+stamp(Date.now()));if(pendingRefresh){pendingRefresh=false;setTimeout(refresh,0);}}
 }
 // On-demand backtest on perpetual OHLC; not historical option profitability.
 async function runBacktest(){
@@ -400,16 +415,105 @@ async function runBacktest(){
  finally{button.disabled=false;}
 }
 if($("runBacktest"))$("runBacktest").onclick=runBacktest;
+// Calendar-aligned inclusive Delta candle windows; max 1,500 candles per call.
+// Never infer a continuous series if any historical candle is missing.
+async function validationHistory(symbol,resolution,fromSec,endSec,progress){
+ const seconds=resolution==="15m"?900:3600,rows=[];
+ for(let start=fromSec;start<endSec;){
+  const end=Math.min(endSec,start+1499*seconds);
+  if(progress)progress();
+  const part=await getDelta("/history/candles?symbol="+encodeURIComponent(symbol)+
+    "&resolution="+resolution+"&start="+start+"&end="+end);
+  rows.push(...part);
+  start=end+seconds;
+ }
+ return rows;
+}
+const pct=n=>Number.isFinite(n)?(100*n).toFixed(1)+"%":"—";
+function validationGrid(columns,rows){
+ const wrap=document.createElement("div");wrap.className="table-wrap";
+ const t=document.createElement("table"),head=document.createElement("thead"),h=document.createElement("tr");
+ for(const column of columns)h.append(node("th",column));
+ head.append(h);t.append(head);
+ const body=document.createElement("tbody");
+ for(const row of rows){const tr=document.createElement("tr");for(const v of row)tr.append(node("td",v));body.append(tr);}
+ t.append(body);wrap.append(t);return wrap;
+}
+function validationStatRow(title,x){
+ return[title,String(x.trades),pct(x.winRate),x.wilson95?pct(x.wilson95.low)+"–"+pct(x.wilson95.high):"—",
+  fnum(x.meanNetR,3),fnum(x.maxDrawdownR,2),fnum(x.stress40bpsMeanR,3)];
+}
+function renderValidation(out,asset,r){
+ const part=document.createElement("section");part.className="validation-asset";
+ part.append(node("h3",asset+" · "+r.status));
+ if(!r.methods?.length){part.append(node("p",r.reason));out.append(part);return;}
+ part.append(node("p","Public Delta perpetuals · "+r.days+" days · "+r.candleCount15+
+  " completed 15-minute and "+r.candleCount60+" hourly candles · "+r.hours+"-hour maximum holding · "+
+  r.feeBps+" bps assumed round-trip costs. Train/test cutoff: "+stamp(Date.parse(r.splitAt))+"."));
+ part.append(node("p",r.reason));
+ part.append(validationGrid(["Predefined rule","Training trades","Training mean net R",
+  "Out-of-sample trades","OOS win rate","OOS win-rate interval (95%)","OOS mean net R",
+  "OOS max drawdown R","OOS mean R with 40bps cost","Evidence status"],
+  r.methods.map(m=>[m.label,String(m.train.trades),fnum(m.train.meanNetR,3),
+   String(m.oos.trades),pct(m.oos.winRate),
+   m.oos.wilson95?pct(m.oos.wilson95.low)+"–"+pct(m.oos.wilson95.high):"—",
+   fnum(m.oos.meanNetR,3),fnum(m.oos.maxDrawdownR,2),fnum(m.oos.stress40bpsMeanR,3),m.status])));
+ const current=r.methods.find(m=>m.key==="confluence");
+ if(current){
+  part.append(node("h4","Multi-factor results by prior market conditions (OOS only)"));
+  const regimes=[["Trending (ADX ≥25)",current.byTrend.trending],
+   ["Ranging (ADX ≤18)",current.byTrend.ranging],
+   ["Transition",current.byTrend.transition],
+   ["Normal volatility (relative ATR)",current.byVolatility.normal],
+   ["Elevated volatility (relative ATR)",current.byVolatility.elevated]];
+  part.append(validationGrid(["Observed trailing regime","Trades","Win rate","95% interval","Mean net R","Max drawdown R","40bps stressed mean R"],
+   regimes.map(([name,stats])=>validationStatRow(name,stats))));
+ }
+ part.append(node("p","BOTTOM LINE: "+(r.status==="PRELIMINARY HISTORICAL RESEARCH"?
+  "A limited historical test is available, but these samples DO NOT establish a profitable live options strategy.":
+  "NO VALIDATED EDGE. Minimum 30 training and 20 untouched test-period trades are required for each method.")));
+ part.append(node("p","UNDERLYING signal proxy only. No historical options bid/ask, option premiums, implied volatility, funding, actual executions or margin. No trade or automation is authorised."));
+ out.append(part);
+}
+async function runValidation(){
+ const button=$("runValidation"),out=$("validationResults");if(!button||!out)return;
+ if(!V){out.textContent="Historical validation module unavailable; no performance claim.";return;}
+ button.disabled=true;out.replaceChildren(node("p","Retrieving full candle history from Delta…"));
+ const days=42,hours=Number($("tradeHorizon").value),reference=Date.now();
+ const end15=Math.floor(reference/900000)*900,from15=end15-days*86400;
+ const end60=Math.floor(reference/3600000)*3600,from60=end60-(days+5)*86400;
+ const results=[];
+ try{
+  for(const asset of ["BTC","ETH"]){
+   try{
+    let fetched=0;const bump=()=>{fetched++;safeText("validationStatus","Loading "+asset+" historical batches ("+fetched+" requests)…");};
+    const [a,b]=await Promise.all([
+     validationHistory(asset+"USD","15m",from15,end15,bump),
+     validationHistory(asset+"USD","1h",from60,end60,bump)]);
+    results.push({asset,result:V.validate(a,b,{days,hours,feeBps:20,asOf:reference})});
+   }catch(e){results.push({asset,result:{status:"UNAVAILABLE",reason:"History request failed; refusing to invent results: "+e.message}});}
+  }
+  out.replaceChildren();
+  for(const x of results)renderValidation(out,x.asset,x.result);
+ }catch(e){out.replaceChildren(node("p","Historical validation unavailable: "+e.message));}
+ finally{button.disabled=false;safeText("validationStatus","Study checked "+stamp(Date.now())+"; no historical option P&L was simulated.");}
+}
+if($("runValidation"))$("runValidation").onclick=runValidation;
+
 $("refreshNow").onclick=()=>refresh();
 let debounce=null;
 $("capital").addEventListener("input",()=>{
  clearTimeout(debounce);
  const newCap=cash(),old=Number(sessionStorage.getItem("lfc.crypto.capital"));
  try{sessionStorage.setItem("lfc.crypto.capital",String(newCap));}catch(e){}
+ capitalDiagnostics();
  if(locked&&Math.abs(old-newCap)>0.01){
-  // A locked plan must NEVER be silently resized on a new capital figure.
-  safeText("status","Existing research plan locked at its original size. Clear the plan to recalculate.");
- }else debounce=setTimeout(refresh,600);
+  locked=null;latestTickers=[];
+  try{sessionStorage.removeItem("lfc.crypto.plan");}catch(e){}
+  showMonitor({status:"NO TRADE",reason:"Capital changed; previous paper plan cleared."});
+  safeText("status","Capital changed; automatically recalculating this paper setup.");
+ }
+ debounce=setTimeout(refresh,600);
 });
 if($("tradeHorizon")){
  const savedH=Number(sessionStorage.getItem("lfc.crypto.horizon"));
@@ -423,6 +527,7 @@ if($("tradeHorizon")){
 }
 const saved=Number(sessionStorage.getItem("lfc.crypto.capital"));
 if(Number.isFinite(saved)&&saved>0)$("capital").value=String(saved);
+capitalDiagnostics();
 if($("resetPlan"))$("resetPlan").onclick=()=>{
  locked=null;try{sessionStorage.removeItem("lfc.crypto.plan");}catch(e){}
  showMonitor({status:"NO TRADE",reason:""});refresh();
