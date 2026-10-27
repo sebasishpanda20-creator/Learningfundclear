@@ -48,8 +48,8 @@ function setRows(id,data){
 function capitalUSD(){const c=cash();return fx&&Number.isFinite(c)&&c>0?c*fx:NaN;}
 function capitalDiagnostics(){
  const out=$("capitalDiagnostics"),impact=$("capitalImpact");if(!out)return;
- const c=cash();capitalDiagnostics();
-   if(!Number.isFinite(c)||c<100||c>1e9){out.textContent="Enter valid capital to calculate limits.";return;}
+ const c=cash();
+ if(!Number.isFinite(c)||c<100||c>1e9){out.textContent="Enter valid capital to calculate limits.";return;}
  const inr=n=>"₹"+n.toLocaleString("en-IN",{maximumFractionDigits:2}),usd=capitalUSD();
  out.textContent="Capital "+inr(c)+" · 2% maximum modeled spread loss = "+inr(c*.02)+
   " · 30% notional cap = "+inr(c*.30)+
@@ -380,7 +380,7 @@ async function refresh(){
  if(document.hidden)return;
  running=true;$("refreshNow").disabled=true;
  try{
-  const c=cash();
+  const c=cash();capitalDiagnostics();
   if(!Number.isFinite(c)||c<100||c>1e9){
    safeText("status","Enter capital in INR (₹100–₹100 crore) and select your 2/4/8-hour duration.");
    if(view==="crypto-options")showPlan({status:"NO TRADE",reason:"Enter valid capital first."});
