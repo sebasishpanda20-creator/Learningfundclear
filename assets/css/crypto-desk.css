@@ -25,3 +25,139 @@ body[data-page="crypto-options"] .desk-advanced-input{display:none}
 .desk-advanced>summary{font-weight:700;cursor:pointer;padding:6px 0}
 .desk-advanced>.card{margin-top:16px}
 body[data-page="crypto-options"] #tradePlan{order:unset}
+
+
+/* Modern crypto research workstation. Only layout/presentation changes. */
+body[data-page="crypto-options"] main,
+body[data-page="crypto-funding"] main{
+ display:grid;grid-template-columns:repeat(12,minmax(0,1fr));align-content:start;gap:18px;
+ max-width:1500px;
+}
+body[data-page="crypto-options"] main>*,
+body[data-page="crypto-funding"] main>*{grid-column:1/-1;min-width:0;margin:0}
+.desk-hero{
+ display:flex;align-items:stretch;justify-content:space-between;gap:32px;position:relative;overflow:hidden;isolation:isolate;
+ min-height:250px;padding:35px 38px;border:1px solid #364b8e;border-radius:23px;
+ background:radial-gradient(circle at 80% -50%,#566fd2 0,transparent 54%),
+ linear-gradient(120deg,#101e44 0%,#182d61 55%,#101e41 100%);color:#e1eaff;
+ box-shadow:0 28px 55px -37px #162c6a9e;
+}
+.desk-hero:after{content:"";position:absolute;top:-110px;right:-160px;width:430px;height:430px;border:1px solid #ffffff28;border-radius:50%;box-shadow:0 0 0 66px #ffffff07,0 0 0 128px #ffffff04;z-index:-1}
+.desk-hero h1{color:#fff;line-height:1.05;font-size:clamp(31px,3.2vw,48px);letter-spacing:-1.7px;margin:13px 0 19px}
+.desk-hero h1 em{font-style:normal;color:#9cc9ff}
+.desk-hero p{max-width:690px;color:#d1dff8;font-size:13px;line-height:1.8;margin:0}
+.desk-hero .desk-hero-eyebrow{color:#a9cafc;font-size:10px;letter-spacing:2px;font-weight:800}
+.desk-hero-meta{display:flex;gap:8px;flex-wrap:wrap;margin-top:26px}
+.desk-hero-meta span{display:inline-flex;align-items:center;padding:7px 11px;border-radius:100px;border:1px solid #ffffff28;background:#ffffff11;color:#e2edff;font-size:11px;white-space:nowrap}
+.desk-hero-symbol{min-width:220px;display:flex;align-items:center;justify-content:center;position:relative}
+.desk-hero-symbol>span{position:absolute;font:800 11px/1 var(--lfc-font-mono);padding:11px 14px;border:1px solid #aec9ff71;border-radius:13px;background:#ffffff14;color:#d5e6ff;transform:rotate(-7deg)}
+.desk-hero-symbol>span:nth-child(1){top:20px;left:13px}
+.desk-hero-symbol>span:nth-child(2){top:73px;right:8px;transform:rotate(9deg)}
+.desk-hero-symbol>span:nth-child(3){bottom:22px;left:30px;transform:rotate(5deg)}
+.desk-hero-symbol>strong{font-size:110px;color:#b9daff;line-height:1;font-weight:400;opacity:.92;filter:drop-shadow(0 20px 30px #81a5ff66)}
+.desk-hero-funding{background:radial-gradient(circle at 82% -34%,#2d958d 0,transparent 50%),linear-gradient(120deg,#101e44 0%,#163e58 58%,#103f53 100%);border-color:#377b81}
+.desk-hero-funding h1 em{color:#8de5d0}
+.desk-tabs{margin:0;gap:7px;display:flex;padding:6px;width:fit-content;max-width:100%;border:1px solid var(--lfc-border);border-radius:14px;background:var(--lfc-surface);box-shadow:var(--lfc-shadow)}
+.desk-tabs a{min-height:43px;display:flex;align-items:center;font-weight:700;font-size:12px;padding:11px 15px;border-radius:10px;border:0;color:var(--lfc-muted);background:transparent;transition:background .2s ease,color .2s ease}
+.desk-tabs a:hover{background:var(--lfc-primary-soft);color:var(--lfc-primary);text-decoration:none}
+.desk-tabs a[aria-current="page"]{background:var(--lfc-primary);color:#fff;box-shadow:0 10px 19px -12px var(--lfc-primary)}
+.theme-dark .desk-tabs a[aria-current="page"]{color:#101b32}
+.desk-jumps{display:flex;align-items:center;gap:7px 11px;flex-wrap:wrap;margin-top:-4px!important;margin-bottom:3px!important}
+.desk-jumps span{font-size:10px;font-weight:850;letter-spacing:1.35px;color:var(--lfc-muted);margin-right:4px}
+.desk-jumps a{font-size:11px;font-weight:750;padding:7px 11px;border-radius:100px;background:var(--lfc-primary-soft);color:var(--lfc-primary);transition:transform .15s ease,background .15s ease}
+.desk-jumps a:hover{background:var(--lfc-primary);color:#fff;text-decoration:none;transform:translateY(-1px)}
+.desk-inputs{border:1px solid color-mix(in srgb,var(--lfc-primary) 34%,var(--lfc-border));background:linear-gradient(135deg,var(--lfc-surface),var(--lfc-surface-soft));padding:24px 26px!important}
+.desk-inputs .desk-input-kicker{font-size:10px;font-weight:850;letter-spacing:1.6px;color:var(--lfc-primary);margin:0 0 4px}
+.desk-inputs h2.desk-input-heading{margin:0 0 20px!important;padding:0!important;background:transparent!important;border:0!important;font-size:22px;letter-spacing:-.6px}
+.desk-inputs .row{gap:12px;align-items:flex-end}
+.desk-inputs .capital-field{flex:1 1 240px;max-width:360px}
+.desk-inputs .capital-field label{color:var(--lfc-text);font-size:12px}
+.desk-inputs .capital-field input{max-width:100%;min-height:50px;font-size:21px;font-weight:800;border-radius:11px;font-variant-numeric:tabular-nums;letter-spacing:-.5px}
+.desk-inputs button{min-height:49px;font-size:12px}
+.desk-inputs #refreshNow{padding:12px 21px}
+.desk-inputs #resetPlan{border-style:dashed}
+.desk-inputs #status{display:inline-flex;align-items:center;max-width:100%;padding:8px 12px;border:1px solid var(--lfc-border);background:var(--lfc-surface);border-radius:10px;margin:14px 0 10px;font-size:12px;line-height:1.5}
+.desk-inputs #capitalDiagnostics{background:var(--lfc-primary-soft);color:var(--lfc-text-strong);padding:12px 15px;border-radius:11px;border:1px solid color-mix(in srgb,var(--lfc-primary) 15%,var(--lfc-border));font-weight:670;opacity:1}
+.desk-inputs #fxStatus,.desk-inputs #capitalImpact{color:var(--lfc-muted);opacity:1;font-size:11px}
+.desk-inputs #lastChecked{display:block;color:var(--lfc-muted);font-size:11px;letter-spacing:.2px}
+.simple-direction{background:var(--lfc-surface)}
+.simple-direction>.sub{margin-top:0}
+.simple-trend-grid{grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}
+.trend-tile{position:relative;min-height:168px;border-radius:16px;padding:21px;overflow:hidden;background:var(--lfc-surface-soft);border:1px solid var(--lfc-border)}
+.trend-tile:before{content:"";height:4px;position:absolute;left:0;top:0;right:0;background:var(--lfc-muted-soft)}
+.trend-tile[data-direction="UP"]:before{background:linear-gradient(90deg,#17a978,#55deb2)}
+.trend-tile[data-direction="DOWN"]:before{background:linear-gradient(90deg,#da5666,#ef9f9b)}
+.trend-tile[data-direction="SIDEWAYS"]:before{background:linear-gradient(90deg,#d4a332,#f1ce6e)}
+.trend-tile strong{font-size:12px;text-transform:uppercase;letter-spacing:1.05px;font-weight:850;color:var(--lfc-muted)}
+.trend-tile span{font-size:clamp(25px,2.5vw,34px);letter-spacing:-1.4px;line-height:1.18}
+.trend-tile[data-direction="UP"] span{color:var(--lfc-positive)}
+.trend-tile[data-direction="DOWN"] span{color:var(--lfc-negative)}
+.trend-tile[data-direction="SIDEWAYS"] span{color:var(--lfc-warning)}
+.trend-tile small{font-size:11px;color:var(--lfc-muted);opacity:1}
+body[data-page="crypto-options"] .simple-recommendation{grid-column:1/6;border-left:0;border-top:4px solid var(--lfc-primary);padding:25px}
+body[data-page="crypto-options"] #tradePlan{grid-column:6/-1;border-top:4px solid var(--lfc-positive);padding:25px}
+body[data-page="crypto-options"] .simple-recommendation h3{font-size:clamp(20px,2.1vw,26px);font-weight:780;letter-spacing:-.65px}
+#tradePlan{min-height:160px}
+#tradePlan dl{grid-template-columns:minmax(135px,1fr) minmax(170px,1.7fr);gap:0 13px;max-width:100%}
+#tradePlan dt,#tradePlan dd{border-bottom:1px solid var(--lfc-border-soft);padding:9px 2px;margin:0;font-size:12px;overflow-wrap:anywhere}
+#tradePlan dt{font-weight:680;color:var(--lfc-muted)}
+#tradePlan dd{font-weight:750;color:var(--lfc-text-strong)}
+#monitorPanel{border-top:4px solid var(--lfc-purple)}
+#monitorPanel strong{border:1px solid var(--lfc-border);background:var(--lfc-primary-soft);color:var(--lfc-primary);border-radius:10px}
+body[data-page="crypto-funding"] #tradePlan{grid-column:1/5;border-top:4px solid var(--lfc-positive)}
+body[data-page="crypto-funding"] .funding-comparison{grid-column:5/-1;border-top:4px solid var(--lfc-primary)}
+#fundRows td:nth-child(1){font-weight:850;font-size:12px}
+#fundRows td:nth-child(4){white-space:normal;min-width:170px;font-weight:660}
+#fundRows td:nth-child(6){font-weight:750}
+.desk-advanced{padding:23px}
+.desk-advanced>summary{padding:4px 0;list-style:auto;font-size:15px}
+.desk-advanced[open]{border-color:var(--lfc-primary)}
+.desk-advanced>.card{margin-top:18px;margin-bottom:14px;border-color:var(--lfc-border)}
+.desk-advanced .table-wrap{max-width:100%}
+#validationResults,#backtestResults,#strategyDiagnostics,#creditCandidates{overflow-wrap:anywhere}
+#validationResults table td,#backtestResults table td{white-space:normal}
+.desk-minor{line-height:1.7;color:var(--lfc-muted);opacity:1}
+body[data-page="crypto-options"] .desk-advanced-input{display:none}
+@media(max-width:1180px){
+ .desk-hero-symbol{min-width:165px}
+ .desk-hero-symbol>strong{font-size:95px}
+ body[data-page="crypto-options"] .simple-recommendation{grid-column:1/6}
+ body[data-page="crypto-options"] #tradePlan{grid-column:6/-1}
+}
+@media(max-width:950px){
+ .desk-hero{padding:28px;min-height:0}
+ .desk-hero-symbol{min-width:120px}
+ .desk-hero-symbol>strong{font-size:68px}
+ .desk-hero-symbol>span:nth-child(2){display:none}
+ body[data-page="crypto-options"] .simple-recommendation,
+ body[data-page="crypto-options"] #tradePlan,
+ body[data-page="crypto-funding"] #tradePlan,
+ body[data-page="crypto-funding"] .funding-comparison{grid-column:1/-1}
+ .simple-trend-grid{grid-template-columns:repeat(3,minmax(0,1fr))}
+}
+@media(max-width:620px){
+ body[data-page="crypto-options"] main,body[data-page="crypto-funding"] main{gap:12px}
+ .desk-hero{padding:24px 20px;border-radius:18px}
+ .desk-hero h1{font-size:clamp(29px,7.5vw,36px);letter-spacing:-1px}
+ .desk-hero-symbol{display:none}
+ .desk-hero-meta{gap:6px;margin-top:18px}
+ .desk-hero-meta span{font-size:10px;padding:6px 9px}
+ .desk-tabs{width:100%;overflow-x:auto;white-space:nowrap;flex-wrap:nowrap;scrollbar-width:thin}
+ .desk-tabs a{font-size:11px;min-height:40px;padding:10px 12px}
+ .desk-jumps{gap:7px}
+ .desk-jumps a{font-size:10.5px}
+ .desk-inputs{padding:20px!important}
+ .desk-inputs h2.desk-input-heading{font-size:19px}
+ .desk-inputs .row>button{flex:1 1 130px}
+ .desk-inputs .capital-field{flex-basis:100%;max-width:100%}
+ .simple-trend-grid{grid-template-columns:1fr;gap:9px}
+ .trend-tile{min-height:0;padding:14px 17px;gap:5px}
+ .trend-tile span{font-size:28px}
+ .desk-advanced{padding:17px}
+ #tradePlan dl{grid-template-columns:1fr;gap:0}
+ #tradePlan dt{border-bottom:0;padding-bottom:0}
+ #tradePlan dd{padding-top:3px;padding-bottom:11px}
+}
+@media(prefers-reduced-motion:reduce){
+ .desk-tabs a,.desk-jumps a,.trend-tile{transition:none!important;transform:none!important}
+}

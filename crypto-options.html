@@ -6,11 +6,10 @@
 <script src="assets/vendor/supabase.js"></script><script src="assets/js/config.js"></script><script src="auth-guard.js"></script><script src="assets/js/theme.js"></script>
 </head>
 <body data-page="crypto-options"><main id="main">
-<p class="eyebrow">READ-ONLY • DELTA INDIA PUBLIC MARKET DATA</p>
-<h1>Crypto Options Research Desk</h1>
-<p class="sub">Just enter your capital. We check market direction, choose a suitable options strategy and calculate contracts, entry, stop-loss and target when prices qualify. <strong>If a safe-looking setup is not available, the answer will be Wait — not an invented trade.</strong></p>
+<header class="desk-hero"><div><p class="desk-hero-eyebrow">MARKET INTELLIGENCE / CRYPTO OPTIONS</p><h1>Find the next<br><em>research opportunity.</em></h1><p>Start with your capital. The desk scans market direction and quoted option legs, then shows a risk-qualified paper setup—or explains why waiting is better.</p><div class="desk-hero-meta"><span>◉ Completed-candle signals</span><span>✓ Risk checks</span><span>◎ No live orders</span></div></div><div class="desk-hero-symbol" aria-hidden="true"><span>BTC</span><span>ETH</span><span>XAUT</span><strong>↗</strong></div></header>
 <nav class="desk-tabs" aria-label="Crypto research pages"><a aria-current="page" href="crypto-options.html">Options &amp; spreads</a><a href="crypto-funding.html">Funding &amp; hedges</a><a href="crypto.html">Raw markets</a></nav>
-<section class="card desk-inputs" aria-label="Capital and refresh">
+<nav class="desk-jumps" aria-label="Jump to trading research"><span>EXPLORE</span><a href="#simpleDirection">Market direction ↗</a><a href="#simpleDecision">Strategy selection ↗</a><a href="#tradePlan">Paper setup ↗</a><a href="#monitorPanel">Monitor ↗</a></nav>
+<section class="card desk-inputs" aria-label="Capital and refresh"><p class="desk-input-kicker">01 / YOUR INPUT</p><h2 class="desk-input-heading">Enter capital. The desk handles the research.</h2>
 <div class="row"><div class="capital-field"><label for="capital">Trading capital (₹ INR)</label><input id="capital" type="number" min="100" max="1000000000" step="100" inputmode="decimal" placeholder="e.g. 50000" autocomplete="off"></div>
 <div class="desk-advanced-input"><label for="tradeHorizon">Trade duration</label><select id="tradeHorizon"><option value="2">2 hours</option><option value="4" selected>4 hours</option><option value="8">8 hours</option></select></div>
 <button id="refreshNow" class="primary" type="button">Find my setup</button>
