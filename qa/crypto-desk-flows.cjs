@@ -66,6 +66,9 @@ const server=http.createServer((req,res)=>{
    const plan=await page.locator("#tradePlan").innerText();
    assert.match(plan,/Bull call debit spread/);assert.match(plan,/4 hours/);assert.match(plan,/C-BTC-110-/);assert.match(plan,/C-BTC-118-/);
    assert.match(await page.locator("#directionRows").textContent(),/BULLISH BOS/);
+   assert.equal(await page.locator("#directionRows tr").first().locator("td").count(),10);
+   assert.match(await page.locator("#directionRows").textContent(),/MULTI-FACTOR CONFIRMED/);
+   assert.match(await page.locator("#simpleDirection").textContent(),/evidence points/);
    assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),true);
    await page.locator("#refreshNow").click();
    await page.locator("#monitorPanel").getByText("MONITOR",{exact:true}).waitFor({timeout:25000});
