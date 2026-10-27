@@ -8,7 +8,7 @@ function fresh(t,now,age=120000){t=milliseconds(t);return ok(t)&&t<=now+15000&&t
 function candles(rows,minutes,now){
  if(!Array.isArray(rows))throw Error("No "+minutes+"m exchange candles");
  let duration=minutes*60000, prev=0;
- const out=rows.map(r=>({time:milliseconds(r.time??r.timestamp),open:number(r.open),high:number(r.high),low:number(r.low),close:number(r.close)})).sort((a,b)=>a.time-b.time).filter(b=>{
+ const out=rows.map(r=>({time:milliseconds(r.time??r.timestamp),open:number(r.open),high:number(r.high),low:number(r.low),close:number(r.close),volume:number(r.volume??r.v)})).sort((a,b)=>a.time-b.time).filter(b=>{
   if(!ok(b.time)||b.time<=prev||![b.open,b.high,b.low,b.close].every(ok)||b.low<=0||b.low>Math.min(b.open,b.close)||b.high<Math.max(b.open,b.close,b.low))throw Error("Invalid OHLC");
   prev=b.time;return b.time+duration<=now;
  });
@@ -16,8 +16,53 @@ function candles(rows,minutes,now){
  return out;
 }
 function ema(rows,len){let v=rows[0].close,alpha=2/(len+1);for(let r of rows.slice(1))v=alpha*r.close+(1-alpha)*v;return v;}
+// Indicator families are separate pieces of evidence, not independent probabilities.
+// All calculations use closed candles only; no current/forming candle is allowed.
+function rsi(rows,n=14){
+ if(rows.length<n+2)return NaN;
+ let gains=0,losses=0;
+ for(let i=1;i<=n;i++){const d=rows[i].close-rows[i-1].close;gains+=Math.max(d,0);losses+=Math.max(-d,0);}
+ let avgGain=gains/n,avgLoss=losses/n;
+ for(let i=n+1;i<rows.length;i++){
+  const d=rows[i].close-rows[i-1].close;
+  avgGain=(avgGain*(n-1)+Math.max(d,0))/n;
+  avgLoss=(avgLoss*(n-1)+Math.max(-d,0))/n;
+ }
+ return avgLoss===0?(avgGain===0?50:100):100-100/(1+avgGain/avgLoss);
+}
+function macdHistogram(rows){
+ if(rows.length<40)return NaN;
+ let fast=rows[0].close,slow=fast,signal=0;
+ for(let i=1;i<rows.length;i++){
+  const price=rows[i].close;
+  fast+=(price-fast)*(2/13);slow+=(price-slow)*(2/27);
+  signal+=((fast-slow)-signal)*(2/10);
+ }
+ return fast-slow-signal;
+}
+function adx(rows,n=14){
+ if(rows.length<2*n+1)return{value:NaN,plusDI:NaN,minusDI:NaN};
+ let tr=0,plus=0,minus=0,dx=[];
+ for(let i=1;i<rows.length;i++){
+  const c=rows[i],p=rows[i-1],up=c.high-p.high,down=p.low-c.low;
+  const trueRange=Math.max(c.high-c.low,Math.abs(c.high-p.close),Math.abs(c.low-p.close));
+  const pos=up>down&&up>0?up:0,neg=down>up&&down>0?down:0;
+  if(i<=n){tr+=trueRange;plus+=pos;minus+=neg;}
+  else{tr=tr-tr/n+trueRange;plus=plus-plus/n+pos;minus=minus-minus/n+neg;}
+  if(i>=n){
+   const plusDI=tr>0?100*plus/tr:0,minusDI=tr>0?100*minus/tr:0;
+   dx.push({dx:plusDI+minusDI?100*Math.abs(plusDI-minusDI)/(plusDI+minusDI):0,plusDI,minusDI});
+  }
+ }
+ if(dx.length<n)return{value:NaN,plusDI:NaN,minusDI:NaN};
+ let value=dx.slice(0,n).reduce((sum,x)=>sum+x.dx,0)/n;
+ for(const x of dx.slice(n))value=(value*(n-1)+x.dx)/n;
+ const last=dx.at(-1);
+ return{value,plusDI:last.plusDI,minusDI:last.minusDI};
+}
 function direction(raw15,raw60,now=Date.now()){
- let a,b;try{a=candles(raw15,15,now);b=candles(raw60,60,now);}catch(e){return{side:"UNKNOWN",actionable:false,why:e.message};}
+ let a,b;try{a=candles(raw15,15,now);b=candles(raw60,60,now);}
+ catch(e){return{side:"UNKNOWN",actionable:false,score:0,why:e.message};}
  const l=a.at(-1),f=ema(a,20),s=ema(a,50),hf=ema(b,20),hs=ema(b,50),hour=b.at(-1).close;
  const up=hour>hf&&hf>hs&&l.close>f&&f>s,down=hour<hf&&hf<hs&&l.close<f&&f<s;
  const side=up?"UP":down?"DOWN":"SIDEWAYS";
@@ -25,11 +70,40 @@ function direction(raw15,raw60,now=Date.now()){
  const bos=up&&l.close>upper?"BULLISH BOS":down&&l.close<lower?"BEARISH BOS":"NONE";
  const sweep=up&&a.at(-2).low<Math.min(...a.slice(-10,-2).map(v=>v.low))&&l.close>a.at(-2).high?"BULLISH SWEEP":
   down&&a.at(-2).high>Math.max(...a.slice(-10,-2).map(v=>v.high))&&l.close<a.at(-2).low?"BEARISH SWEEP":"NONE";
- const actionable=side!=="SIDEWAYS"&&(bos!=="NONE"||sweep!=="NONE");
- return{side,bos,sweep,actionable,current:l.close,lastClosedAt:l.time+900000,invalidation:up?lower:down?upper:null,
-  why:side==="SIDEWAYS"?"1h and 15m EMA20/50 disagree":
-   actionable?"Completed 15m structure break/reclaim confirmed by 1h trend":
-   "Trend aligned; no completed BOS/sweep confirmation"};
+ const strength=adx(a),momentumRsi=rsi(a),histogram=macdHistogram(a);
+ const rsiAligned=Number.isFinite(momentumRsi)&&(up?momentumRsi>=55:down?momentumRsi<=45:false);
+ const macdAligned=Number.isFinite(histogram)&&(up?histogram>0:down?histogram<0:false);
+ const adxAligned=Number.isFinite(strength.value)&&strength.value>=20&&
+  (up?strength.plusDI>strength.minusDI:down?strength.minusDI>strength.plusDI:false);
+ const structure=bos!=="NONE"||sweep!=="NONE";
+ const volumes=a.slice(-21).map(x=>x.volume);
+ const volumeReady=volumes.length===21&&volumes.every(x=>Number.isFinite(x)&&x>=0);
+ const meanVolume=volumeReady?volumes.slice(0,-1).reduce((sum,x)=>sum+x,0)/20:NaN;
+ const volumeRatio=Number.isFinite(meanVolume)&&meanVolume>0?volumes.at(-1)/meanVolume:NaN;
+ const volumeAligned=Number.isFinite(volumeRatio)&&volumeRatio>=1.2;
+ const aligned=side!=="SIDEWAYS";
+ const components=[
+  {name:"EMA 15m + 1h",passed:aligned,points:aligned?35:0,max:35},
+  {name:"SMC BOS / sweep",passed:structure,points:structure?20:0,max:20},
+  {name:"RSI(14) momentum",passed:rsiAligned,points:rsiAligned?15:0,max:15},
+  {name:"MACD(12,26,9) momentum",passed:macdAligned,points:macdAligned?15:0,max:15},
+  {name:"ADX(14) +DI/-DI",passed:adxAligned,points:adxAligned?10:0,max:10},
+  {name:"Volume expansion (optional)",passed:volumeAligned,points:volumeAligned?5:0,max:5,available:Number.isFinite(volumeRatio)}
+ ];
+ const score=aligned?components.reduce((sum,x)=>sum+x.points,0):0;
+ // Without BOS/sweep, require BOTH momentum families plus ADX trend strength.
+ // A BOS/sweep without momentum must not authorize a directional paper plan.
+ const actionable=aligned&&score>=70&&(rsiAligned||macdAligned)&&
+  (structure||(rsiAligned&&macdAligned&&adxAligned));
+ const why=!aligned?"15m and 1h EMA20/50 do not align — no directional trade":
+  actionable?"Multi-factor directional confirmation; "+(structure?"SMC and indicators aligned":"RSI, MACD and ADX agree without an SMC break"):
+  "Directional EMA trend, but multi-factor momentum/strength threshold not met";
+ return{side,bos,sweep,actionable,current:l.close,lastClosedAt:l.time+900000,
+  invalidation:up?lower:down?upper:null,
+  score,maxScore:Number.isFinite(volumeRatio)?100:95,components,
+  rsi:momentumRsi,macdHistogram:histogram,adx:strength.value,
+  plusDI:strength.plusDI,minusDI:strength.minusDI,volumeRatio,
+  signalMethod:"MULTI_FACTOR_V1",why};
 }
 function parseOption(t){
  const symbol=String(t.symbol||t.product_symbol||"");
@@ -98,7 +172,7 @@ function chooseSpread(tickers,trend,asset,capitalUSD,now=Date.now(),hours=4){
     expectedTargetNetUSD:(Math.min(width*0.9,debit*1.6)-debit-buffer)*quantity,
     expectedStopNetUSD:(debit*0.5-debit-buffer)*quantity,
     breakevenSpread:(debit+buffer)/long.cv,
-    why:"15m/1h trend plus SMC → executable quotes → liquid expiry → 2% approximate spread-risk and 30% underlying-notional caps",
+    why:"Multi-factor 15m/1h direction (SMC or RSI/MACD/ADX) → liquid quoted expiry → cost and 2% modeled maximum spread-risk / 30% notional checks",
     score:gain/loss-Math.abs(long.strike-trend.current)/trend.current};
    if(!best||candidate.score>best.score)best=candidate;
   }
