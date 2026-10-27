@@ -8,6 +8,7 @@ async function call({action="list",token=true,admin=true,active=true,confirmed=t
  const {handle}=await promise,writes=[],read=[];
  const mock=async(url,opt={})=>{
   const u=new URL(url),p=u.pathname;read.push(p);
+  if(p==="/rest/v1/rpc/lfc_registration_ready")return Response.json(true);
   if(p==="/auth/v1/user")return Response.json({id:adminId});
   if(p==="/auth/v1/admin/users"&&opt.method!=="PUT")return Response.json({users:[user]});
   if(p==="/auth/v1/admin/users/"+userId&&opt.method==="PUT"){
@@ -34,7 +35,7 @@ async function call({action="list",token=true,admin=true,active=true,confirmed=t
 }
 test("Public availability reports readiness but does not read users",async()=>{
  const r=await call({action:"availability",token:false});
- assert.equal(r.status,200);assert.equal(r.body.ready,true);assert.equal(r.read.length,0);
+ assert.equal(r.status,200);assert.equal(r.body.ready,true);assert.deepEqual(r.read,["/rest/v1/rpc/lfc_registration_ready"]);
 });
 test("Anonymous, regular and inactive admin requests cannot list or decide",async()=>{
  for(const settings of [{token:false},{admin:false},{active:false}]){
