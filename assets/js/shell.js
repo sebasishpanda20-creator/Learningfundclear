@@ -49,10 +49,11 @@
     const [key,title,path] = entry;
     return `<a ${key === "admin" || key === "approvals" ? `id="${key}Nav" hidden` : ""} ${key===page?'aria-current="page"':""} href="${route(path)}">${svg(key)}<span>${title}</span>${key===page?"<i></i>":""}</a>`;
   };
-  const groupedNav = navGroups.map(([heading,keys]) =>
-    `<div class="nav-group"><p class="nav-group-title">${heading}</p>${keys.map(k=>navLink(navByKey.get(k))).join("")}</div>`).join("");
   const svg = (key) =>
     `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="${icons[key]}"/></svg>`;
+  const groupedNav = navGroups.map(([heading,keys]) =>
+    `<div class="nav-group"><p class="nav-group-title">${heading}</p>${keys.map(k=>navLink(navByKey.get(k))).join("")}</div>`).join("");
+
   const aside = document.createElement("aside");
   aside.className = "sidebar";
   aside.id = "portalNav";
