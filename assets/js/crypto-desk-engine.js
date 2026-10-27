@@ -161,6 +161,7 @@ function chooseSpread(tickers,trend,asset,capitalUSD,now=Date.now(),hours=4){
    const quantity=Math.floor(Math.min(capitalUSD*0.02/loss,capitalUSD*0.30/(long.cv*trend.current)));
    if(quantity<1)continue;
    const candidate={status:"PAPER PLAN",direction:trend.side,
+    signalScore:trend.score,signalMaxScore:trend.maxScore,signalMethod:trend.signalMethod,
     label:side==="C"?"Bull call debit spread":"Bear put debit spread",
     long:long.symbol,short:short.symbol,expiry,contractValue:long.cv,
     quantity,entrySpread:debit/long.cv,stopSpread:debit*0.5/long.cv,
