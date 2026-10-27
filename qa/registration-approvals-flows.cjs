@@ -32,6 +32,13 @@ const server=http.createServer((req,res)=>{
    assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),true);
    await ctx.close();
   }
+  const standard=await browser.newContext({viewport:{width:390,height:900}});
+  await fixture(standard,true,false);
+  const denied=await standard.newPage();
+  await denied.goto(origin+'/approvals.html');
+  await denied.waitForURL(origin+'/index.html',{timeout:16000});
+  assert.equal(await denied.locator('#approvalsNav').isVisible(),false);
+  await standard.close();
   const reg=await browser.newContext({viewport:{width:390,height:860}});
   await fixture(reg,false,false);
   await reg.route('https://chbtjicvbezbiosuouwm.supabase.co/functions/v1/registration-approvals',r=>r.fulfill({json:{ready:true}}));
