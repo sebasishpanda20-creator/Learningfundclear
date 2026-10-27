@@ -392,7 +392,7 @@ async function refresh(){
  try{
   const c=cash();capitalDiagnostics();
   if(!Number.isFinite(c)||c<100||c>1e9){
-   safeText("status","Enter capital in INR (₹100–₹100 crore) and select your 2/4/8-hour duration.");
+   safeText("status",view==="crypto-options"?"Enter INR capital (₹100–₹100 crore); the options horizon is 2, 4 or 8 hours.":"Enter valid INR capital. Funding settlement hours are set by Delta Exchange, not by your chosen holding period.");
    if(view==="crypto-options")showPlan({status:"NO TRADE",reason:"Enter valid capital first."});
    return;
   }
