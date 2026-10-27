@@ -29,6 +29,8 @@ jobs:
         run: bash .ci/guard.sh
       - name: Build Cloudflare worker and static assets
         run: npm run build:cloudflare
+      - name: Check email watch safety and retries
+        run: node --test qa/crypto-email.test.mjs
       - name: Validate worker bundle
         run: npm run check:cloudflare
       - name: Check optional Cloudflare deployment credentials
