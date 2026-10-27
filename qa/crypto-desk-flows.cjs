@@ -99,6 +99,7 @@ const server=http.createServer((req,res)=>{
    await page.goto(origin+"/crypto-funding.html");
    await page.locator("html.auth-ready").waitFor();
    await page.locator("#fundRows tr").first().getByText("Awaiting verified live rate").waitFor({timeout:30000});
+   assert.match(await page.locator("#fundRows tr").first().locator("td").nth(3).innerText(),/h .*m .*s|Funding hour unavailable/);
    assert.equal(await page.locator("#fundRows tr").count(),4);
    assert.match(await page.locator("#fundRows").innerText(),/PAXG/);
    assert.match(await page.locator("#tradePlan").innerText(),/WAIT|WATCH ONLY/);
