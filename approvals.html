@@ -1,0 +1,20 @@
+<!doctype html>
+<html lang="en-IN">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex,nofollow"><title>Registration approvals · LearningFundClear</title>
+<link rel="stylesheet" href="assets/css/tokens.css"><link rel="stylesheet" href="assets/css/app.css">
+<script src="assets/vendor/supabase.js"></script><script src="assets/js/config.js"></script><script src="auth-guard.js"></script><script src="assets/js/theme.js"></script></head>
+<body data-page="approvals">
+<main id="main">
+<p class="eyebrow">ADMINISTRATION • USER ACCESS</p>
+<h1>Registration Approvals</h1>
+<p class="sub">New users can submit a request themselves. Their accounts remain inactive until you approve them. Approval is needed only once; future sign-ins use their normal credentials. Existing admin-created users continue to work as before.</p>
+<section class="card" id="approvalPanel" hidden>
+<div class="row"><h2>Pending registration requests</h2><button type="button" id="refreshApprovals" class="primary">Refresh requests</button></div>
+<p id="approvalStatus" role="status" aria-live="polite">Loading pending requests…</p>
+<div class="table-wrap"><table><thead><tr><th>Username</th><th>Display name</th><th>Email</th><th>Email verified</th><th>Requested</th><th>Action</th></tr></thead><tbody id="approvalRows"><tr><td colspan="6">Loading…</td></tr></tbody></table></div>
+<p class="mut">Approve only people you recognize. Approval creates an active standard account (never an admin account). The applicant must confirm their email before approval. Rejected requests cannot sign in. Decisions are checked and enforced by a protected Supabase function, not by hiding buttons.</p>
+</section>
+<p id="approvalDenied" role="status">Verifying administrator access…</p>
+</main><script src="assets/js/shell.js"></script><script src="assets/js/approvals.js"></script>
+</body></html>
