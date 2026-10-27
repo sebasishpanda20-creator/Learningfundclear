@@ -29,6 +29,42 @@ test("confirmed completed structure is directional; uncertain bars fail closed",
  assert.equal(down.side,"DOWN");assert.equal(down.actionable,true);assert.equal(down.bos,"BEARISH BOS");
  assert.equal(D.direction([],[],now).side,"UNKNOWN");
 });
+test("high-agreement RSI MACD ADX confirms a trend WITHOUT an SMC BOS or sweep",()=>{
+ const up=D.direction(bars(15,0.1),bars(60,0.2),now);
+ const down=D.direction(bars(15,-0.1),bars(60,-0.2),now);
+ for(const [t,side] of [[up,"UP"],[down,"DOWN"]]){
+  assert.equal(t.side,side);
+  assert.equal(t.bos,"NONE");
+  assert.equal(t.sweep,"NONE");
+  assert.equal(t.actionable,true,"Strong non-SMC confluence must qualify");
+  assert(t.score>=70);
+  assert(t.components.find(x=>x.name.includes("MACD")).passed);
+  assert(t.components.find(x=>x.name.includes("ADX")).passed);
+  assert.equal(t.signalMethod,"MULTI_FACTOR_V1");
+ }
+});
+test("volume is optional and missing volume is not a fabricated confirmation",()=>{
+ const a=bars(15,0.1),b=bars(60,0.2);
+ const missing=D.direction(a,b,now);
+ assert.equal(missing.maxScore,95);
+ assert(Number.isNaN(missing.volumeRatio));
+ assert.equal(missing.components.at(-1).available,false);
+ for(const candle of a)candle.volume=10;
+ a.at(-1).volume=30;
+ const present=D.direction(a,b,now);
+ assert.equal(present.maxScore,100);
+ assert(present.volumeRatio>=2.9);
+ assert.equal(present.score,missing.score+5);
+});
+test("forming future candles never influence multi-factor confirmation",()=>{
+ const a=bars(15,0.1),b=bars(60,0.2);
+ const first=D.direction(a,b,now);
+ const forming={time:(now-7*60000)/1000,open:5000,high:7000,low:100,close:6000,volume:10000};
+ const second=D.direction([...a,forming],b,now);
+ assert.equal(second.side,first.side);
+ assert.equal(second.score,first.score);
+ assert.equal(second.bos,first.bos);
+});
 test("no synthetic quote and stale option contracts never produce a plan",()=>{
  const t=trend();
  assert.equal(D.chooseSpread([],t,"BTC",1000,now).status,"NO TRADE");
