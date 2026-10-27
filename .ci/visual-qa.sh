@@ -13,6 +13,7 @@ node qa/clean-routes.cjs
 node qa/feed-flows.cjs
 node qa/crypto-flows.cjs
 node qa/crypto-desk-flows.cjs
+node qa/crypto-context-flows.cjs
 node qa/research-flows.cjs
 node qa/nifty500-flows.cjs
 mkdir -p visual-qa-artifacts
