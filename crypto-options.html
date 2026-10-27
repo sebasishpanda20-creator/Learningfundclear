@@ -17,6 +17,8 @@
 <button id="resetPlan" type="button">Clear locked paper plan</button></div>
 <p id="fxStatus" class="desk-minor">Waiting for live indicative INR/USD conversion.</p>
 <p id="status" class="msg" aria-live="polite" role="status">Enter capital to begin.</p>
+<div id="capitalDiagnostics" class="desk-minor" role="status" aria-live="polite">Capital and risk limits will appear after entering an amount.</div>
+<p id="capitalImpact" class="desk-minor">Market direction is identical for all capital amounts; affordability, risk budget and contract quantity can change.</p>
 <small id="lastChecked">No exchange check yet</small></section>
 <section class="card simple-direction">
 <h2>1. Where is the market going?</h2><p class="sub">Green = rising, red = falling, grey = unclear. Evidence includes 15m/1h EMA alignment, RSI, MACD, ADX, optional volume and SMC. A trend or score is not permission to trade.</p>
@@ -41,8 +43,10 @@
 <p class="sub">Screen all quoted legs with liquidity, completed-candle direction, theoretical defined risk, costs and capital-based contract limits. These are <strong>WATCH ONLY</strong> until verified account margin, exchange execution sequence and implied-volatility evidence are available. Never treat theoretical payoff as a fill or margin guarantee.</p>
 <div id="creditCandidates" aria-live="polite"><p>Run market analysis to inspect qualified research candidates.</p></div></section>
 <section class="card" id="historicalResearch"><h2>Historical signal backtest (underlying proxy)</h2>
-<p class="sub">Tests completed 15m and hourly perpetual candles without future leakage, includes an indicative round-trip cost and conservative stop-first same-candle assumptions. Does not simulate historical option bid/ask, implied volatility, credit structures, actual margin or fills.</p>
-<button id="runBacktest" type="button">Run historical proxy (BTC &amp; ETH)</button>
+<p class="sub">Quick proxy uses historical 15m/hourly perpetual prices; validation compares the current multi-factor rule against EMA+SMC and EMA-only baselines using chronological 70% training / 30% untouched testing, trailing trend/volatility regimes, 20-bps costs and 40-bps stress. Insufficient samples are reported clearly. Neither test simulates historical options, order-book fills, actual margin or future profitability.</p>
+<button id="runBacktest" type="button">Quick 14-day signal proxy (BTC &amp; ETH)</button>
+<button id="runValidation" type="button">Validate combined signals across 42 days (BTC &amp; ETH)</button>
+<div id="validationResults" role="status" aria-live="polite"><p>Independent 70/30 training/test comparison not run. The study never backtests historical option premiums or fills.</p></div>
 <div id="backtestResults" role="status" aria-live="polite"><p>Historical research not run.</p></div></section>
 <section class="card"><h2>How the automation decides</h2>
 <p>Scan → require aligned 15m/1h trend plus weighted momentum and SMC/ADX evidence (SMC optional) → check option-chain timestamps, expiry, spread, open interest and exact contract value → compare debit spreads, credit structures and long-volatility research → size from at most 2% of capital at maximum theoretical spread loss → lock one plan for a selected 2-, 4- or 8-hour research exit watch. If no plan qualifies, do not force a trade. Credit spreads and iron condors remain WATCH ONLY because their live margin and fill risks are not broker verified.</p>
@@ -51,5 +55,5 @@
 </section>
 </details>
 </main>
-<script src="assets/js/shell.js"></script><script src="assets/js/crypto-desk-engine.js"></script><script src="assets/js/crypto-advanced-engine.js"></script><script src="assets/js/crypto-desk-ui.js"></script>
+<script src="assets/js/shell.js"></script><script src="assets/js/crypto-desk-engine.js"></script><script src="assets/js/crypto-advanced-engine.js"></script><script src="assets/js/crypto-validation-engine.js"></script><script src="assets/js/crypto-desk-ui.js"></script>
 </body></html>
