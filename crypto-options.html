@@ -7,7 +7,7 @@
 </head>
 <body data-page="crypto-options"><main id="main">
 <p class="eyebrow">READ-ONLY • DELTA INDIA PUBLIC MARKET DATA</p>
-<h1>Crypto Options Research Desk</h1>
+<h1>Crypto Options <span class="desk-title-accent">Command Centre</span></h1>
 <p class="sub">Just enter your capital. We check market direction, choose a suitable options strategy and calculate contracts, entry, stop-loss and target when prices qualify. <strong>If a safe-looking setup is not available, the answer will be Wait — not an invented trade.</strong></p>
 <nav class="desk-tabs" aria-label="Crypto research pages"><a aria-current="page" href="crypto-options.html">Options &amp; spreads</a><a href="crypto-funding.html">Funding &amp; hedges</a><a href="crypto.html">Raw markets</a></nav>
 <section class="card desk-inputs" aria-label="Capital and refresh">
@@ -20,7 +20,7 @@
 <div id="capitalDiagnostics" class="desk-minor" role="status" aria-live="polite">Capital and risk limits will appear after entering an amount.</div>
 <p id="capitalImpact" class="desk-minor">Market direction is identical for all capital amounts; affordability, risk budget and contract quantity can change.</p>
 <small id="lastChecked">No exchange check yet</small></section>
-<section class="card simple-direction">
+<nav class="desk-quicknav" aria-label="Desk shortcuts"><a href="#simpleDirection">01 Market trend</a><a href="#simpleDecision">02 Suggested spread</a><a href="#tradePlan">03 Quantity & risk</a><a href="#monitorPanel">04 Exit watch</a><a href="#emailWatch">Email alerts</a></nav><section class="card simple-direction">
 <h2>1. Where is the market going?</h2><p class="sub">Green = rising, red = falling, grey = unclear. Evidence includes 15m/1h EMA alignment, RSI, MACD, ADX, optional volume and SMC. A trend or score is not permission to trade.</p>
 <div id="simpleDirection" class="simple-trend-grid" aria-live="polite"><p>Enter your capital to check Bitcoin, Ethereum and Gold.</p></div>
 </section>
@@ -30,7 +30,7 @@
 </section>
 <section id="tradePlan" class="card" aria-live="polite"><h2>NO TRADE</h2><p>Enter your capital to begin.</p></section>
 <section id="monitorPanel" class="card" aria-live="polite"><h2>3. Monitor the result</h2><p>Only qualified paper setups are monitored. No exchange trades are placed.</p></section>
-<details class="card desk-advanced"><summary>Advanced analysis and backtesting (optional)</summary>
+<section class="card" id="emailWatch"><p class="eyebrow">BACKGROUND PAPER-PLAN WATCH</p><h2>Email alerts</h2><p>Save the current paper spread for a background stop, target and time-exit watch. Emails go only to your verified portal login address. One watch at a time; each event is sent once. New opportunities still require a portal scan.</p><p id="emailStatus" role="status">Checking email service…</p><button id="emailEnable" disabled>Enable email for this paper plan</button> <button id="emailDisable">Disable email watch</button><p class="desk-minor">Checks approximately every minute when configured, even with this page closed. Emails may be delayed. This does not place protective orders. Clearing a local paper plan does not cancel its saved email watch; use Disable here.</p></section><details class="card desk-advanced"><summary>Advanced analysis and backtesting (optional)</summary>
 <section class="card"><h2>Which direction is the market moving?</h2>
 <p class="sub">Direction uses completed Delta perpetual candles with 15m/1h EMA trend, RSI(14), MACD(12,26,9), ADX(14), optional volume expansion and SMC breaks/sweeps. The 70-point evidence threshold requires momentum plus either SMC confirmation or combined RSI + MACD + ADX agreement. <strong>SMC is no longer mandatory.</strong> Points are heuristic evidence, <strong>not a probability or validated win rate</strong>. Missing volume is N/A, never invented.</p>
 <div class="table-wrap"><table><thead><tr><th>Asset</th><th>Trend (EMA 15m/1h)</th><th>SMC (BOS / sweep)</th><th>RSI 14</th><th>MACD histogram</th><th>ADX 14</th><th>Volume ratio</th><th>Evidence points</th><th>Trade gate</th><th>Why</th></tr></thead><tbody id="directionRows"><tr><td colspan="10">Waiting for exchange data</td></tr></tbody></table></div>
@@ -56,4 +56,5 @@
 </details>
 </main>
 <script src="assets/js/shell.js"></script><script src="assets/js/crypto-desk-engine.js"></script><script src="assets/js/crypto-advanced-engine.js"></script><script src="assets/js/crypto-validation-engine.js"></script><script src="assets/js/crypto-desk-ui.js"></script>
+<script src="assets/js/crypto-email.js"></script>
 </body></html>

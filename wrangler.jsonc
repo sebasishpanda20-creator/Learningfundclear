@@ -4,6 +4,7 @@
   "main": "dist/server/index.js",
   "compatibility_date": "2026-10-09",
   "workers_dev": true,
+  "triggers": {"crons": ["*/1 * * * *"]},
   "preview_urls": false,
   "build": {
     "command": "node scripts/build.mjs --cloudflare"

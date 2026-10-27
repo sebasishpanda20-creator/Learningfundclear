@@ -25,3 +25,17 @@ body[data-page="crypto-options"] .desk-advanced-input{display:none}
 .desk-advanced>summary{font-weight:700;cursor:pointer;padding:6px 0}
 .desk-advanced>.card{margin-top:16px}
 body[data-page="crypto-options"] #tradePlan{order:unset}
+/* Trading workspace hierarchy, using the portal's existing theme tokens. */
+body[data-page="crypto-options"] #main{max-width:1440px;margin-inline:auto}
+.desk-title-accent{color:var(--lfc-primary)}
+body[data-page="crypto-options"] h1{font-size:clamp(2rem,4vw,3.2rem);letter-spacing:-.045em;line-height:1.12}
+.desk-quicknav{display:flex;gap:10px;flex-wrap:wrap;margin:22px 0}.desk-quicknav a{font-size:.82rem;text-decoration:none;color:var(--lfc-text);padding:10px 14px;border:1px solid var(--lfc-border);border-radius:30px;background:var(--lfc-surface)}
+.desk-inputs{border-top:3px solid var(--lfc-primary);box-shadow:0 14px 35px #122a4010}
+.capital-field input{font-size:1.7rem;font-weight:750;font-variant-numeric:tabular-nums;border-radius:12px}
+.simple-trend-grid{gap:18px}.trend-tile{background:linear-gradient(135deg,var(--lfc-surface),var(--lfc-surface-soft));padding:24px;border-radius:16px;box-shadow:0 5px 18px #10284008}
+.trend-tile[data-direction="UP"]{border-top:3px solid var(--lfc-positive)}.trend-tile[data-direction="DOWN"]{border-top:3px solid var(--lfc-negative)}
+.simple-recommendation{background:linear-gradient(115deg,var(--lfc-primary-soft),var(--lfc-surface));padding:26px!important}
+#tradePlan dl{gap:0;border:1px solid var(--lfc-border);border-radius:14px;overflow:hidden}#tradePlan dt,#tradePlan dd{padding:14px 18px;border-bottom:1px solid var(--lfc-border-soft)}#tradePlan dt{background:var(--lfc-surface-soft);font-size:.88rem;color:var(--lfc-muted)}#tradePlan dd{font-weight:650;font-size:1rem}#tradePlan dt:nth-of-type(3),#tradePlan dd:nth-of-type(3),#tradePlan dt:nth-of-type(6),#tradePlan dd:nth-of-type(6){background:var(--lfc-primary-soft);color:var(--lfc-primary)}
+#monitorPanel{border-top:3px solid var(--lfc-primary)}#emailWatch{border:1px solid var(--lfc-primary);scroll-margin-top:80px}#emailWatch button{padding:12px 18px;border-radius:10px}#emailStatus{padding:14px;background:var(--lfc-surface-soft);border-radius:10px}#emailEnable:disabled{opacity:.5;cursor:not-allowed}
+body[data-page="crypto-options"] section{scroll-margin-top:80px}
+@media(max-width:620px){.desk-quicknav{gap:7px}.desk-quicknav a{padding:9px;font-size:.75rem}#tradePlan dt{border-bottom:0;margin-top:0}#tradePlan dd{padding-top:4px}.desk-inputs .row button{width:100%}.capital-field{width:100%}.capital-field input{max-width:none}#emailWatch button{width:100%;margin-top:10px}}
