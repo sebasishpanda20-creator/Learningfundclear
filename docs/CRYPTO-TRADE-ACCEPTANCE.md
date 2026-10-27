@@ -8,7 +8,10 @@ This is a standalone browser research portal, not a trade execution system. **No
 - BTC, ETH and available XAUT tokenized-gold option listings are checked independently. No made-up strikes or gold options.
 - Debit verticals may be shown as **PAPER PLAN** if gates pass. Credit spreads/iron condors are strictly **WATCH ONLY** without verified multi-leg margin/fills.
 - Funding is separately displayed as **WATCH ONLY** when carry and hedge economics are unverified.
-- Backtest is an on-demand **underlying-only historical signal proxy** (not a historical options backtest). It rejects gaps, follows completed bars, charges an indicative cost allowance and tests exact 2/4/8-hour time exits. It is not a claim of profitability.
+- **Historical signal validation (on demand)** compares the frozen multi-factor rule with EMA+SMC and EMA-only baselines on requested 42 calendar days of public Delta BTC/ETH 15m and hourly perpetual candles. Candle history is fetched in <=1,500-candle requests, validated for continuity and closed timestamps, chronologically split 70/30 (training/OOS), and tested with non-overlapping 2/4/8-hour hypothetical positions. A gap, limited market history or unavailable API response yields **UNAVAILABLE** rather than a performance estimate. Results include cost-adjusted R, 40-bps execution-cost sensitivity, 95% Wilson win-rate intervals, trailing ADX-defined trending/ranging/transition regimes and relative ATR volatility regimes. Predefined parameter settings are not tuned to training data; a single holdout period is not a future proof of profitability.
+- **Minimum reporting sample**: 30 training and 20 out-of-sample trades per fixed method. Small samples get **INSUFFICIENT SAMPLE**; meeting minimums is **PRELIMINARY HISTORICAL RESEARCH**, not a statistically established trading edge.
+- The quick 14-day legacy backtest remains available as a secondary underlying directional proxy; neither backtest includes **historical option-chain premiums/IV, transaction depth, actual orders, funding, margin or derivative-specific P&L**.
+- **Capital changes automatically invalidate a locked paper plan and recalculate**. A visible budget now explains the 2% modeled loss, 30% notional caps and the portal's arbitrary $20-equivalent research threshold. ₹1,000 and ₹10,000 cannot silently share stale paper-contract sizing; market direction itself correctly stays capital-independent.
 - All outputs require recent data; stale/missing market inputs lead to **NO TRADE**. Bid/ask watch stops are alerts, never exchange bracket orders.
 - No live execution, order placement, broker credential access, position importing, autonomous background trades or ChatGPT requests.
 
@@ -22,7 +25,7 @@ For automatic main-branch Cloudflare deployment, add the GitHub Actions reposito
 
 ## Acceptance checks
 
-- `bash .ci/guard.sh` — HTML/JS contracts, scanner tests and crypto desk unit tests.
+- `bash .ci/guard.sh` — HTML/JS contracts, scanner tests, crypto desk tests and 42-day validation/capital regression tests.
 - `node qa/crypto-desk-flows.cjs` — authenticated browser integration with **mock** market feeds in mobile and desktop viewports.
 - `npm run build:cloudflare && npm run check:cloudflare` — Worker packaging preflight.
 - Verify production browser sign-in, latest market timestamps and public exchange API access separately; mocks cannot certify external CORS, provider uptime or liquidity.
