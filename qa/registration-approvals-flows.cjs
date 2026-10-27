@@ -45,7 +45,7 @@ const server=http.createServer((req,res)=>{
   const p=await reg.newPage();
   await p.goto(origin+'/signin.html');
   await p.locator('#signupDetails summary').click();
-  await p.locator('#registrationButton').waitFor({state:'attached'});
+  await p.waitForFunction(()=>!document.getElementById('registrationButton')?.disabled,{timeout:12000});
   assert.equal(await p.locator('#registrationButton').isEnabled(),true);
   assert.equal(await p.locator('#loginForm').isVisible(),true);
   await reg.close();
