@@ -74,6 +74,7 @@ test("no synthetic quote and stale option contracts never produce a plan",()=>{
 test("single spread, correct side, upper bound on risk and notional",()=>{
  const t=trend(),p=D.chooseSpread(pair(),t,"BTC",1000,now);
  assert.equal(p.status,"PAPER PLAN");assert.equal(p.label,"Bull call debit spread");
+ assert.equal(p.signalMethod,"MULTI_FACTOR_V1");assert(p.signalScore>=70);
  assert(p.quantity>=1);assert(p.riskUSD<=20.00001);
  assert(p.quantity*p.contractValue*t.current<=300.00001);
  assert(p.stopSpread<p.entrySpread&&p.targetSpread>p.entrySpread);
