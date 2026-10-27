@@ -39,7 +39,7 @@
       const relative = target.pathname.slice(base.pathname.length).replace(/\/$/, "");
       const canonical = relative === "" ? "index.html" : relative.endsWith(".html") ? relative : relative + ".html";
       const allowed =
-        /^(index|performance|admin|account|trading-plan|market-scanner|scanner|index-scanner|nifty500|setups|gex|crypto)\.html$|^funds\/(index|top-returns|funds|scheme|compare|calculators|methodology|legal)\.html$/;
+        /^(index|performance|admin|approvals|account|trading-plan|market-scanner|scanner|index-scanner|nifty500|setups|gex|crypto)\.html$|^funds\/(index|top-returns|funds|scheme|compare|calculators|methodology|legal)\.html$/;
       return target.origin === base.origin &&
         target.pathname.startsWith(base.pathname) &&
         allowed.test(canonical)
@@ -94,8 +94,10 @@
       .from("app_users")
       .select("id,username,display_name,is_admin,is_active")
       .eq("id", checked.data.user.id)
-      .single();
+      .maybeSingle();
     if (profileError) throw profileError;
+    // Self-registered users deliberately have NO app_users profile until
+    // a verified administrator approves them. Never grant portal access.
     if (!data?.is_active) {
       await logout(false);
       return null;
