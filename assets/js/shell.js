@@ -18,6 +18,7 @@
     funds: "M3 9l9-6 9 6 M5 10v8 M12 10v8 M19 10v8 M3 21h18",
     account: "M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8 M4 21v-2a8 8 0 0 1 16 0v2",
     admin: "M12 3l8 4v5c0 5-8 9-8 9s-8-4-8-9V7z",
+    approvals: "M4 4h16v16H4z M7 12l3 3 6-7",
   };
   const nav = [
     ["dashboard", "Dashboard", "index.html"],
@@ -34,6 +35,7 @@
     ["gex", "Options overview", "gex.html"],
     ["funds", "Mutual funds", "funds/top-returns.html"],
     ["admin", "Administration", "admin.html"],
+    ["approvals", "Approvals", "approvals.html"],
     ["account", "My account", "account.html"],
   ];
   const svg = (key) =>
@@ -41,7 +43,7 @@
   const aside = document.createElement("aside");
   aside.className = "sidebar";
   aside.id = "portalNav";
-  aside.innerHTML = `<a class="portal-brand" href="${route("index.html")}"><span class="brand-mark">${svg("gex")}</span><span>Learning<span class="brand-clear">FundClear</span><small>RESEARCH WORKSPACE</small></span></a><p class="nav-caption">WORKSPACE</p><nav aria-label="Primary navigation">${nav.map(([key, title, path]) => `<a ${key === "admin" ? 'id="adminNav" hidden' : ""} ${key === page ? 'aria-current="page"' : ""} href="${route(path)}">${svg(key)}<span>${title}</span>${key === page ? "<i></i>" : ""}</a>`).join("")}</nav><div class="sidebar-bottom"><div class="privacy-note">${svg("admin")}<span>Private research<br><small>Your space to think clearly</small></span></div><button data-lfc-theme-toggle aria-pressed="false">Dark appearance</button><button id="logoutBtn">Sign out <span aria-hidden="true">↗</span></button></div>`;
+  aside.innerHTML = `<a class="portal-brand" href="${route("index.html")}"><span class="brand-mark">${svg("gex")}</span><span>Learning<span class="brand-clear">FundClear</span><small>RESEARCH WORKSPACE</small></span></a><p class="nav-caption">WORKSPACE</p><nav aria-label="Primary navigation">${nav.map(([key, title, path]) => `<a ${(key === "admin" || key === "approvals") ? `id="${key}Nav" hidden` : ""} ${key === page ? 'aria-current="page"' : ""} href="${route(path)}">${svg(key)}<span>${title}</span>${key === page ? "<i></i>" : ""}</a>`).join("")}</nav><div class="sidebar-bottom"><div class="privacy-note">${svg("admin")}<span>Private research<br><small>Your space to think clearly</small></span></div><button data-lfc-theme-toggle aria-pressed="false">Dark appearance</button><button id="logoutBtn">Sign out <span aria-hidden="true">↗</span></button></div>`;
   const top = document.createElement("div");
   top.className = "topbar";
   top.innerHTML = `<button class="menu-toggle" aria-label="Open navigation" aria-controls="portalNav" aria-expanded="false">☰</button><div class="breadcrumb">Workspace <span>/</span> <strong>${nav.find((n) => n[0] === page)?.[1] || "Research"}</strong></div><div class="profile"><span class="private-badge">Private portal</span><span class="avatar" aria-hidden="true">U</span><span id="userDisplay">Research account</span></div>`;
@@ -139,5 +141,6 @@
       .slice(0, 1)
       .toUpperCase();
     document.getElementById("adminNav").hidden = !user.is_admin;
+    document.getElementById("approvalsNav").hidden = !user.is_admin;
   });
 })();
