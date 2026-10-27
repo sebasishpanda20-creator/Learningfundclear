@@ -1,0 +1,2 @@
+[functions.registration-approvals]
+verify_jwt = false
