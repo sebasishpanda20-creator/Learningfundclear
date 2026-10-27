@@ -73,6 +73,17 @@ const server=http.createServer((req,res)=>{
    await page.locator("#refreshNow").click();
    await page.locator("#monitorPanel").getByText("MONITOR",{exact:true}).waitFor({timeout:25000});
    assert.match(await page.locator("#monitorPanel").innerText(),/Indicative NET exit quote/);
+   // Changing capital must clear a cached paper plan automatically, never reuse its lots.
+   await page.locator("#capital").fill("1000");
+   await page.locator("#capitalDiagnostics").getByText("₹20",{exact:false}).waitFor({timeout:7000});
+   assert.match(await page.locator("#capitalImpact").innerText(),/CAPITAL BLOCK/);
+   await page.locator("#tradePlan").getByText("No suitable trade right now",{exact:false}).waitFor({timeout:20000});
+   await page.locator("#capital").fill("10000");
+   await page.locator("#capitalDiagnostics").getByText("₹200",{exact:false}).waitFor({timeout:7000});
+   await page.locator("#tradePlan").getByText("Selected research setup",{exact:false}).waitFor({timeout:30000});
+   assert.doesNotMatch(await page.locator("#capitalImpact").innerText(),/CAPITAL BLOCK/);
+   assert.match(await page.locator("#tradePlan").innerText(),/automatically calculated/);
+
    assert.match(await page.locator("#creditCandidates").textContent(),/BTC.*NO TRADE/s);
    assert.equal(await page.locator("#verifyDeltaAccount").count(),0);
    assert.equal(await page.locator("#exportResearch").count(),0);
@@ -80,6 +91,10 @@ const server=http.createServer((req,res)=>{
    await page.locator("#runBacktest").click();
    await page.locator("#backtestResults").getByText("UNDERLYING signal proxy",{exact:false}).waitFor({timeout:25000});
    assert.match(await page.locator("#backtestResults").innerText(),/BTC.*NO TRADE/s);
+   await page.locator("#runValidation").click();
+   await page.locator("#validationResults").getByText("ETH · UNAVAILABLE",{exact:false}).waitFor({timeout:30000});
+   assert.match(await page.locator("#validationResults").innerText(),/History refused|Incomplete|history|unavailable/i);
+
    results.push("Options direction, auto vertical, locked execution quote and layout "+width);
    await page.goto(origin+"/crypto-funding.html");
    await page.locator("html.auth-ready").waitFor();

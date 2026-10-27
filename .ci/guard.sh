@@ -39,7 +39,7 @@ fi
 
 run_check node tools/test-signal-guards.js
 run_check node tools/test-weekly-line.js
-run_check node --test qa/crypto-context.test.cjs qa/scanner-data.test.cjs qa/public-data.test.cjs qa/scanner-auto.test.cjs qa/research-math.test.cjs qa/nifty500.test.cjs qa/crypto-desk.test.cjs qa/crypto-advanced.test.cjs
+run_check node --test qa/crypto-context.test.cjs qa/scanner-data.test.cjs qa/public-data.test.cjs qa/scanner-auto.test.cjs qa/research-math.test.cjs qa/nifty500.test.cjs qa/crypto-desk.test.cjs qa/crypto-advanced.test.cjs qa/crypto-validation.test.cjs
 
 if git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
   run_check git diff --check
