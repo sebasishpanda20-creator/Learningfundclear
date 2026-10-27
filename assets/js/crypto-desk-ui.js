@@ -306,13 +306,12 @@ function fundingClock(t,now=Date.now()){
  }
  return{at:null,verified:false};
 }
-function timeLeft(at){if(!Number.isFinite(at))return"Exchange timing unavailable";
+function timeLeft(at){
+ if(!Number.isFinite(at))return "Exchange timing unavailable";
  const secs=Math.max(0,Math.floor((at-Date.now())/1000));
- return String(Math.floor(secs/3600)).padStart(2,"0")+":"+
-  String(Math.floor(secs%3600/60)).padStart(2,"0")+":"+
-  String(secs%60).padStart(2,"0");
+ return Math.floor(secs/3600)+"h "+Math.floor(secs%3600/60)+"m "+secs%60+"s";
 }
-function indicativeFunding(t,asset,cap){
+ function indicativeFunding(t,asset,cap){
  const live=fundingLive.get(t.symbol);
  if(!live||Date.now()-live.updated>120000)return null;
  const base=D.fundingDesk([{...t,funding_rate:live.ratePercent}],asset,cap);
@@ -336,11 +335,22 @@ async function refreshFunding(){
   return{asset,data:tick?indicativeFunding(tick,asset,cap):null};
  });
  const rupees=x=>"₹"+fnum(x/fx,2);
- setRows("fundRows",rows.map(({asset,data:x})=>!x?[asset,"Awaiting verified live rate","—","—","—","—","—"]:[
-  asset,x.route.startsWith("SHORT")?"SELL perpetual":"BUY perpetual",
-  fnum(x.ratePercent,4)+"% (indicative)",
-  x.clock.at?timeLeft(x.clock.at)+(x.clock.verified?" · Exchange time":" · Estimated IST schedule"):"Unverified",
-  rupees(x.receiptUSD),rupees(x.afterCostsUSD),x.contracts]));
+ setRows("fundRows",rows.map(({asset,data:x})=>{
+ if(!x){
+  const t=tickers.find(item=>item.symbol===asset+"USD");
+  // The published standard schedule is only a reference, never a verified
+  // settlement time or evidence of a payable funding rate.
+  const c=t&&["BTC","ETH"].includes(asset)?fundingClock(t):{at:null,verified:false};
+  return [asset,"Awaiting verified live funding rate","—",
+   c.at?timeLeft(c.at)+(c.verified?" · Exchange timing; rate unverified":" · Approx. standard 8h schedule; NOT exchange-confirmed"):
+   "Funding hour unavailable — waiting for verified exchange timestamp",
+   "—","—","—"];
+ }
+ return[asset,x.route.startsWith("SHORT")?"SELL perpetual":"BUY perpetual",
+   fnum(x.ratePercent,4)+"% (indicative)",
+   x.clock.at?timeLeft(x.clock.at)+(x.clock.verified?" · Exchange time":" · Estimated IST schedule"):"Unverified",
+   rupees(x.receiptUSD),rupees(x.afterCostsUSD),x.contracts];
+}));
  // Keep the settlement countdown ticking in IST between market refreshes.
  const liveCells=$("fundRows")?.querySelectorAll("tr")||[];
  rows.forEach((entry,i)=>{
