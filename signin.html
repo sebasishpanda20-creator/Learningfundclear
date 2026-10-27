@@ -75,10 +75,27 @@
             </button>
             <p class="msg" id="msg" role="status" aria-live="polite"></p>
           </form>
+          <details id="signupDetails" class="card">
+            <summary><strong>New user? Request an account</strong></summary>
+            <p>Register using your own email and choose a password. Your first access requires administrator approval. After approval, sign in normally without asking again.</p>
+            <form id="registrationForm" autocomplete="on">
+              <label for="registerUsername">Username</label>
+              <input id="registerUsername" name="username" required autocomplete="username" pattern="[a-zA-Z0-9_.-]{2,32}" minlength="2" maxlength="32" placeholder="Choose a username">
+              <label for="registerDisplayName">Display name</label>
+              <input id="registerDisplayName" name="name" required minlength="2" maxlength="80" autocomplete="name" placeholder="Your name">
+              <label for="registerEmail">Email address</label>
+              <input id="registerEmail" name="email" type="email" autocomplete="email" required placeholder="you@example.com">
+              <label for="registerPassword">Create password (at least 8 characters)</label>
+              <input id="registerPassword" name="new-password" type="password" autocomplete="new-password" minlength="8" maxlength="128" required>
+              <label for="registerConfirm">Confirm password</label>
+              <input id="registerConfirm" name="confirm-password" type="password" autocomplete="new-password" minlength="8" maxlength="128" required>
+              <button id="registrationButton" type="submit" class="primary" disabled>Submit registration request</button>
+              <p id="registrationStatus" role="status" aria-live="polite">Checking availability of administrator approvals…</p>
+            </form>
+          </details>
           <details><summary>Forgot your password?</summary><p>Ask your portal administrator to reset your password from Administration. After signing in with the replacement password, open My account to choose a new password of at least 6 characters. Recovery emails are not available for portal.local usernames.</p></details>
           <p class="signin-note">
-            Access is managed by your portal administrator. Use your existing
-            LearningFundClear credentials.
+            Already have an account? Sign in above. Admin-created accounts can log in immediately; self-registered accounts need approval only once.
           </p>
         </section>
       </main>
@@ -89,5 +106,6 @@
       </p>
     </div>
     <script src="assets/js/signin.js"></script>
+    <script src="assets/js/registration.js"></script>
   </body>
 </html>
