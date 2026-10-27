@@ -10,7 +10,9 @@ const cash=()=>Number($("capital").value);
 const safeText=(id,text)=>{const node=$(id);if(node)node.textContent=text;};
 let fx=null,fxAt=0,running=false,locked=null,latestTickers=[],timer=null,controller=null;
 try{const cached=JSON.parse(sessionStorage.getItem("lfc.crypto.plan")||"null");
- if(cached?.status==="PAPER PLAN"&&cached.timeExit>Date.now())locked=cached;}catch(e){}
+ if(cached?.status==="PAPER PLAN"&&cached.timeExit>Date.now()&&cached.signalMethod==="MULTI_FACTOR_V1")locked=cached;
+ else if(cached?.status==="PAPER PLAN")sessionStorage.removeItem("lfc.crypto.plan");
+}catch(e){}
 async function get(path,timeout=10000) {
  const ctl=new AbortController(),handle=setTimeout(()=>ctl.abort(),timeout);
  try {
@@ -104,7 +106,7 @@ function rowTrend(asset,x){
  const display=v=>Number.isFinite(v)?fnum(v,1):"N/A";
  const smc=[x.bos,x.sweep].filter(v=>v&&v!=="NONE").join(" + ")||"NONE";
  return[asset==="XAUT"?"Tokenized gold · XAUT":asset,x.side,
-  smc,display(x.rsi),Number.isFinite(x.macdHistogram)?(x.macdHistogram>0?"POSITIVE":"NEGATIVE"):"N/A",
+  smc,display(x.rsi),Number.isFinite(x.macdHistogram)?(x.macdHistogram>0?"POSITIVE":x.macdHistogram<0?"NEGATIVE":"FLAT"):"N/A",
   display(x.adx),Number.isFinite(x.volumeRatio)?fnum(x.volumeRatio,2)+"×":"N/A",
   x.score===undefined?"—":x.score+"/"+x.maxScore,
   x.actionable?"MULTI-FACTOR CONFIRMED":"WAIT",x.why];
@@ -120,6 +122,7 @@ function showPlan(plan){
  const dl=document.createElement("dl");
  const fields=[
   ["Market direction",plan.direction==="UP"?"UP ↗":"DOWN ↘"],
+   ["Directional evidence",Number.isFinite(plan.signalScore)?plan.signalScore+"/"+plan.signalMaxScore+" weighted points (not win probability)":"Not recorded"],
   ["Suggested strategy",plan.label],
   ["Buy this option",plan.long],
   ["Sell this option",plan.short],
@@ -146,7 +149,7 @@ function simpleSummary(search){
   const direction=t.side==="UP"?"UP ↗":t.side==="DOWN"?"DOWN ↘":t.side==="SIDEWAYS"?"SIDEWAYS ↔":"DATA UNAVAILABLE";
   card.dataset.direction=t.side||"UNKNOWN";
   const label=x.asset==="XAUT"?"Gold (XAUT)":x.asset;
-  const call=t.actionable?"Multi-factor confirmed ("+t.score+"/"+t.maxScore+" evidence points)":t.side==="UP"||t.side==="DOWN"?"Unconfirmed ("+(t.score??0)+"/"+(t.maxScore||95)+" evidence points)":"Wait for aligned market evidence";
+  const call=t.actionable?(Number.isFinite(t.score)?"Multi-factor confirmed ("+t.score+"/"+t.maxScore+" evidence points)":"Paper plan — fresh signal needs recheck"):t.side==="UP"||t.side==="DOWN"?"Unconfirmed ("+(t.score??0)+"/"+(t.maxScore||95)+" evidence points)":"Wait for aligned market evidence";
   card.append(node("strong",label),node("span",direction),node("small",call));area.append(card);
  }
  const qualified=items.map(x=>x.plan).filter(p=>p?.status==="PAPER PLAN").sort((a,b)=>b.score-a.score);
@@ -186,7 +189,7 @@ async function refreshOption(isMonitor=false) {
    latestTickers=rows;
    showPlan(locked);
    // Restore the simple answer even after page reload while a paper plan is locked.
-   simpleSummary([{asset,trend:{side:locked.direction,actionable:true},
+   simpleSummary([{asset,trend:{side:locked.direction,actionable:true,score:locked.signalScore,maxScore:locked.signalMaxScore},
     plan:locked}]);
    showMonitor(D.monitor(locked,rows));
    safeText("status","Plan locked; monitoring both legs · "+stamp(Date.now())+" · read-only");
