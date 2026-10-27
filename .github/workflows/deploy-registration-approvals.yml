@@ -1,0 +1,47 @@
+name: Deploy approved-registration Supabase backend
+on:
+  push:
+    branches: [portal/cloudflare-migration]
+    paths:
+      - 'supabase/functions/registration-approvals/**'
+      - 'supabase/config.toml'
+      - '.github/workflows/deploy-registration-approvals.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate authorization tests
+        run: node --test qa/registration-approvals.test.cjs
+      - name: Inspect deploy credentials
+        id: gate
+        shell: bash
+        run: |
+          if [[ -n "$SUPABASE_ACCESS_TOKEN" ]]; then
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+            echo "::warning::Supabase function NOT deployed: SUPABASE_ACCESS_TOKEN is unavailable. Signup remains disabled until backend and the reviewed RLS SQL migration are deployed."
+          fi
+      - name: Install Supabase CLI
+        if: steps.gate.outputs.ready == 'true'
+        uses: supabase/setup-cli@v1
+        with:
+          version: latest
+      - name: Deploy the review function (role verification happens inside)
+        if: steps.gate.outputs.ready == 'true'
+        run: supabase functions deploy registration-approvals --project-ref chbtjicvbezbiosuouwm --no-verify-jwt
+      - name: Report backend activation status
+        shell: bash
+        run: |
+          if [[ "${{ steps.gate.outputs.ready }}" == "true" ]]; then
+            echo "Supabase review function deployed; registration remains disabled until the approved-access database SQL migration is installed." >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "Supabase deployment skipped. The Cloudflare frontend is deployed but signup is safely disabled." >> "$GITHUB_STEP_SUMMARY"
+          fi
