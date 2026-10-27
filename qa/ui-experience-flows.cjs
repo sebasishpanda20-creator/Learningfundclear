@@ -21,7 +21,7 @@ const srv=http.createServer((req,res)=>{
    await page.goto(origin+"/index.html");
    await page.locator("html.auth-ready").waitFor({timeout:15000});
    assert.equal(await page.locator(".sidebar .nav-group").count(),4,"Navigation sections");
-   assert.equal(await page.locator("#adminNav").isVisible(),width>900);
+   assert.equal(await page.locator("#adminNav").getAttribute("hidden"),null,"Admin nav visible to authorized admin");
    assert.equal(await page.locator(".workspace-links a").count(),4);
    await page.locator("#lfcQuickNavOpen").click();
    await page.locator("#lfcCommandQuery").waitFor({state:"visible"});
