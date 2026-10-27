@@ -354,8 +354,18 @@ async function refreshFunding(){
  // Keep the settlement countdown ticking in IST between market refreshes.
  const liveCells=$("fundRows")?.querySelectorAll("tr")||[];
  rows.forEach((entry,i)=>{
-  const cell=liveCells[i]?.children?.[3];
-  if(cell&&entry.data?.clock?.at){cell.dataset.fundingEnd=String(entry.data.clock.at);}
+  const cell=liveCells[i]?.children?.[3];if(!cell)return;
+  if(entry.data?.clock?.at){
+   cell.dataset.fundingEnd=String(entry.data.clock.at);
+   cell.dataset.fundingVerified="true";
+  }else if(["BTC","ETH"].includes(entry.asset)){
+   const contract=tickers.find(t=>t.symbol===entry.asset+"USD");
+   const estimated=contract?fundingClock(contract):{at:null,verified:false};
+   if(estimated.at){
+    cell.dataset.fundingEnd=String(estimated.at);
+    cell.dataset.fundingVerified=estimated.verified?"time-only":"false";
+   }
+  }
  });
  const box=$("tradePlan");box.replaceChildren();
  const candidates=rows.filter(x=>x.data&&Number.isFinite(x.data.afterCostsUSD))
@@ -549,7 +559,9 @@ if(view==="crypto-funding"){
  const countdown=setInterval(()=>{
   for(const cell of document.querySelectorAll("[data-funding-end]")){
    const end=Number(cell.dataset.fundingEnd);
-   cell.textContent="in "+timeLeft(end)+" · "+stamp(end);
+   const mode=cell.dataset.fundingVerified;
+    cell.textContent="in "+timeLeft(end)+" · "+stamp(end)+
+      (mode==="true"?" · Exchange-confirmed event":mode==="time-only"?" · Exchange timestamp; rate unverified":" · Approximate schedule ONLY, unverified");
   }
  },1000);
  addEventListener("pagehide",()=>clearInterval(countdown));
