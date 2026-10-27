@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="en-IN">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex,nofollow"><title>Crypto Funding Desk · LearningFundClear</title>
+<link rel="stylesheet" href="assets/css/tokens.css"><link rel="stylesheet" href="assets/css/app.css"><link rel="stylesheet" href="assets/css/crypto-desk.css">
+<script src="assets/vendor/supabase.js"></script><script src="assets/js/config.js"></script><script src="auth-guard.js"></script><script src="assets/js/theme.js"></script>
+</head>
+<body data-page="crypto-funding"><main id="main">
+<p class="eyebrow">READ-ONLY • PERPETUAL FUNDING RESEARCH</p>
+<h1>Funding: which coin is worth watching?</h1>
+<p class="sub">Enter your capital in rupees. Compare estimated funding payments, trading costs and the countdown in Indian Standard Time (IST). This is research, not a guaranteed profit or an instruction to place an order.</p>
+<nav class="desk-tabs" aria-label="Crypto research pages"><a href="crypto-options.html">Options &amp; spreads</a><a aria-current="page" href="crypto-funding.html">Funding &amp; hedges</a><a href="crypto.html">Raw markets</a></nav>
+<section class="card desk-inputs"><div class="row"><div class="capital-field"><label for="capital">Trading capital (₹ INR)</label><input id="capital" type="number" min="100" max="1000000000" step="100" inputmode="decimal" placeholder="e.g. 50000" autocomplete="off"></div>
+<button id="refreshNow" class="primary" type="button">Compare coins</button></div>
+<p id="fxStatus" class="desk-minor">Waiting for live indicative INR/USD conversion.</p><p id="status" class="msg" role="status" aria-live="polite">Enter capital to begin.</p><small id="lastChecked">No exchange check yet</small></section>
+<section id="tradePlan" class="card" aria-live="polite"><h2>1. Best coin to watch</h2><p>Enter capital to compare possible funding payments. We will say WAIT if costs or timing cannot be verified.</p></section>
+<section class="card"><h2>2. Compare coins and estimated payments</h2><p class="sub">Positive funding usually pays short positions; negative funding usually pays long positions. Funding and price movement are separate. Estimated profit after funding alone is <strong>not</strong> net trading profit.</p>
+<div class="table-wrap"><table><thead><tr><th>Coin</th><th>Funding direction</th><th>Rate (indicative)</th><th>Next funding in (IST)</th><th>Estimated funding ₹</th><th>After estimated one-leg costs ₹</th><th>Contracts</th></tr></thead><tbody id="fundRows"><tr><td colspan="7">Enter capital to compare</td></tr></tbody></table></div></section>
+<section class="card"><h2>3. How to use this page</h2><p>Enter your INR capital. The system automatically limits the <em>example notional</em> to 20% of capital and calculates indicative integer contracts. Compare the possible funding receipt with an illustrative 0.318% round-trip one-leg fee, GST and slippage allowance (0.10% taker fees + GST + 0.20% slippage). This excludes the spot hedge, borrowing, price movements and taxes. We recommend waiting unless the exchange's next funding timestamp, actual fees and a matching hedge are verified.</p>
+<p>Delta India generally settles perpetual funding around <strong>5:30 AM, 1:30 PM and 9:30 PM IST</strong> for 8-hour contracts; some contracts have different intervals. The live countdown is shown only when the exchange confirms a contract-specific funding time through its public funding-rate stream. Entering seconds before settlement does not lock in profits, and you may not qualify for a funding payment. Rates can change, price movement and liquidations can overwhelm funding, and last-second executions can fail.</p>
+<p class="desk-minor">Research only; no spot hedge, funding snapshot or live orders are placed. Amounts are approximate and not actual Delta INR settlement calculations.</p></section>
+
+<section class="card"><details id="freeContext"><summary><strong>Explore more coins — free funding, open interest and liquidity data</strong></summary>
+<p>Delta India public market data; no CoinGlass subscription or API key required. The table shows up to 20 high-turnover perpetuals plus BTC, ETH and available tokenized-gold contracts. This is market context, not a ranking of expected profits. Your capital-based estimate above remains separate.</p>
+<button id="contextRefresh" type="button">Refresh market context</button><p id="contextStatus" role="status" aria-live="polite">Expand this section to load data.</p>
+<div class="table-wrap"><table><thead><tr><th>Contract</th><th>Data status</th><th>24h price change</th><th>Open interest</th><th>24h turnover</th><th>Bid/ask spread</th><th>Live funding rate</th><th>Next event · IST</th></tr></thead><tbody id="contextRows"></tbody></table></div>
+<label for="contextSymbol">Coin to inspect</label><select id="contextSymbol"></select><button id="contextInspect" type="button">Refresh selected coin</button>
+<p id="contextDetailStatus" role="status"></p><div id="contextHistory"></div><p id="contextBook">Select a coin to inspect its order book.</p>
+<p class="desk-minor">Open interest measures outstanding positions; an increase alone is not bullish. A narrow spread does not guarantee liquidity for your order size. Live funding percentages and countdowns require recent exchange-stream timestamps; missing data stays unavailable. Funding-history signs use completed hourly observations, not assumed settlement payments or projected income. Figures are exchange USD values, not INR settlement amounts. Market context refreshes every minute while this section is open and visible; order books expire after 30 seconds.</p>
+</details></section>
+</main>
+<script src="assets/js/shell.js"></script><script src="assets/js/crypto-desk-engine.js"></script><script src="assets/js/crypto-desk-ui.js"></script>
+<script src="assets/js/crypto-context.js"></script><script src="assets/js/crypto-context-ui.js"></script>
+</body></html>

@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="en-IN">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex,nofollow"><title>Crypto Options Desk · LearningFundClear</title>
+<link rel="stylesheet" href="assets/css/tokens.css"><link rel="stylesheet" href="assets/css/app.css"><link rel="stylesheet" href="assets/css/crypto-desk.css">
+<script src="assets/vendor/supabase.js"></script><script src="assets/js/config.js"></script><script src="auth-guard.js"></script><script src="assets/js/theme.js"></script>
+</head>
+<body data-page="crypto-options"><main id="main">
+<p class="eyebrow">READ-ONLY • DELTA INDIA PUBLIC MARKET DATA</p>
+<h1>Crypto Options Research Desk</h1>
+<p class="sub">Just enter your capital. We check market direction, choose a suitable options strategy and calculate contracts, entry, stop-loss and target when prices qualify. <strong>If a safe-looking setup is not available, the answer will be Wait — not an invented trade.</strong></p>
+<nav class="desk-tabs" aria-label="Crypto research pages"><a aria-current="page" href="crypto-options.html">Options &amp; spreads</a><a href="crypto-funding.html">Funding &amp; hedges</a><a href="crypto.html">Raw markets</a></nav>
+<section class="card desk-inputs" aria-label="Capital and refresh">
+<div class="row"><div class="capital-field"><label for="capital">Trading capital (₹ INR)</label><input id="capital" type="number" min="100" max="1000000000" step="100" inputmode="decimal" placeholder="e.g. 50000" autocomplete="off"></div>
+<div class="desk-advanced-input"><label for="tradeHorizon">Trade duration</label><select id="tradeHorizon"><option value="2">2 hours</option><option value="4" selected>4 hours</option><option value="8">8 hours</option></select></div>
+<button id="refreshNow" class="primary" type="button">Find my setup</button>
+<button id="resetPlan" type="button">Clear locked paper plan</button></div>
+<p id="fxStatus" class="desk-minor">Waiting for live indicative INR/USD conversion.</p>
+<p id="status" class="msg" aria-live="polite" role="status">Enter capital to begin.</p>
+<div id="capitalDiagnostics" class="desk-minor" role="status" aria-live="polite">Capital and risk limits will appear after entering an amount.</div>
+<p id="capitalImpact" class="desk-minor">Market direction is identical for all capital amounts; affordability, risk budget and contract quantity can change.</p>
+<small id="lastChecked">No exchange check yet</small></section>
+<section class="card simple-direction">
+<h2>1. Where is the market going?</h2><p class="sub">Green = rising, red = falling, grey = unclear. Evidence includes 15m/1h EMA alignment, RSI, MACD, ADX, optional volume and SMC. A trend or score is not permission to trade.</p>
+<div id="simpleDirection" class="simple-trend-grid" aria-live="polite"><p>Enter your capital to check Bitcoin, Ethereum and Gold.</p></div>
+</section>
+<section class="card simple-recommendation">
+<h2>2. What should I do?</h2>
+<div id="simpleDecision" aria-live="polite"><p>We will choose a strategy automatically when the market data is ready.</p></div>
+</section>
+<section id="tradePlan" class="card" aria-live="polite"><h2>NO TRADE</h2><p>Enter your capital to begin.</p></section>
+<section id="monitorPanel" class="card" aria-live="polite"><h2>3. Monitor the result</h2><p>Only qualified paper setups are monitored. No exchange trades are placed.</p></section>
+<details class="card desk-advanced"><summary>Advanced analysis and backtesting (optional)</summary>
+<section class="card"><h2>Which direction is the market moving?</h2>
+<p class="sub">Direction uses completed Delta perpetual candles with 15m/1h EMA trend, RSI(14), MACD(12,26,9), ADX(14), optional volume expansion and SMC breaks/sweeps. The 70-point evidence threshold requires momentum plus either SMC confirmation or combined RSI + MACD + ADX agreement. <strong>SMC is no longer mandatory.</strong> Points are heuristic evidence, <strong>not a probability or validated win rate</strong>. Missing volume is N/A, never invented.</p>
+<div class="table-wrap"><table><thead><tr><th>Asset</th><th>Trend (EMA 15m/1h)</th><th>SMC (BOS / sweep)</th><th>RSI 14</th><th>MACD histogram</th><th>ADX 14</th><th>Volume ratio</th><th>Evidence points</th><th>Trade gate</th><th>Why</th></tr></thead><tbody id="directionRows"><tr><td colspan="10">Waiting for exchange data</td></tr></tbody></table></div>
+<p class="desk-minor">XAUT options, if listed, reference tokenized gold, <strong>not</strong> spot XAUUSD. Missing gold option liquidity results in NO TRADE; no synthetic quote is inserted.</p>
+</section>
+<section class="card"><h2>Why WAIT / NO TRADE?</h2>
+<p class="sub">Every asset is checked for debit spreads, credit spreads, iron condors and long straddles/strangles. Market direction, signal confirmation, live contract prices, expiry, liquidity and risk sizing are separate gates. A neutral structure can produce a <strong>volatility watch</strong>, but without a verified volatility edge it is not labelled an executable trade.</p>
+<div id="strategyDiagnostics" aria-live="polite"><p>Run a scan to see each strategy's status and blocking reason.</p></div></section>
+<section class="card" id="creditResearch"><h2>Credit spreads &amp; iron condors — risk-gated research</h2>
+<p class="sub">Screen all quoted legs with liquidity, completed-candle direction, theoretical defined risk, costs and capital-based contract limits. These are <strong>WATCH ONLY</strong> until verified account margin, exchange execution sequence and implied-volatility evidence are available. Never treat theoretical payoff as a fill or margin guarantee.</p>
+<div id="creditCandidates" aria-live="polite"><p>Run market analysis to inspect qualified research candidates.</p></div></section>
+<section class="card" id="historicalResearch"><h2>Historical signal backtest (underlying proxy)</h2>
+<p class="sub">Quick proxy uses historical 15m/hourly perpetual prices; validation compares the current multi-factor rule against EMA+SMC and EMA-only baselines using chronological 70% training / 30% untouched testing, trailing trend/volatility regimes, 20-bps costs and 40-bps stress. Insufficient samples are reported clearly. Neither test simulates historical options, order-book fills, actual margin or future profitability.</p>
+<button id="runBacktest" type="button">Quick 14-day signal proxy (BTC &amp; ETH)</button>
+<button id="runValidation" type="button">Validate combined signals across 42 days (BTC &amp; ETH)</button>
+<div id="validationResults" role="status" aria-live="polite"><p>Independent 70/30 training/test comparison not run. The study never backtests historical option premiums or fills.</p></div>
+<div id="backtestResults" role="status" aria-live="polite"><p>Historical research not run.</p></div></section>
+<section class="card"><h2>How the automation decides</h2>
+<p>Scan → require aligned 15m/1h trend plus weighted momentum and SMC/ADX evidence (SMC optional) → check option-chain timestamps, expiry, spread, open interest and exact contract value → compare debit spreads, credit structures and long-volatility research → size from at most 2% of capital at maximum theoretical spread loss → lock one plan for a selected 2-, 4- or 8-hour research exit watch. If no plan qualifies, do not force a trade. Credit spreads and iron condors remain WATCH ONLY because their live margin and fill risks are not broker verified.</p>
+<p class="desk-minor">Spread entry = buy-leg ask minus sell-leg bid. Spread exit = buy-leg bid minus sell-leg ask. Stop and target displayed here apply to the <strong>combined spread</strong>; they are <strong>not</strong> Delta terminal's independent leg order prices. Currency conversion, fees and taxes are estimates; costs, margin, executable fills and trading permissions must be verified on your broker.</p>
+<p class="desk-minor"><strong>Research only:</strong> no positions are imported; no live order, stop or target is placed. Options are high risk. A stop can gap past the alert and a defined-risk spread may incur additional fees and execution risks.</p>
+</section>
+</details>
+</main>
+<script src="assets/js/shell.js"></script><script src="assets/js/crypto-desk-engine.js"></script><script src="assets/js/crypto-advanced-engine.js"></script><script src="assets/js/crypto-validation-engine.js"></script><script src="assets/js/crypto-desk-ui.js"></script>
+</body></html>
