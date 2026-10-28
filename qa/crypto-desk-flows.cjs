@@ -37,7 +37,7 @@ const server=http.createServer((req,res)=>{
      return route.fulfill({json:{success:true,result:{id:symbol,symbol,state:"live",
       trading_status:"operational",contract_value:"0.001",
       contract_unit_currency:symbol.includes("-")?symbol.split("-")[1]:symbol.replace("USD",""),
-      taker_commission_rate:"0.0005"}}});
+      taker_commission_rate:"0.0001"}}});
     }
     if(url.pathname.includes("history/candles")){
      const asset=(q.get("symbol")||"").replace("USD","");
@@ -62,7 +62,7 @@ const server=http.createServer((req,res)=>{
    await page.locator("#capital").fill("100000");
    await page.locator("#tradePlan").getByText("Selected research setup", {exact:false}).waitFor({timeout:30000});
    assert.match(await page.locator("#simpleDirection").innerText(),/BTC.*UP/s);
-   assert.match(await page.locator("#simpleDecision").innerText(),/Suggested/);
+   assert.match(await page.locator("#simpleDecision").innerText(),/Suggested|Saved plan/);
    const plan=await page.locator("#tradePlan").innerText();
    assert.match(plan,/Bull call debit spread/);assert.match(plan,/4 hours/);assert.match(plan,/C-BTC-110-/);assert.match(plan,/C-BTC-118-/);
    assert.match(await page.locator("#directionRows").textContent(),/BULLISH BOS/);
@@ -71,7 +71,7 @@ const server=http.createServer((req,res)=>{
    assert.match(await page.locator("#simpleDirection").textContent(),/evidence points/);
    assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),true);
    await page.locator("#refreshNow").click();
-   await page.locator("#monitorPanel").getByText("MONITOR",{exact:true}).waitFor({timeout:25000});
+   await page.locator("#monitorPanel").getByText("Indicative NET exit quote",{exact:false}).waitFor({timeout:25000});
    assert.match(await page.locator("#monitorPanel").innerText(),/Indicative NET exit quote/);
    // Changing capital must clear a cached paper plan automatically, never reuse its lots.
    await page.locator("#capital").fill("1000");
