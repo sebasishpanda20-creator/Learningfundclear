@@ -2,7 +2,7 @@
  const $=id=>document.getElementById(id),usd=x=>new Intl.NumberFormat('en-US',{style:'currency',currency:'USD'}).format(x);let active=null,key='';
  function update(){let p;try{p=JSON.parse(sessionStorage.getItem('lfc.crypto.plan')||'null');}catch{}const status=$('monitorPanel')?.querySelector('h2')?.textContent||'Waiting for a qualifying plan';$('cockpitState').textContent=status+' · Quotes and email alerts do not place orders.';
  const next=JSON.stringify(p);if(next===key)return;key=next;active=null;$('cockpitMetrics').replaceChildren();
- if(!p||p.status!=='PAPER PLAN'){$('cockpitTitle').textContent='No spread selected';$('payoffPlayground').hidden=true;return;}
+ if(!p||p.status!=='PAPER PLAN'){$('cockpitTitle').textContent='Your next setup starts here';$('payoffPlayground').hidden=true;for(const label of ['Contracts per leg','Maximum modeled loss','Net gain at target','Net loss at stop']){const c=document.createElement('div'),a=document.createElement('span'),b=document.createElement('strong');a.textContent=label;b.textContent='—';c.append(a,b);$('cockpitMetrics').append(c)}return;}
  $('cockpitTitle').textContent=p.label+' · '+p.long.split('-')[1];
  const rows=[['Quantity per leg',p.quantity+' contracts'],['Maximum modeled loss',usd(p.riskUSD)],['Net gain at target',usd(p.expectedTargetNetUSD)],['Net loss at stop',usd(p.expectedStopNetUSD)]];
  for(const [label,value] of rows){const c=document.createElement('div'),a=document.createElement('span'),b=document.createElement('strong');a.textContent=label;b.textContent=value;c.append(a,b);$('cockpitMetrics').append(c)}

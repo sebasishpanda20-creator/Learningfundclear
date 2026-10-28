@@ -47,6 +47,10 @@ const srv=http.createServer((req,res)=>{
    await page.locator("html.auth-ready").waitFor();
    assert.equal(await page.locator(".desk-hero").count(),1);
    assert.equal(await page.locator("#tradePlan").count(),1);
+   assert.equal(await page.locator(".options-masthead").count(),1);
+   await page.locator("[data-capital=\"50000\"]").click();
+   assert.equal(await page.locator("#capital").inputValue(),"50000");
+   assert.equal(await page.locator("#tradeHorizon").isVisible(),true);
    assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),true,"No crypto overflow "+width);
    await page.screenshot({path:"qa/ui-options-"+width+".png",fullPage:true});
    await ctx.close();
