@@ -17,7 +17,7 @@ function trend(rising=true){
 function option(type,asset,strike,bid,ask,when=now){
  return {symbol:type+"-"+asset+"-"+strike+"-271026",timestamp:when*1000,oi_value_usd:1500,
   quotes:{best_bid:bid,best_ask:ask},
-  product:{state:"live",trading_status:"operational",contract_value:0.001,contract_unit_currency:asset}};
+  product:{state:"live",trading_status:"operational",contract_value:0.001,contract_unit_currency:asset,taker_commission_rate:0.0001}};
 }
 const pair=(type="C",asset="BTC",when=now)=>[
  option(type,asset,type==="C"?110:88,type==="C"?4.7:4.2,type==="C"?5:4.5,when),
