@@ -71,7 +71,7 @@ const server=http.createServer((req,res)=>{
    assert.match(await page.locator("#simpleDirection").textContent(),/evidence points/);
    assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),true);
    await page.locator("#refreshNow").click();
-   await page.locator("#monitorPanel").getByText("MONITOR",{exact:true}).waitFor({timeout:25000});
+   await page.locator("#monitorPanel").getByText("Indicative NET exit quote",{exact:false}).waitFor({timeout:25000});
    assert.match(await page.locator("#monitorPanel").innerText(),/Indicative NET exit quote/);
    // Changing capital must clear a cached paper plan automatically, never reuse its lots.
    await page.locator("#capital").fill("1000");
