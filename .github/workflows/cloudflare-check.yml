@@ -34,6 +34,7 @@ jobs:
       - run: npm ci --ignore-scripts --no-audit --no-fund
       - run: bash .ci/guard.sh
       - run: npm run build:cloudflare
+      - run: node --test qa/crypto-email.test.mjs
       - run: npm run check:cloudflare
         env:
           WRANGLER_SEND_METRICS: 'false'

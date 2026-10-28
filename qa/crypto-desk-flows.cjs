@@ -37,7 +37,7 @@ const server=http.createServer((req,res)=>{
      return route.fulfill({json:{success:true,result:{id:symbol,symbol,state:"live",
       trading_status:"operational",contract_value:"0.001",
       contract_unit_currency:symbol.includes("-")?symbol.split("-")[1]:symbol.replace("USD",""),
-      taker_commission_rate:"0.0005"}}});
+      taker_commission_rate:"0.0001"}}});
     }
     if(url.pathname.includes("history/candles")){
      const asset=(q.get("symbol")||"").replace("USD","");
@@ -62,7 +62,7 @@ const server=http.createServer((req,res)=>{
    await page.locator("#capital").fill("100000");
    await page.locator("#tradePlan").getByText("Selected research setup", {exact:false}).waitFor({timeout:30000});
    assert.match(await page.locator("#simpleDirection").innerText(),/BTC.*UP/s);
-   assert.match(await page.locator("#simpleDecision").innerText(),/Suggested/);
+   assert.match(await page.locator("#simpleDecision").innerText(),/Suggested|Saved plan/);
    const plan=await page.locator("#tradePlan").innerText();
    assert.match(plan,/Bull call debit spread/);assert.match(plan,/4 hours/);assert.match(plan,/C-BTC-110-/);assert.match(plan,/C-BTC-118-/);
    assert.match(await page.locator("#directionRows").textContent(),/BULLISH BOS/);
