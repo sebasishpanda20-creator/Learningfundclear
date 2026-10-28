@@ -138,6 +138,8 @@ function showPlan(plan){
   ["Market direction",plan.direction==="UP"?"UP ↗":"DOWN ↘"],
    ["Directional evidence",Number.isFinite(plan.signalScore)?plan.signalScore+"/"+plan.signalMaxScore+" weighted points (not win probability)":"Not recorded"],
   ["Suggested strategy",plan.label],
+  ["Planned net target / stop",Number.isFinite(plan.sessionNetRR)?fnum(plan.sessionNetRR,2)+" : 1 after estimated costs":"Older plan — clear and rescan for session economics"],
+  ["Why selected","Ranked by session target/stop economics, not maximum profit at expiry"],
   ["Buy this option",plan.long],
   ["Sell this option",plan.short],
   ["Contracts per leg",String(plan.quantity)+" (automatically calculated)"],
@@ -169,7 +171,7 @@ function simpleSummary(search){
  const qualified=items.map(x=>x.plan).filter(p=>p?.status==="PAPER PLAN").sort((a,b)=>b.score-a.score);
  decision.replaceChildren();
  if(qualified.length){
-  const p=qualified[0];decision.append(node("h3","Suggested: "+p.label),
+  const p=qualified[0];decision.append(node("h3",(locked?"Saved plan — review current trend: ":"Suggested: ")+p.label),
    node("p","Market: "+(p.long.split("-")[1]||"crypto")+" · Direction: "+(p.direction==="UP"?"UP":"DOWN")),
    node("p","Contracts per leg: "+p.quantity+" · Auto-sized from your capital."),
    node("p","See entry, stop-loss, target and expiry below. Paper plan only."));
@@ -203,9 +205,13 @@ async function refreshOption(isMonitor=false) {
    latestTickers=rows;
    showPlan(locked);
    // Restore the simple answer even after page reload while a paper plan is locked.
-   simpleSummary([{asset,trend:{side:locked.direction,actionable:true,score:locked.signalScore,maxScore:locked.signalMaxScore},
-    plan:locked}]);
-   showMonitor(D.monitor(locked,rows));
+   let freshTrend;try{freshTrend=await readTrend(asset);}catch(e){freshTrend={side:"UNKNOWN",actionable:false,why:"Current trend feed unavailable"};}
+   simpleSummary([{asset,trend:freshTrend,plan:locked}]);
+   const result=D.monitor(locked,rows);
+   if(result.status==="MONITOR"&&(!freshTrend.actionable||freshTrend.side!==locked.direction)){
+    result.status="TREND REVIEW";result.reason="The current trend no longer confirms the saved plan, or cannot be verified. Review both legs on Delta; original stop/target remain fixed. "+(freshTrend.why||"");
+   }
+   showMonitor(result);
    safeText("status","Plan locked; monitoring both legs · "+stamp(Date.now())+" · read-only");
   }catch(e){showMonitor({status:"DATA UNAVAILABLE",reason:"Cannot monitor live exit: "+e.message});safeText("status","Exchange feed unavailable; verify Delta terminal immediately.");}
   return;

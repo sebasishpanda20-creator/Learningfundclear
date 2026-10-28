@@ -55,11 +55,13 @@ test("₹1,000 and ₹10,000 have different eligibility and notional/risk limits
  const trend={side:"UP",actionable:true,current:112,signalMethod:"MULTI_FACTOR_V1"};
  const opt=(strike,bid,ask)=>({symbol:"C-BTC-"+strike+"-281026",
   timestamp:now*1000,oi_value_usd:5000,quotes:{best_bid:bid,best_ask:ask},
-  product:{state:"live",trading_status:"operational",contract_value:.001,contract_unit_currency:"BTC"}});
+  product:{state:"live",trading_status:"operational",contract_value:.001,contract_unit_currency:"BTC",taker_commission_rate:.0001}});
  const pair=[opt(110,4.7,5),opt(118,1.8,1.9)];
  const low=D.chooseSpread(pair,trend,"BTC",1000*.012,now,4);
  const high=D.chooseSpread(pair,trend,"BTC",10000*.012,now,4);
  assert.equal(low.status,"NO TRADE");assert.match(low.reason,/CAPITAL BLOCK/);
  assert.equal(high.status,"PAPER PLAN");assert(high.quantity>0);
  assert(high.riskUSD<=.02*120+1e-8);
+ const fallback=pair.map(x=>({...x,product:{...x.product,taker_commission_rate:undefined}}));
+ assert.equal(D.chooseSpread(fallback,trend,"BTC",120,now,4).status,"NO TRADE","conservative fallback fees make this session unattractive even with sufficient capital");
 });
