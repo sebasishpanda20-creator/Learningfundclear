@@ -39,3 +39,24 @@ body[data-page="crypto-options"] h1{font-size:clamp(2rem,4vw,3.2rem);letter-spac
 #monitorPanel{border-top:3px solid var(--lfc-primary)}#emailWatch{border:1px solid var(--lfc-primary);scroll-margin-top:80px}#emailWatch button{padding:12px 18px;border-radius:10px}#emailStatus{padding:14px;background:var(--lfc-surface-soft);border-radius:10px}#emailEnable:disabled{opacity:.5;cursor:not-allowed}
 body[data-page="crypto-options"] section{scroll-margin-top:80px}
 @media(max-width:620px){.desk-quicknav{gap:7px}.desk-quicknav a{padding:9px;font-size:.75rem}#tradePlan dt{border-bottom:0;margin-top:0}#tradePlan dd{padding-top:4px}.desk-inputs .row button{width:100%}.capital-field{width:100%}.capital-field input{max-width:none}#emailWatch button{width:100%;margin-top:10px}}
+/* Decision-first desktop workspace, with a single-column mobile flow. */
+body[data-page="crypto-options"] #main{display:grid;grid-template-columns:minmax(0,1.15fr) minmax(0,1fr);gap:20px;align-items:start;padding-bottom:48px}
+body[data-page="crypto-options"] #main> *{grid-column:1/-1;margin-block:0;min-width:0}
+body[data-page="crypto-options"] #main>.simple-direction,body[data-page="crypto-options"] #tradePlan{grid-column:1}
+body[data-page="crypto-options"] #main>.simple-recommendation,body[data-page="crypto-options"] #monitorPanel{grid-column:2}
+body[data-page="crypto-options"] #main>.eyebrow{padding-top:22px;letter-spacing:.16em;font-size:.7rem}
+body[data-page="crypto-options"] #main>h1{font-size:clamp(1.8rem,3vw,2.7rem);margin-top:-8px}
+body[data-page="crypto-options"] .card{border-radius:18px;padding:24px;box-shadow:0 8px 30px #16334b07}
+body[data-page="crypto-options"] .desk-tabs{border-bottom:1px solid var(--lfc-border);padding-bottom:16px}
+body[data-page="crypto-options"] .desk-tabs a{border-radius:8px;font-size:.85rem;font-weight:650}
+body[data-page="crypto-options"] .desk-inputs{background:linear-gradient(110deg,var(--lfc-primary-soft),var(--lfc-surface) 65%)}
+body[data-page="crypto-options"] h2{font-size:1.12rem;letter-spacing:-.02em}
+body[data-page="crypto-options"] .simple-trend-grid{grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+body[data-page="crypto-options"] .trend-tile{padding:16px;min-width:0}.trend-tile span{font-size:1.3rem}.trend-tile small{font-size:.73rem;line-height:1.5}
+body[data-page="crypto-options"] #tradePlan dl{grid-template-columns:minmax(150px,1fr) minmax(0,1.35fr)}
+#strategyCockpit{background:linear-gradient(115deg,#0c2236,#173f50)!important;color:#eef8ff;border:1px solid #31566c!important}
+.cockpit-head{display:flex;justify-content:space-between;align-items:center;gap:18px}.cockpit-head p{color:#9fbccd;font-size:.82rem}.cockpit-badge{border:1px solid #527489;border-radius:24px;padding:8px 12px;font-size:.7rem;white-space:nowrap;color:#b7dfeb}
+.cockpit-metrics{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin:20px 0}.cockpit-metrics>div{background:#ffffff08;border:1px solid #ffffff18;padding:16px;border-radius:12px}.cockpit-metrics span{display:block;color:#a7c0d0;font-size:.75rem}.cockpit-metrics strong{display:block;margin-top:9px;font-size:1.3rem;color:#fff;overflow-wrap:anywhere}
+#payoffPlayground summary{cursor:pointer;font-size:.85rem;color:#93e3d5}#payoffPlayground svg{width:100%;height:170px;display:block}#payoffPlayground label{display:block;color:#bdd4e1;font-size:.8rem}#payoffPlayground input{width:100%;accent-color:#80decd}#payoffValue{font-variant-numeric:tabular-nums;font-size:1.1rem}#payoffPlayground p{font-size:.75rem;color:#adc5d5;line-height:1.55}
+@media(max-width:900px){body[data-page="crypto-options"] #main{grid-template-columns:1fr}body[data-page="crypto-options"] #main>.simple-recommendation,body[data-page="crypto-options"] #monitorPanel{grid-column:1}.cockpit-metrics{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:500px){body[data-page="crypto-options"] .simple-trend-grid{grid-template-columns:1fr}body[data-page="crypto-options"] #tradePlan dl{grid-template-columns:1fr}.cockpit-head{align-items:start}.cockpit-badge{white-space:normal}.cockpit-metrics strong{font-size:1.05rem}}

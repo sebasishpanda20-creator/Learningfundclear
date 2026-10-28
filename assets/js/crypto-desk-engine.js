@@ -137,6 +137,14 @@ function roundTripCosts(legs,spot,cv,qty=1){
   feeRateSource:fallback?"CONSERVATIVE FALLBACK (0.05% each leg per side)":"PRODUCT TAKER RATES",
   note:"Estimated four taker fills, no premium cap or discounts; GST 18% on fees; slippage 0.1% each side on option premiums. Actual fill, expiry settlement, INR settlement FX, TDS and income taxes excluded."};
 }
+// Session economics are planning scenarios, not expected returns or win probability.
+function sessionEconomics(debit,width,costs,currentExit){
+ if(![debit,width,costs,currentExit].every(ok)||debit<=0||width<=debit||costs<0)return {eligible:false,reason:"Invalid spread economics"};
+ const stop=debit*.5,target=Math.min(width*.9,debit*1.6),netReward=target-debit-costs,netLoss=debit-stop+costs;
+ const rr=netReward/netLoss,entryDrag=debit-currentExit;
+ const reason=netReward<=0?"Estimated fees consume the session target":currentExit<=stop?"Current close quotes already breach the planned stop":rr<1?"Net session target is smaller than the modeled stop loss":"Session target and stop pass cost checks";
+ return {eligible:netReward>0&&currentExit>stop&&rr>=1,reason,stop,target,netReward,netLoss,rr,entryDrag,breakEvenWinRate:netLoss/(netLoss+netReward)};
+}
 function chooseSpread(tickers,trend,asset,capitalUSD,now=Date.now(),hours=4){
  if(![2,4,8].includes(hours))return wait("Choose a valid 2, 4 or 8 hour trade horizon");
  if(!ok(capitalUSD))return wait("Capital or verified FX missing");
@@ -144,7 +152,7 @@ function chooseSpread(tickers,trend,asset,capitalUSD,now=Date.now(),hours=4){
  if(!trend?.actionable||!["UP","DOWN"].includes(trend.side))return wait("No confirmed direction: "+(trend?.why||"no data"));
  const side=trend.side==="UP"?"C":"P",chain=(Array.isArray(tickers)?tickers:[]).map(parseOption).filter(t=>liquid(t,asset,now)&&t.side===side);
  if(chain.length<2||!ok(trend.current))return wait("Fresh liquid option strikes and verified contract sizes not available");
- let best=null,minOneLotCapital=Infinity;
+ let best=null,minOneLotCapital=Infinity,sessionRejected=0;
  const expiries=[...new Set(chain.map(t=>t.expiry))].sort((a,b)=>a-b);
  for(const expiry of expiries.slice(0,3)){
   if(expiry<=now+hours*3600000+3600000)continue;
@@ -159,6 +167,8 @@ function chooseSpread(tickers,trend,asset,capitalUSD,now=Date.now(),hours=4){
    const buffer=costs.totalUSD;
    const loss=debit+buffer,gain=width-debit-buffer;
    if(debit<=0||loss<=0||gain<=0||gain/loss<1.15)continue;
+   const economics=sessionEconomics(debit,width,buffer,(long.bid-short.ask)*long.cv);
+   if(!economics.eligible){sessionRejected++;continue;}
    minOneLotCapital=Math.min(minOneLotCapital,Math.max(20,loss/.02,long.cv*trend.current/.30));
    const quantity=Math.floor(Math.min(capitalUSD*0.02/loss,capitalUSD*0.30/(long.cv*trend.current)));
    if(quantity<1)continue;
@@ -175,15 +185,18 @@ function chooseSpread(tickers,trend,asset,capitalUSD,now=Date.now(),hours=4){
     expectedTargetNetUSD:(Math.min(width*0.9,debit*1.6)-debit-buffer)*quantity,
     expectedStopNetUSD:(debit*0.5-debit-buffer)*quantity,
     breakevenSpread:(debit+buffer)/long.cv,
-    why:"Multi-factor 15m/1h direction (SMC or RSI/MACD/ADX) → liquid quoted expiry → cost and 2% modeled maximum spread-risk / 30% notional checks",
-    score:gain/loss-Math.abs(long.strike-trend.current)/trend.current};
+    why:"Multi-factor 15m/1h direction (SMC or RSI/MACD/ADX) → liquid quoted expiry → positive session target and at least 1:1 net target/stop ratio → 2% modeled maximum spread-risk / 30% notional checks",
+    sessionNetRR:economics.rr,breakEvenWinRate:economics.breakEvenWinRate,
+    entryDragUSD:economics.entryDrag*quantity,underlyingInvalidation:trend.invalidation,
+    selectionMethod:"SESSION_NET_RR_V2",
+    score:economics.rr};
    if(!best||candidate.score>best.score)best=candidate;
   }
  }
  return best||wait(Number.isFinite(minOneLotCapital)&&capitalUSD<minOneLotCapital?
   "CAPITAL BLOCK: smallest qualifying vertical needs approximately $"+minOneLotCapital.toFixed(2)+
   " of modeled research capital for one contract under 2% risk and 30% notional limits; available $"+capitalUSD.toFixed(2):
-  "No option vertical passes market direction, selected timeframe, expiry, liquidity and reward gates; increasing capital alone may not help");
+  "No option vertical passes direction, timeframe, liquidity and session economics. "+sessionRejected+" pairs rejected because fees consume the target, net target/stop is below 1:1, or close quotes already breach the stop. Increasing capital does not repair poor per-contract economics");
 }
 // Long-volatility alternatives are research-only: a sideways market does not by
 // itself imply imminent movement. Liquidity, fresh quotes and premium risk still apply.
@@ -289,6 +302,6 @@ function fundingDesk(tickers,asset,capitalUSD,now=Date.now()){
   route:funding>0?"SHORT perp + LONG matching spot":funding<0?"LONG perp + SHORT matching spot":"NO CARRY",
   reason:"No spot borrow/executable hedge, basis, taxes, fees or funding settlement verified. Zero trades placed."};
 }
-root.LfcCryptoDesk={milliseconds,fresh,candles,direction,roundTripCosts,chooseSpread,chooseVolatility,assessStrategies,monitor,fundingDesk};
+root.LfcCryptoDesk={milliseconds,fresh,candles,direction,roundTripCosts,sessionEconomics,chooseSpread,chooseVolatility,assessStrategies,monitor,fundingDesk};
 if(typeof module!=="undefined"&&module.exports)module.exports=root.LfcCryptoDesk;
 })(typeof window!=="undefined"?window:globalThis);
