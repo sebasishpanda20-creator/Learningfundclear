@@ -6,8 +6,8 @@ const formatExpiry=()=>{const d=new Date(Date.now()+48*3600000);return String(d.
 const bars=(minutes,asset)=>{
  const dt=minutes*60,last=Math.floor(Date.now()/1000/dt)*dt-dt;
  return Array.from({length:90},(_,i)=>{
-  const c=asset==="BTC"?100+i*(minutes===15?0.1:0.2):100;
-  const close=asset==="BTC"&&minutes===15&&i===89?c+3:c;
+  const c=asset==="BTC"?100+i*(minutes===15||minutes===5?0.1:0.2):100;
+  const close=asset==="BTC"&&(minutes===15||minutes===5)&&i===89?c+3:c;
   return{time:last-(89-i)*dt,open:c-0.1,high:Math.max(c+0.5,close+0.2),low:c-0.5,close};
  });
 };
@@ -28,7 +28,7 @@ const server=http.createServer((req,res)=>{
  try {
   for(const width of [1440,390]){
    const ctx=await browser.newContext({viewport:{width,height:960}});
-   await fixture(ctx);
+   await fixture(ctx);let requestedFast=false;
    await ctx.route("https://open.er-api.com/**",route=>route.fulfill({json:{result:"success",time_last_update_unix:Math.floor(Date.now()/1000)-3600,rates:{USD:0.012}}}));
    await ctx.route("https://api.india.delta.exchange/**",route=>{
     const url=new URL(route.request().url()),q=url.searchParams;
@@ -39,7 +39,7 @@ const server=http.createServer((req,res)=>{
       contract_unit_currency:symbol.includes("-")?symbol.split("-")[1]:symbol.replace("USD",""),
       taker_commission_rate:"0.0001"}}});
     }
-    if(url.pathname.includes("history/candles")){
+    if(url.pathname.includes("history/candles")){if(q.get("resolution")==="5m")requestedFast=true;
      const asset=(q.get("symbol")||"").replace("USD","");
      return route.fulfill({json:{success:true,result:bars(q.get("resolution")==="5m"?5:q.get("resolution")==="15m"?15:60,asset)}});
     }
@@ -81,7 +81,7 @@ const server=http.createServer((req,res)=>{
    await page.locator("#capital").fill("10000");
    await page.locator("#capitalDiagnostics").getByText("₹200",{exact:false}).waitFor({timeout:7000});
    await page.locator("#tradePlan").getByText("Selected research setup",{exact:false}).waitFor({timeout:30000});
-   assert.doesNotMatch(await page.locator("#capitalImpact").innerText(),/CAPITAL BLOCK/);
+   assert.doesNotMatch(await page.locator("#capitalImpact").innerText(),/CAPITAL BLOCK/);assert.equal(requestedFast,true,"Fast selector requests actual 5m candles");
    assert.match(await page.locator("#tradePlan").innerText(),/automatically calculated/);
 
    assert.match(await page.locator("#creditCandidates").textContent(),/BTC.*NO TRADE/s);
