@@ -9,7 +9,7 @@ const server=http.createServer((req,res)=>{try{const file=path.resolve('.','.'+n
   const ctx=await browser.newContext({viewport:{width,height:960}});await fixture(ctx);
   await ctx.addInitScript(()=>{
    window.WebSocket=class extends EventTarget{constructor(){super();this.readyState=0;setTimeout(()=>{this.readyState=1;this.dispatchEvent(new Event('open'));},0);}
-    send(s){const data=JSON.parse(s);for(const sy of data.payload.channels[0].symbols)setTimeout(()=>this.dispatchEvent(new MessageEvent('message',{data:JSON.stringify({type:'funding_rate',sy,ts:Date.now()*1000,nfr:(Date.now()+3600000)*1000,fi:28800,fr:.01})})),5);}
+    send(s){const data=JSON.parse(s);for(const sy of (data.payload.channels[0].symbols.includes('all')?['BTCUSD','ETHUSD','XAUTUSD','PAXGUSD']:data.payload.channels[0].symbols))setTimeout(()=>this.dispatchEvent(new MessageEvent('message',{data:JSON.stringify({type:'funding_rate',sy,ts:Date.now()*1000,nfr:(Date.now()+3600000)*1000,fi:28800,fr:.01})})),5);}
     close(){this.readyState=3;this.dispatchEvent(new Event('close'));}
    };
   });
