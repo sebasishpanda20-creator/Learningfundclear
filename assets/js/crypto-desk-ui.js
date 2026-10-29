@@ -183,8 +183,11 @@ function simpleSummary(search){
    decision.append(node("h3","WAIT — "+x.asset+" looks "+(x.trend.side==="DOWN"?"bearish":"bullish")),
     node("p","Strategy to watch: "+choice+"."),
     node("p","No suitable option prices passed the safety checks. Contracts, entry, stop and target cannot be calculated reliably yet."));
-  }else decision.append(node("h3","WAIT — no confirmed opportunity"),
-   node("p","The market direction is unclear or not confirmed. No strategy, lots or prices will be invented."));
+  }else{
+   const forming=items.find(x=>["UP","DOWN"].includes(x.trend?.side));
+   if(forming)decision.append(node("h3","FORMING — "+forming.asset+" "+(forming.trend.side==="UP"?"bullish":"bearish")+" bias"),node("p","Conditional strategy: "+(forming.trend.side==="UP"?"Bull Call debit spread":"Bear Put debit spread")+". Wait for the selected signal-candle confirmation and an affordable quoted spread. Entry, quantity and targets remain unavailable until both pass."));
+   else decision.append(node("h3","WAIT — mixed or unavailable direction"),node("p","Strategy map: confirmed UP → Bull Call debit spread; confirmed DOWN → Bear Put debit spread. A mixed trend alone does not justify a neutral option trade. See each market's checks below."));
+  }
  }
 }
 function showMonitor(current){
