@@ -17,3 +17,11 @@ test('funding receipt needs fresh exchange timing and remains watch only, even w
 test('EMA comparison requires a fresh closed cross, not simply price above a band',()=>{
  assert.equal(F.bandSignal(bars,now).side,'WAIT');const a=structuredClone(bars);a.at(-1).close=102;a.at(-1).high=102.2;assert.equal(F.bandSignal(a,now).side,'LONG');a.push({...a.at(-1),time:now/1000,close:90,low:89});assert.equal(F.bandSignal(a,now).side,'LONG','forming bar excluded');assert.equal(F.category({product_specs:{tags:['xStock']}}),'STOCK');
 });
+test('short-session mode uses completed 5m bars and rejects mismatched holding periods',()=>{
+ const D=require('../assets/js/crypto-desk-engine.js'),make=m=>Array.from({length:90},(_,i)=>{const c=100+i*.1;return{time:(now-(90-i)*m*60000)/1000,open:c-.1,high:c+1,low:c-1,close:c};}),a=make(5),b=make(15),trend=D.direction(a,b,now,[5,15]);
+ assert.equal(trend.side,'UP');assert.equal(trend.actionable,true);assert.equal(trend.lastClosedAt,now);assert.equal(trend.components[0].name,'EMA 5m + 15m');
+ const tick={...t,quotes:{best_bid:108.9,best_ask:108.95}},x=F.evaluate(p,tick,trend,a,10000,.5,now,5);assert.equal(x.status,'RESEARCH CANDIDATE');assert.equal(x.timeExit,now+1800000);assert(x.stopLoss<=100);assert.match(x.reason,/5m\/15m/);
+ assert.equal(F.evaluate(p,tick,trend,a,10000,.5,now,15).status,'NO TRADE');assert.equal(D.direction(a,b,now,[1,5]).actionable,false);
+ a.push({time:now/1000,open:1,high:2,low:1,close:1});assert.equal(D.direction(a,b,now,[5,15]).side,trend.side,'ignore forming candles');
+ assert.equal(D.direction(make(5).map(v=>({...v,time:v.time-3600})),b,now,[5,15]).side,'UNKNOWN','reject stale short candles');
+});

@@ -60,8 +60,10 @@ function adx(rows,n=14){
  const last=dx.at(-1);
  return{value,plusDI:last.plusDI,minusDI:last.minusDI};
 }
-function direction(raw15,raw60,now=Date.now()){
- let a,b;try{a=candles(raw15,15,now);b=candles(raw60,60,now);}
+function direction(raw15,raw60,now=Date.now(),frames=[15,60]){
+ if(!Array.isArray(frames)||![[15,60],[5,15]].some(x=>x[0]===frames[0]&&x[1]===frames[1]))return {side:"UNKNOWN",actionable:false,why:"Unsupported signal timeframe"};
+ const [entryMinutes,confirmMinutes]=frames;
+ let a,b;try{a=candles(raw15,entryMinutes,now);b=candles(raw60,confirmMinutes,now);}
  catch(e){return{side:"UNKNOWN",actionable:false,score:0,why:e.message};}
  const l=a.at(-1),f=ema(a,20),s=ema(a,50),hf=ema(b,20),hs=ema(b,50),hour=b.at(-1).close;
  const up=hour>hf&&hf>hs&&l.close>f&&f>s,down=hour<hf&&hf<hs&&l.close<f&&f<s;
@@ -83,7 +85,7 @@ function direction(raw15,raw60,now=Date.now()){
  const volumeAligned=Number.isFinite(volumeRatio)&&volumeRatio>=1.2;
  const aligned=side!=="SIDEWAYS";
  const components=[
-  {name:"EMA 15m + 1h",passed:aligned,points:aligned?35:0,max:35},
+  {name:`EMA ${entryMinutes}m + ${confirmMinutes===60?"1h":confirmMinutes+"m"}`,passed:aligned,points:aligned?35:0,max:35},
   {name:"SMC BOS / sweep",passed:structure,points:structure?20:0,max:20},
   {name:"RSI(14) momentum",passed:rsiAligned,points:rsiAligned?15:0,max:15},
   {name:"MACD(12,26,9) momentum",passed:macdAligned,points:macdAligned?15:0,max:15},
@@ -95,10 +97,10 @@ function direction(raw15,raw60,now=Date.now()){
  // A BOS/sweep without momentum must not authorize a directional paper plan.
  const actionable=aligned&&score>=70&&(rsiAligned||macdAligned)&&
   (structure||(rsiAligned&&macdAligned&&adxAligned));
- const why=!aligned?"15m and 1h EMA20/50 do not align — no directional trade":
+ const why=!aligned?`${entryMinutes}m and ${confirmMinutes}m EMA20/50 do not align — no directional trade`:
   actionable?"Multi-factor directional confirmation; "+(structure?"SMC and indicators aligned":"RSI, MACD and ADX agree without an SMC break"):
   "Directional EMA trend, but multi-factor momentum/strength threshold not met";
- return{side,bos,sweep,actionable,current:l.close,lastClosedAt:l.time+900000,
+ return{side,bos,sweep,actionable,current:l.close,lastClosedAt:l.time+entryMinutes*60000,
   invalidation:up?lower:down?upper:null,
   score,maxScore:Number.isFinite(volumeRatio)?100:95,components,
   rsi:momentumRsi,macdHistogram:histogram,adx:strength.value,
