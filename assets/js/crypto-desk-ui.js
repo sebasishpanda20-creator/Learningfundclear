@@ -238,7 +238,7 @@ async function refreshOption(isMonitor=false) {
  if(frameMode!==($("optionSignalFrame")?.value||"STANDARD"))return;
  setRows("directionRows",assets.map(asset=>rowTrend(asset,results.find(x=>x.asset===asset)?.trend||{side:"UNKNOWN",why:"No exchange response"})));
  simpleSummary(search);
- const blockers=$("optionBlockers");if(blockers){blockers.replaceChildren();for(const x of search){const group=node("div","");group.append(node("h3",x.asset+" · "+($("optionSignalFrame")?.value==="FAST"?"5m / 15m":"15m / 1h")),node("p","Direction: "+(x.trend.why||x.trend.side)),node("p","Option result: "+x.plan.status+" · "+(x.plan.reason||x.plan.label||"No contract plan")));for(const alt of x.alternatives||[])group.append(node("p",alt.name+": "+alt.status+" · "+alt.reason));blockers.append(group);}}
+ const blockers=$("optionBlockers");if(blockers){blockers.replaceChildren();for(const x of search){const group=node("details","");group.append(node("summary",x.asset+" · "+x.plan.status+" · "+($("optionSignalFrame")?.value==="FAST"?"5m / 15m":"15m / 1h")),node("p","Direction: "+(x.trend.why||x.trend.side)),node("p","Option result: "+x.plan.status+" · "+(x.plan.reason||x.plan.label||"No contract plan")));for(const alt of x.alternatives||[])group.append(node("p",alt.name+": "+alt.status+" · "+alt.reason));blockers.append(group);}}
  const report=$("strategyDiagnostics");
  if(report){
   report.replaceChildren();
