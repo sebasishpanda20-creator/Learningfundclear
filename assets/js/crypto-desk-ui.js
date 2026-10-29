@@ -286,7 +286,7 @@ if(view==="crypto-funding"&&typeof WebSocket!=="undefined"){
  try{
   fundingWebsocket=new WebSocket("wss://public-socket.india.delta.exchange");
   fundingWebsocket.addEventListener("open",()=>fundingWebsocket.send(JSON.stringify({
-   type:"subscribe",payload:{channels:[{name:"funding_rate",symbols:["BTCUSD","ETHUSD","XAUTUSD","PAXGUSD"]}]}})));
+   type:"subscribe",payload:{channels:[{name:"funding_rate",symbols:["all"]}]}})));
   fundingWebsocket.addEventListener("message",event=>{
    try{
     const q=JSON.parse(event.data);

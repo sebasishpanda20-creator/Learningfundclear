@@ -21,7 +21,7 @@
  function stream(){const symbols=rows.filter(r=>C.fresh(r.at)).map(r=>r.symbol).sort().join(',');if(ws&&wsSymbols===symbols&&[0,1].includes(ws.readyState))return;
   ws?.close();ws=null;rates.clear();wsSymbols=symbols;if(!symbols||typeof WebSocket==='undefined')return;
   try{const current=new WebSocket('wss://public-socket.india.delta.exchange');ws=current;
-   current.addEventListener('open',()=>{if(ws===current)current.send(JSON.stringify({type:'subscribe',payload:{channels:[{name:'funding_rate',symbols:symbols.split(',')}]}}));});
+   current.addEventListener('open',()=>{if(ws===current)current.send(JSON.stringify({type:'subscribe',payload:{channels:[{name:'funding_rate',symbols:['all']}]}}));});
    current.addEventListener('message',e=>{if(ws!==current)return;try{const r=C.funding(JSON.parse(e.data));if(r&&symbols.split(',').includes(r.symbol)){rates.set(r.symbol,r);render();}}catch{}});
    current.addEventListener('close',()=>{if(ws===current){rates.clear();render();}});
    current.addEventListener('error',()=>{if(ws===current){rates.clear();render();}});

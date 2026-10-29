@@ -3,8 +3,9 @@
 'use strict';
 const D=root.LfcCryptoDesk||(typeof require==='function'?require('./crypto-desk-engine.js'):null),n=x=>x==null||x===''?NaN:Number(x),fail=reason=>({status:'NO TRADE',reason});
 function category(p){const tags=p.product_specs?.tags||[];if(tags.some(t=>/xstock|bstock|equity/i.test(t)))return 'STOCK';return null;}
-function evaluate(p,t,trend,bars,capital,hours=4,now=Date.now(),minutes=15){
+function evaluate(p,t,trend,bars,capital,hours=4,now=Date.now(),minutes=15,requestedLeverage=1){
  if(!Number.isFinite(capital)||capital<=0||!([5,15].includes(minutes)&&(minutes===5?[.5,1]:[2,4,8]).includes(hours)))return fail('Valid capital and matching timeframe/session duration required');
+ const initialMargin=n(p.initial_margin);if(!Number.isFinite(requestedLeverage)||requestedLeverage<1||requestedLeverage>200)return fail('Leverage must be 1–200x');if(requestedLeverage>1&&!(Number.isFinite(initialMargin)&&initialMargin>0&&initialMargin<=100))return fail('Exchange initial margin unavailable; leverage cannot be verified');const contractMax=Number.isFinite(initialMargin)&&initialMargin>0?Math.floor(100/initialMargin):null,leverage=Math.min(requestedLeverage,contractMax||1);
  if(p.contract_type!=='perpetual_futures'||p.notional_type!=='vanilla'||p.is_quanto===true||p.settling_asset?.symbol!=='USD'||p.state!=='live'||p.trading_status!=='operational'||p.product_specs?.only_reduce_only_orders_allowed||t.oi_reduce_only_mode)return fail('Unsupported or unavailable contract');
  if(t.product_trading_status&&t.product_trading_status!=='operational')return fail('Ticker reports unavailable market');
  if(!D.fresh(t.timestamp,now,60000))return fail('Exchange quote older than 60 seconds');
@@ -28,10 +29,10 @@ function evaluate(p,t,trend,bars,capital,hours=4,now=Date.now(),minutes=15){
  funding=maxPrice*cv*Math.abs(fund)/100*(Math.ceil(hours*3600/interval)+1),cost=commission+gst+slippage+funding,
  stopLoss=riskDistance*cv+cost,targetGain=Math.abs(target-entry)*cv-cost;
  if(!(targetGain>0&&targetGain/stopLoss>=1.25))return fail('Net target/stop below 1.25 after fees, GST, slippage and funding reserve');
- const quantity=Math.floor(Math.min(capital*.01/stopLoss,capital*.8/(entry*cv)));
- if(quantity<1)return fail('One contract exceeds the 1% modeled stop-risk or 80% notional budget');
+ const quantity=Math.floor(Math.min(capital*.01/stopLoss,capital*.8*leverage/(entry*cv)));
+ if(quantity<1)return fail('One contract exceeds the 1% modeled stop-risk or 80% estimated margin budget');
  const entryLow=long?Math.max(tick,roundDown(entry-.25*atr)):entry,entryHigh=long?entry:roundUp(entry+.25*atr),target1=long?roundUp(entry+riskDistance):roundDown(entry-riskDistance),targetGain1=(Math.abs(target1-entry)*cv-cost)*quantity;
- return {entryLow,entryHigh,target1,targetGain1,status:'RESEARCH CANDIDATE',symbol:p.symbol,side:long?'LONG':'SHORT',entry,stop,target,quantity,cv,notional:entry*cv*quantity,stopLoss:stopLoss*quantity,targetGain:targetGain*quantity,cost:cost*quantity,commission:commission*quantity,gst:gst*quantity,slippage:slippage*quantity,funding:funding*quantity,rr:targetGain/stopLoss,timeExit:now+hours*3600000,quoteAt:D.milliseconds(t.timestamp),reason:(minutes===5?'5m/15m short-session':'15m/1h')+' trend + 1.5 ATR/structure stop; 2R gross target. Account margin, order depth and execution unverified.'};
+ return {leverage,contractMax,estimatedMargin:entry*cv*quantity/leverage,entryLow,entryHigh,target1,targetGain1,status:'RESEARCH CANDIDATE',symbol:p.symbol,side:long?'LONG':'SHORT',entry,stop,target,quantity,cv,notional:entry*cv*quantity,stopLoss:stopLoss*quantity,targetGain:targetGain*quantity,cost:cost*quantity,commission:commission*quantity,gst:gst*quantity,slippage:slippage*quantity,funding:funding*quantity,rr:targetGain/stopLoss,timeExit:now+hours*3600000,quoteAt:D.milliseconds(t.timestamp),reason:(minutes===5?'5m/15m short-session':'15m/1h')+' trend + 1.5 ATR/structure stop; 2R gross target. Account margin, order depth and execution unverified.'};
 }
 function bandSignal(rows,now=Date.now(),minutes=15){
  let a;try{a=D.candles(rows,minutes,now);}catch(e){return {side:'UNKNOWN',reason:e.message};}
@@ -53,5 +54,11 @@ function funding(p,t,live,capital,now=Date.now()){
  reason:receipt>cost?'Funding exceeds modeled one-leg costs; matching hedge and its costs are unverified':'Funding does not cover modeled one-leg round-trip costs',
  hedge:live.rate>0?'Short perpetual + buy matching spot':'Long perpetual + short matching spot (borrow availability and cost required)'};
 }
-root.LfcFutures={category,evaluate,bandSignal,funding};if(typeof module!=='undefined')module.exports=root.LfcFutures;
+function fundingCostSource(p,t,live,now=Date.now()){
+ if(live&&D.fresh(live.at,now,120000)&&Number.isFinite(live.rate)&&Math.abs(live.rate)<=1&&Number.isFinite(live.seconds)&&live.seconds>=60&&live.seconds<=86400)return {...live,source:'STREAM VERIFIED'};
+ const rate=n(t?.funding_rate),seconds=n(p?.product_specs?.rate_exchange_interval);
+ if(D.fresh(t?.timestamp,now,60000)&&Number.isFinite(rate)&&Math.abs(rate)<=1&&Number.isFinite(seconds)&&seconds>=60&&seconds<=86400)return {rate,seconds,at:D.milliseconds(t.timestamp),source:'REST ESTIMATE'};
+ return null;
+}
+root.LfcFutures={category,evaluate,bandSignal,funding,fundingCostSource};if(typeof module!=='undefined')module.exports=root.LfcFutures;
 })(typeof window!=='undefined'?window:globalThis);
