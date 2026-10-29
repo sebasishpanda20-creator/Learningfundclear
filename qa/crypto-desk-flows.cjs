@@ -41,7 +41,7 @@ const server=http.createServer((req,res)=>{
     }
     if(url.pathname.includes("history/candles")){
      const asset=(q.get("symbol")||"").replace("USD","");
-     return route.fulfill({json:{success:true,result:bars(q.get("resolution")==="15m"?15:60,asset)}});
+     return route.fulfill({json:{success:true,result:bars(q.get("resolution")==="5m"?5:q.get("resolution")==="15m"?15:60,asset)}});
     }
     if(q.get("contract_types")==="perpetual_futures"){
      return route.fulfill({json:{success:true,result:["BTC","ETH","XAUT","PAXG"].map(asset=>({
@@ -76,7 +76,7 @@ const server=http.createServer((req,res)=>{
    // Changing capital must clear a cached paper plan automatically, never reuse its lots.
    await page.locator("#capital").fill("1000");
    await page.locator("#capitalDiagnostics").getByText("₹20",{exact:false}).waitFor({timeout:7000});
-   assert.match(await page.locator("#capitalImpact").innerText(),/CAPITAL BLOCK/);
+   assert.match(await page.locator("#capitalImpact").innerText(),/CAPITAL BLOCK/);await page.locator("#optionSignalFrame").selectOption("FAST");assert.equal(await page.locator("#optionSignalFrame").inputValue(),"FAST");
    await page.locator("#tradePlan").getByText("No suitable trade right now",{exact:false}).waitFor({timeout:20000});
    await page.locator("#capital").fill("10000");
    await page.locator("#capitalDiagnostics").getByText("₹200",{exact:false}).waitFor({timeout:7000});
