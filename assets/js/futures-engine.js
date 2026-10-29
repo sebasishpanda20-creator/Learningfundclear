@@ -30,7 +30,8 @@ function evaluate(p,t,trend,bars,capital,hours=4,now=Date.now(),minutes=15){
  if(!(targetGain>0&&targetGain/stopLoss>=1.25))return fail('Net target/stop below 1.25 after fees, GST, slippage and funding reserve');
  const quantity=Math.floor(Math.min(capital*.01/stopLoss,capital*.8/(entry*cv)));
  if(quantity<1)return fail('One contract exceeds the 1% modeled stop-risk or 80% notional budget');
- return {status:'RESEARCH CANDIDATE',symbol:p.symbol,side:long?'LONG':'SHORT',entry,stop,target,quantity,cv,notional:entry*cv*quantity,stopLoss:stopLoss*quantity,targetGain:targetGain*quantity,cost:cost*quantity,commission:commission*quantity,gst:gst*quantity,slippage:slippage*quantity,funding:funding*quantity,rr:targetGain/stopLoss,timeExit:now+hours*3600000,quoteAt:D.milliseconds(t.timestamp),reason:(minutes===5?'5m/15m short-session':'15m/1h')+' trend + 1.5 ATR/structure stop; 2R gross target. Account margin, order depth and execution unverified.'};
+ const entryLow=long?Math.max(tick,roundDown(entry-.25*atr)):entry,entryHigh=long?entry:roundUp(entry+.25*atr),target1=long?roundUp(entry+riskDistance):roundDown(entry-riskDistance),targetGain1=(Math.abs(target1-entry)*cv-cost)*quantity;
+ return {entryLow,entryHigh,target1,targetGain1,status:'RESEARCH CANDIDATE',symbol:p.symbol,side:long?'LONG':'SHORT',entry,stop,target,quantity,cv,notional:entry*cv*quantity,stopLoss:stopLoss*quantity,targetGain:targetGain*quantity,cost:cost*quantity,commission:commission*quantity,gst:gst*quantity,slippage:slippage*quantity,funding:funding*quantity,rr:targetGain/stopLoss,timeExit:now+hours*3600000,quoteAt:D.milliseconds(t.timestamp),reason:(minutes===5?'5m/15m short-session':'15m/1h')+' trend + 1.5 ATR/structure stop; 2R gross target. Account margin, order depth and execution unverified.'};
 }
 function bandSignal(rows,now=Date.now(),minutes=15){
  let a;try{a=D.candles(rows,minutes,now);}catch(e){return {side:'UNKNOWN',reason:e.message};}

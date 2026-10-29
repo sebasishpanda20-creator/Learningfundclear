@@ -25,3 +25,6 @@ test('short-session mode uses completed 5m bars and rejects mismatched holding p
  a.push({time:now/1000,open:1,high:2,low:1,close:1});assert.equal(D.direction(a,b,now,[5,15]).side,trend.side,'ignore forming candles');
  assert.equal(D.direction(make(5).map(v=>({...v,time:v.time-3600})),b,now,[5,15]).side,'UNKNOWN','reject stale short candles');
 });
+test('entry ranges and both net target estimates use the less favorable quoted entry',()=>{
+ for(const side of ['UP','DOWN']){const x=F.evaluate(p,t,{...trend,side,invalidation:side==='UP'?98:102},bars,10000,4,now);assert.equal(x.status,'RESEARCH CANDIDATE');assert(x.entryLow<x.entryHigh);assert.equal(side==='UP'?x.entryHigh:x.entryLow,x.entry);assert(side==='UP'?x.target1>x.entry&&x.target1<x.target:x.target1<x.entry&&x.target1>x.target);assert(Math.abs(x.targetGain1-(Math.abs(x.target1-x.entry)*x.cv*x.quantity-x.cost))<1e-8);assert(x.targetGain1<x.targetGain);assert(x.stopLoss<=100);}
+});

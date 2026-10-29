@@ -65,8 +65,9 @@ async function history(symbol,resolution,seconds){
   "&resolution="+resolution+"&start="+start+"&end="+end);
 }
 async function readTrend(asset) {
- const result=await Promise.all([history(asset+"USD","15m",36*3600),history(asset+"USD","1h",120*3600)]);
- return D.direction(result[0],result[1]);
+ const fast=$("optionSignalFrame")?.value==="FAST",frames=fast?[5,15]:[15,60];
+ const result=await Promise.all([history(asset+"USD",fast?"5m":"15m",(fast?12:36)*3600),history(asset+"USD",fast?"15m":"1h",(fast?36:120)*3600)]);
+ return D.direction(result[0],result[1],Date.now(),frames);
 }
 // Ticker payloads do not carry complete contract metadata. Pull product specs
 // separately for the small set of near-ATM, near-expiry candidate contracts.
@@ -182,8 +183,11 @@ function simpleSummary(search){
    decision.append(node("h3","WAIT — "+x.asset+" looks "+(x.trend.side==="DOWN"?"bearish":"bullish")),
     node("p","Strategy to watch: "+choice+"."),
     node("p","No suitable option prices passed the safety checks. Contracts, entry, stop and target cannot be calculated reliably yet."));
-  }else decision.append(node("h3","WAIT — no confirmed opportunity"),
-   node("p","The market direction is unclear or not confirmed. No strategy, lots or prices will be invented."));
+  }else{
+   const forming=items.find(x=>["UP","DOWN"].includes(x.trend?.side));
+   if(forming)decision.append(node("h3","FORMING — "+forming.asset+" "+(forming.trend.side==="UP"?"bullish":"bearish")+" bias"),node("p","Conditional strategy: "+(forming.trend.side==="UP"?"Bull Call debit spread":"Bear Put debit spread")+". Wait for the selected signal-candle confirmation and an affordable quoted spread. Entry, quantity and targets remain unavailable until both pass."));
+   else decision.append(node("h3","WAIT — mixed or unavailable direction"),node("p","Strategy map: confirmed UP → Bull Call debit spread; confirmed DOWN → Bear Put debit spread. A mixed trend alone does not justify a neutral option trade. See each market's checks below."));
+  }
  }
 }
 function showMonitor(current){
@@ -216,7 +220,7 @@ async function refreshOption(isMonitor=false) {
   }catch(e){showMonitor({status:"DATA UNAVAILABLE",reason:"Cannot monitor live exit: "+e.message});safeText("status","Exchange feed unavailable; verify Delta terminal immediately.");}
   return;
  }
- const assets=["BTC","ETH","XAUT"],results=[];
+ const frameMode=$("optionSignalFrame")?.value||"STANDARD",assets=["BTC","ETH","XAUT"],results=[];
  safeText("status","Scanning BTC, ETH and gold using EMA trend, RSI, MACD, ADX, optional volume and SMC, then risk-checking options…");
  const search=await Promise.all(assets.map(async asset=>{
   try{
@@ -231,8 +235,10 @@ async function refreshOption(isMonitor=false) {
    results.push({asset,trend});return{asset,trend,plan:{status:"NO TRADE",reason:e.message}};
   }
  }));
+ if(frameMode!==($("optionSignalFrame")?.value||"STANDARD"))return;
  setRows("directionRows",assets.map(asset=>rowTrend(asset,results.find(x=>x.asset===asset)?.trend||{side:"UNKNOWN",why:"No exchange response"})));
  simpleSummary(search);
+ const blockers=$("optionBlockers");if(blockers){blockers.replaceChildren();for(const x of search){const group=node("details","");group.append(node("summary",x.asset+" · "+x.plan.status+" · "+($("optionSignalFrame")?.value==="FAST"?"5m / 15m":"15m / 1h")),node("p","Direction: "+(x.trend.why||x.trend.side)),node("p","Option result: "+x.plan.status+" · "+(x.plan.reason||x.plan.label||"No contract plan")));for(const alt of x.alternatives||[])group.append(node("p",alt.name+": "+alt.status+" · "+alt.reason));blockers.append(group);}}
  const report=$("strategyDiagnostics");
  if(report){
   report.replaceChildren();
@@ -261,7 +267,7 @@ async function refreshOption(isMonitor=false) {
  const plans=search.map(x=>x.plan).filter(x=>x.status==="PAPER PLAN");
  plans.sort((a,b)=>b.score-a.score);
  if(plans.length){
-  locked={...plans[0],createdAt:Date.now(),sizedCapitalINR:cash()};
+  locked={...plans[0],createdAt:Date.now(),sizedCapitalINR:cash(),signalFrameMode:$("optionSignalFrame")?.value||"STANDARD"};
   try{sessionStorage.setItem("lfc.crypto.plan",JSON.stringify(locked));}catch(e){}
   showPlan(locked);showMonitor({status:"MONITOR",reason:"Plan created and locked; waiting for next quote"});
   safeText("status","One spread selected for the requested "+$("tradeHorizon").value+"-hour horizon using verified public inputs.");
@@ -541,6 +547,10 @@ $("capital").addEventListener("input",()=>{
  }
  debounce=setTimeout(refresh,600);
 });
+if($("optionSignalFrame")){
+ $("optionSignalFrame").value=locked?.signalFrameMode||"STANDARD";
+ $("optionSignalFrame").addEventListener("change",()=>{if(locked){$("optionSignalFrame").value=locked.signalFrameMode||"STANDARD";safeText("status","Paper plan remains locked. Reset paper plan before changing signal candles.");}else refresh();});
+}
 if($("tradeHorizon")){
  const savedH=Number(sessionStorage.getItem("lfc.crypto.horizon"));
  if([2,4,8].includes(savedH))$("tradeHorizon").value=String(savedH);
