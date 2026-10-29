@@ -17,7 +17,7 @@ function evaluate(p,t,trend,bars,capital,hours=4,now=Date.now(),minutes=15){
  const tail=a.slice(-15),tr=tail.slice(1).map((b,i)=>Math.max(b.high-b.low,Math.abs(b.high-tail[i].close),Math.abs(b.low-tail[i].close))),atr=tr.reduce((s,v)=>s+v,0)/14;
  const long=trend.side==='UP',entry=long?ask:bid;
  if(!(atr>0)||Math.abs(entry-a.at(-1).close)>atr)return fail('Entry too far from the last closed candle; do not chase');
- const structural=n(trend.invalidation),distance=Math.max(1.5*atr,long?entry-structural:structural-entry,2*(ask-bid));
+ const structural=n(trend.invalidation);if(!Number.isFinite(structural)||(long?structural>=entry:structural<=entry))return fail('Structure invalidated before entry');const distance=Math.max(1.5*atr,long?entry-structural:structural-entry,2*(ask-bid));
  if(!Number.isFinite(distance)||distance<=0||distance/entry>.05)return fail('Invalid stop or stop distance exceeds 5%');
  const roundDown=x=>Math.floor(x/tick)*tick,roundUp=x=>Math.ceil(x/tick)*tick;
  const stop=long?roundDown(entry-distance):roundUp(entry+distance),riskDistance=Math.abs(entry-stop),target=long?roundUp(entry+2*riskDistance):roundDown(entry-2*riskDistance);
