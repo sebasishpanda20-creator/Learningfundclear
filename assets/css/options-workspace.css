@@ -1,72 +1,133 @@
-/* Options workspace v3: isolated from the funding desk and portal shell. */
+/* Compact, screener-first layout for the crypto options research desk. */
 body[data-page="crypto-options"]{--ws-ink:var(--lfc-text-strong);--ws-muted:var(--lfc-muted);--ws-line:var(--lfc-border);--ws-accent:#187868}
-body[data-page="crypto-options"] #main{display:grid;grid-template-columns:290px minmax(0,1fr) minmax(0,.86fr);grid-template-areas:"head head head" "tabs tabs tabs" "input pulse pulse" "input brief brief" "input select select" "input range range" "input blockers blockers" "input plan monitor" "email email email" "advanced advanced advanced";gap:18px;max-width:1600px;align-items:start;padding-bottom:48px}
+body[data-page="crypto-options"] #main{display:grid;grid-template-columns:repeat(12,minmax(0,1fr));grid-template-areas:"head head head head head head head head head head head head" "tabs tabs tabs tabs tabs tabs tabs tabs tabs tabs tabs tabs" "input input input input input input input input input input input input" "brief brief brief brief brief brief brief brief brief brief brief brief" "pulse pulse pulse pulse pulse pulse select select select select select select" "plan plan plan plan plan plan monitor monitor monitor monitor monitor monitor" "range range range range range range range range range range range range" "blockers blockers blockers blockers blockers blockers blockers blockers blockers blockers blockers blockers" "email email email email email email email email email email email email" "advanced advanced advanced advanced advanced advanced advanced advanced advanced advanced advanced advanced";gap:12px;max-width:1480px;align-items:start;padding-bottom:32px}
 body[data-page="crypto-options"] #main>*{grid-column:auto;min-width:0;margin:0}
 body[data-page="crypto-options"] #main>.options-masthead{grid-area:head}
 body[data-page="crypto-options"] #main>.desk-tabs{grid-area:tabs}
 body[data-page="crypto-options"] #main>.desk-inputs{grid-area:input}
-body[data-page="crypto-options"] #main>.simple-direction{grid-area:pulse}
 body[data-page="crypto-options"] #main>#strategyCockpit{grid-area:brief}
+body[data-page="crypto-options"] #main>.simple-direction{grid-area:pulse}
 body[data-page="crypto-options"] #main>.simple-recommendation{grid-area:select}
 body[data-page="crypto-options"] #main>#tradePlan{grid-area:plan}
 body[data-page="crypto-options"] #main>#monitorPanel{grid-area:monitor}
+body[data-page="crypto-options"] #main>#rangeDesk{grid-area:range}
+body[data-page="crypto-options"] #main>#optionBlockerPanel{grid-area:blockers}
 body[data-page="crypto-options"] #main>#emailWatch{grid-area:email}
 body[data-page="crypto-options"] #main>.desk-advanced{grid-area:advanced}
-body[data-page="crypto-options"] .options-masthead{background:none;border:0;box-shadow:none;border-radius:0;min-height:0;padding:14px 0 10px;color:var(--ws-ink);align-items:center;gap:20px}
+
+body[data-page="crypto-options"] main{padding-top:18px!important}
+body[data-page="crypto-options"] .options-masthead{min-height:0;padding:4px 2px 6px;align-items:center;gap:16px;background:none;border:0;box-shadow:none;border-radius:0;color:var(--ws-ink)}
 body[data-page="crypto-options"] .options-masthead:after{display:none}
-body[data-page="crypto-options"] .options-masthead h1{color:var(--ws-ink);font-size:clamp(26px,2.7vw,38px);line-height:1.2;letter-spacing:-1.3px;margin:8px 0}
-body[data-page="crypto-options"] .options-masthead p{color:var(--ws-muted);font-size:12px}
-body[data-page="crypto-options"] .options-masthead .desk-hero-eyebrow{font-size:9px;letter-spacing:1.8px;color:var(--ws-muted)}
-.workspace-version{display:inline-flex;vertical-align:middle;margin-left:12px;font:600 10px/1 monospace;border:1px solid var(--ws-line);border-radius:5px;padding:6px;letter-spacing:0;color:var(--ws-muted)}
-.workspace-mode{font-size:12px;font-weight:750;white-space:nowrap;text-align:right}.workspace-mode small{display:block;font-size:10px;color:var(--ws-muted);margin-top:8px;font-weight:400}.mode-dot{display:inline-block;width:7px;height:7px;border-radius:50%;background:#47b39b;margin-right:6px}
-body[data-page="crypto-options"] .desk-tabs{width:100%;border:0;border-bottom:1px solid var(--ws-line);border-radius:0;background:none;padding:0;box-shadow:none;gap:24px}
-body[data-page="crypto-options"] .desk-tabs a{padding:12px 0;border-radius:0;font-size:12px;min-height:44px;border-bottom:2px solid transparent}
-body[data-page="crypto-options"] .desk-tabs a[aria-current="page"]{color:var(--lfc-text-strong);background:none;box-shadow:none;border-color:#3eb89e}
-body[data-page="crypto-options"] .card{border:1px solid var(--ws-line);border-radius:16px;padding:23px;box-shadow:0 3px 12px #12253903;background:var(--lfc-surface)}
-body[data-page="crypto-options"] .card h2{font-size:18px;letter-spacing:-.45px;margin:7px 0 14px;background:none;padding:0;border:0}
-.panel-kicker,body[data-page="crypto-options"] .desk-input-kicker{font-size:9px;font-weight:800;letter-spacing:1.8px;color:var(--ws-muted)}
-body[data-page="crypto-options"] .desk-inputs{padding:24px!important;position:static;background:var(--lfc-surface)!important;border-top:3px solid #3eb89e}
-body[data-page="crypto-options"] .desk-inputs h2.desk-input-heading{font-size:21px;margin:10px 0 26px!important}
-body[data-page="crypto-options"] .desk-inputs .row{display:flex;flex-direction:column;gap:14px;align-items:stretch}
-body[data-page="crypto-options"] .desk-inputs .capital-field{flex:auto;width:100%;max-width:none}
-body[data-page="crypto-options"] .capital-field input{width:100%;font-size:28px;min-height:62px;letter-spacing:-1px;background:var(--lfc-surface-soft);border:1px solid var(--ws-line);box-shadow:none}
-body[data-page="crypto-options"] .desk-inputs label{display:block;font-size:11px;color:var(--ws-muted);margin-bottom:8px}
-.session-duration select{width:100%;min-height:42px;border:1px solid var(--ws-line);background:var(--lfc-surface-soft);color:var(--ws-ink);border-radius:9px;padding:9px}
-body[data-page="crypto-options"] #refreshNow{background:#187868;color:#fff;border:1px solid #187868;font-size:13px;min-height:48px;border-radius:9px;box-shadow:0 7px 18px #18786820}
-body[data-page="crypto-options"] #resetPlan{border:0;background:none;color:var(--ws-muted);min-height:32px;padding:4px;font-size:11px}
-.capital-presets{display:flex;gap:7px;margin-top:10px}.capital-presets button{flex:1;min-height:30px!important;font-size:10px!important;padding:4px!important;border:1px solid var(--ws-line);border-radius:6px;background:var(--lfc-surface-soft);color:var(--ws-ink)}
-body[data-page="crypto-options"] #status{display:block;padding:12px;font-size:11px;margin:18px 0 12px;overflow-wrap:anywhere}
-body[data-page="crypto-options"] #capitalDiagnostics{font-size:11px;line-height:1.8;background:var(--lfc-surface-soft);border:0;padding:12px;font-weight:500}
-body[data-page="crypto-options"] #capitalImpact,body[data-page="crypto-options"] #fxStatus{font-size:10px;line-height:1.7}
-body[data-page="crypto-options"] #lastChecked{font-size:10px;padding-top:14px;border-top:1px solid var(--ws-line)}
-body[data-page="crypto-options"] .simple-direction{padding:23px}.simple-direction>.sub{font-size:11px!important;line-height:1.6}
-body[data-page="crypto-options"] .simple-trend-grid{grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin-top:20px}
-body[data-page="crypto-options"] .trend-tile{min-height:130px;padding:17px;border-radius:12px;gap:9px;background:var(--lfc-surface-soft);box-shadow:none}
-body[data-page="crypto-options"] .trend-tile strong{font-size:10px}.trend-tile span{font-variant-numeric:tabular-nums}
-body[data-page="crypto-options"] .trend-tile span{font-size:23px;letter-spacing:-.7px}
-body[data-page="crypto-options"] .trend-tile small{font-size:10px;line-height:1.6}
-body[data-page="crypto-options"] #strategyCockpit{padding:26px;background:radial-gradient(ellipse at top right,#234e4a,transparent 65%),#102b2c!important;border:1px solid #315550!important;border-radius:16px;color:#e9f6f2}
-#strategyCockpit .cockpit-head p{font-size:9px;letter-spacing:1.8px;color:#9ac6b9;margin:0 0 12px}#strategyCockpit h2{color:#f4fcf9;font-size:24px;margin:0 0 6px;letter-spacing:-.7px}.cockpit-badge{font-size:9px;color:#c9e9dd;border-color:#52776c;padding:7px 9px}
-body[data-page="crypto-options"] .cockpit-metrics{grid-template-columns:repeat(4,minmax(0,1fr));gap:0;margin:24px 0 12px;border-block:1px solid #ffffff20;padding:20px 0}
-body[data-page="crypto-options"] .cockpit-metrics>div{background:none;border:0;border-right:1px solid #ffffff20;border-radius:0;padding:0 16px}
-body[data-page="crypto-options"] .cockpit-metrics>div:first-child{padding-left:0}body[data-page="crypto-options"] .cockpit-metrics>div:last-child{border:0}
-.cockpit-metrics span{font-size:10px!important}.cockpit-metrics strong{font-size:22px!important;letter-spacing:-.5px}#cockpitState{font-size:11px;color:#bed9cf;line-height:1.7}#payoffPlayground{margin-top:16px;padding-top:16px;border-top:1px solid #ffffff20}
-body[data-page="crypto-options"] .simple-recommendation{border:1px solid var(--ws-line);border-left:3px solid #3eb89e;background:var(--lfc-surface);padding:23px}
-body[data-page="crypto-options"] .simple-recommendation h3{font-size:22px}.selection-rules{font-size:11px;color:var(--ws-muted);margin-bottom:14px}.selection-rules summary{cursor:pointer}.selection-rules p{line-height:1.7}
-body[data-page="crypto-options"] #tradePlan,body[data-page="crypto-options"] #monitorPanel{border-top:1px solid var(--ws-line);height:100%}
-body[data-page="crypto-options"] #tradePlan dl{display:grid;grid-template-columns:1fr;gap:0;border:0}
-body[data-page="crypto-options"] #tradePlan dt{border:0;padding:10px 0 3px;font-size:10px;font-weight:500;color:var(--ws-muted);background:none}
-body[data-page="crypto-options"] #tradePlan dd{padding:0 0 10px;font-size:12px;line-height:1.7;margin:0;border-bottom:1px solid var(--ws-line);overflow-wrap:anywhere;background:none}
-body[data-page="crypto-options"] #monitorPanel p,body[data-page="crypto-options"] #tradePlan p{font-size:12px;line-height:1.8;overflow-wrap:anywhere}
-.workspace-empty{text-align:center;padding:28px 6px}.workspace-empty>span{display:inline-grid;place-items:center;width:50px;height:50px;background:var(--lfc-surface-soft);border:1px solid var(--ws-line);border-radius:14px;font-size:25px;color:var(--ws-muted)}.workspace-empty h3{font-size:13px;margin-top:18px}.workspace-empty p{color:var(--ws-muted)}
-body[data-page="crypto-options"] #emailWatch>summary,body[data-page="crypto-options"] .desk-advanced>summary{cursor:pointer;font-size:13px;font-weight:700;padding:0}#emailWatch>summary span{font-size:10px;font-weight:400;color:var(--ws-muted);margin-left:14px}#emailWatch>p{font-size:12px;line-height:1.8}#emailWatch[open]>summary{margin-bottom:20px}
-body[data-page="crypto-options"] button:focus-visible,body[data-page="crypto-options"] summary:focus-visible,body[data-page="crypto-options"] a:focus-visible{outline:3px solid #4ec5aa;outline-offset:3px}
-@media(max-width:1200px){body[data-page="crypto-options"] #main{grid-template-columns:255px minmax(0,1fr);grid-template-areas:"head head" "tabs tabs" "input pulse" "input brief" "input select" "input range" "input blockers" "plan monitor" "email email" "advanced advanced"}.workspace-mode{display:none}.cockpit-metrics strong{font-size:18px!important}}
-@media(max-width:900px){body[data-page="crypto-options"] #main{grid-template-columns:minmax(0,1fr);grid-template-areas:"head" "tabs" "input" "pulse" "brief" "select" "range" "blockers" "plan" "monitor" "email" "advanced";gap:14px}body[data-page="crypto-options"] .desk-inputs{position:static}body[data-page="crypto-options"] .desk-inputs .row{display:grid;grid-template-columns:1fr 1fr;align-items:end}body[data-page="crypto-options"] .desk-inputs .capital-field{grid-column:1/-1}.capital-presets{max-width:260px}body[data-page="crypto-options"] .cockpit-metrics{grid-template-columns:repeat(2,minmax(0,1fr));row-gap:20px}body[data-page="crypto-options"] .cockpit-metrics>div:nth-child(3){padding-left:0}body[data-page="crypto-options"] .cockpit-metrics>div:nth-child(2){border:0}}
-@media(max-width:480px){body[data-page="crypto-options"] .card{padding:18px}body[data-page="crypto-options"] .options-masthead h1{font-size:27px}.workspace-version{display:none}body[data-page="crypto-options"] .desk-tabs{gap:17px}body[data-page="crypto-options"] .desk-tabs a{font-size:10px}body[data-page="crypto-options"] .simple-trend-grid{grid-template-columns:1fr}body[data-page="crypto-options"] .trend-tile{min-height:0;padding:15px;display:grid;grid-template-columns:1fr 1fr;align-items:center}.trend-tile small{grid-column:1/-1}body[data-page="crypto-options"] .desk-inputs .row{display:flex}body[data-page="crypto-options"] #strategyCockpit{padding:20px}.cockpit-head{align-items:start;gap:10px}#strategyCockpit h2{font-size:21px}.cockpit-badge{white-space:normal}#emailWatch>summary span{display:block;margin:6px 0 0}}
+body[data-page="crypto-options"] .options-masthead h1{margin:3px 0 5px;color:var(--ws-ink);font-size:clamp(24px,2.4vw,32px);line-height:1.15;letter-spacing:-1px}
+body[data-page="crypto-options"] .options-masthead p{margin:0;color:var(--ws-muted);font-size:11px;line-height:1.5}
+body[data-page="crypto-options"] .options-masthead .desk-hero-eyebrow{font-size:9px;letter-spacing:1.5px;color:var(--ws-muted)}
+.workspace-mode{flex:none;padding:8px 11px;border:1px solid var(--ws-line);border-radius:999px;color:var(--ws-ink);font-size:10px;font-weight:750;white-space:nowrap;text-align:left}
+.workspace-mode small{display:inline;margin:0 0 0 7px;color:var(--ws-muted);font-size:10px;font-weight:450}
+.mode-dot{display:inline-block;width:7px;height:7px;border-radius:50%;background:#47b39b;margin-right:6px}
 
-body[data-page="crypto-options"] #optionBlockerPanel{grid-area:blockers}#optionBlockers details{padding:12px 0;border-bottom:1px solid var(--lfc-border)}#optionBlockers summary{cursor:pointer;font-weight:600}
+body[data-page="crypto-options"] .desk-tabs{width:100%;display:flex;flex-wrap:nowrap;gap:5px;padding:4px;border:1px solid var(--ws-line);border-radius:11px;background:var(--lfc-surface);box-shadow:none;overflow-x:auto}
+body[data-page="crypto-options"] .desk-tabs a{flex:0 0 auto;min-height:34px;padding:7px 11px;border:0;border-radius:8px;font-size:10px;white-space:nowrap}
+body[data-page="crypto-options"] .desk-tabs a[aria-current="page"]{background:var(--ws-accent);color:#fff;box-shadow:none}
 
-body[data-page="crypto-options"] .desk-advanced>summary{scroll-margin-top:110px}
+body[data-page="crypto-options"] .card{padding:16px 18px;border:1px solid var(--ws-line);border-radius:13px;background:var(--lfc-surface);box-shadow:0 2px 8px #12253905}
+body[data-page="crypto-options"] .card h2{margin:4px 0 8px;padding:0;border:0;background:none;font-size:16px;letter-spacing:-.35px}
+body[data-page="crypto-options"] .card p{font-size:11px;line-height:1.55}
+.panel-kicker,body[data-page="crypto-options"] .desk-input-kicker{margin:0;color:var(--ws-muted);font-size:8px;font-weight:800;letter-spacing:1.45px}
 
-body[data-page="crypto-options"] #main>#rangeDesk{grid-area:range;border-top:3px solid #187868;padding:22px}#rangeDesk p,#rangeDesk li{font-size:12px;line-height:1.6}#rangeDesk summary{font-weight:700;padding:10px 0;cursor:pointer}#rangeDesk .range-metrics{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin:16px 0}#rangeDesk .range-metrics div{padding:12px;border:1px solid var(--lfc-border);border-radius:9px}#rangeDesk .range-metrics strong{display:block;font-size:16px;margin-top:6px}#rangeDesk .range-metrics small{font-size:10px}#rangeResults{overflow-wrap:anywhere}@media(max-width:600px){#rangeDesk .range-metrics{grid-template-columns:repeat(2,minmax(0,1fr))}}
+body[data-page="crypto-options"] .desk-inputs{position:static;padding:14px 16px!important;border-top:2px solid #3eb89e;background:var(--lfc-surface)!important}
+.controls-heading{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:10px}
+body[data-page="crypto-options"] .desk-inputs h2.desk-input-heading{margin:2px 0 0!important;font-size:15px;letter-spacing:-.25px}
+.control-hint{color:var(--ws-muted);font-size:10px}
+body[data-page="crypto-options"] .desk-inputs .row{display:grid;grid-template-columns:minmax(180px,1.2fr) minmax(200px,1.25fr) minmax(130px,.8fr) minmax(125px,.8fr) auto;gap:9px;align-items:end}
+body[data-page="crypto-options"] .desk-inputs .capital-field{width:auto;max-width:none;min-width:0}
+body[data-page="crypto-options"] .desk-inputs label{display:block;margin:0 0 4px;color:var(--ws-muted);font-size:9px;font-weight:700}
+body[data-page="crypto-options"] .capital-field input,body[data-page="crypto-options"] .session-duration select{width:100%;height:38px;min-height:38px;padding:7px 10px;border:1px solid var(--ws-line);border-radius:8px;background:var(--lfc-surface-soft);color:var(--ws-ink);font-size:12px;box-shadow:none}
+body[data-page="crypto-options"] .capital-field input{font-size:15px;font-weight:750;letter-spacing:-.3px}
+body[data-page="crypto-options"] #refreshNow{min-height:38px;padding:8px 16px;border:1px solid var(--ws-accent);border-radius:8px;background:var(--ws-accent);color:#fff;font-size:11px;font-weight:750;box-shadow:none;white-space:nowrap}
+body[data-page="crypto-options"] #resetPlan{min-height:32px;padding:5px 8px;border:0;background:transparent;color:var(--ws-muted);font-size:9px;white-space:nowrap}
+.capital-presets{display:flex;gap:5px;margin:8px 0 0}
+.capital-presets button{min-height:25px!important;padding:3px 9px!important;border:1px solid var(--ws-line);border-radius:6px;background:var(--lfc-surface-soft);color:var(--ws-ink);font-size:9px!important}
+body[data-page="crypto-options"] #status{display:inline-flex;margin:7px 8px 0 0;padding:5px 8px;border:1px solid var(--ws-line);border-radius:6px;background:var(--lfc-surface-soft);font-size:9px;line-height:1.45}
+body[data-page="crypto-options"] #capitalDiagnostics{display:inline-block;margin:7px 0 0;padding:5px 8px;border:0;border-radius:6px;background:transparent;color:var(--ws-muted);font-size:9px;font-weight:500;line-height:1.45}
+body[data-page="crypto-options"] #capitalImpact{display:none}
+body[data-page="crypto-options"] #fxStatus{display:inline-block;margin:4px 8px 0 0;font-size:9px;line-height:1.4}
+body[data-page="crypto-options"] #lastChecked{display:inline-block;padding:0;border:0;color:var(--ws-muted);font-size:9px}
+
+body[data-page="crypto-options"] #strategyCockpit{padding:12px 15px;border:1px solid #315550!important;border-radius:12px;background:radial-gradient(ellipse at top right,#234e4a,transparent 65%),#102b2c!important;color:#e9f6f2}
+#strategyCockpit .cockpit-head{display:flex;align-items:center;justify-content:space-between;gap:10px}
+#strategyCockpit .cockpit-head p{margin:0 0 2px;color:#9ac6b9;font-size:8px;letter-spacing:1.5px}
+#strategyCockpit h2{margin:0;color:#f4fcf9;font-size:16px;letter-spacing:-.3px}
+.cockpit-badge{padding:5px 8px;border-color:#52776c;color:#c9e9dd;font-size:8px}
+body[data-page="crypto-options"] .cockpit-metrics{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:0;margin:9px 0 6px;padding:8px 0;border-block:1px solid #ffffff20}
+body[data-page="crypto-options"] .cockpit-metrics>div{padding:0 12px;border:0;border-right:1px solid #ffffff20;border-radius:0;background:none}
+body[data-page="crypto-options"] .cockpit-metrics>div:first-child{padding-left:0}
+body[data-page="crypto-options"] .cockpit-metrics>div:last-child{border:0}
+.cockpit-metrics span{font-size:8px!important;line-height:1.35}
+.cockpit-metrics strong{font-size:16px!important;letter-spacing:-.3px}
+#cockpitState{margin:0;color:#bed9cf;font-size:9px;line-height:1.4}
+#payoffPlayground{margin-top:8px;padding-top:8px;border-top:1px solid #ffffff20;font-size:10px}
+
+body[data-page="crypto-options"] .simple-direction,body[data-page="crypto-options"] .simple-recommendation{height:100%;padding:15px;border:1px solid var(--ws-line);border-radius:13px;background:var(--lfc-surface)}
+body[data-page="crypto-options"] .simple-direction h2,body[data-page="crypto-options"] .simple-recommendation h2{margin:4px 0 6px;font-size:15px}
+body[data-page="crypto-options"] .simple-direction>.sub{max-width:none;margin:0;color:var(--ws-muted);font-size:9px!important;line-height:1.45}
+body[data-page="crypto-options"] .simple-trend-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:7px;margin-top:9px}
+body[data-page="crypto-options"] .trend-tile{display:grid;grid-template-columns:1fr auto;align-items:center;gap:3px 6px;min-height:0;padding:9px 10px;border:1px solid var(--ws-line);border-radius:9px;background:var(--lfc-surface-soft);box-shadow:none}
+body[data-page="crypto-options"] .trend-tile:before{display:none}
+body[data-page="crypto-options"] .trend-tile strong{font-size:8px;letter-spacing:.55px}
+body[data-page="crypto-options"] .trend-tile span{font-size:14px;letter-spacing:-.2px}
+body[data-page="crypto-options"] .trend-tile small{grid-column:1/-1;font-size:8px;line-height:1.35;color:var(--ws-muted)}
+body[data-page="crypto-options"] .simple-recommendation{border-top:2px solid #3eb89e}
+body[data-page="crypto-options"] .simple-recommendation>p{display:none}
+body[data-page="crypto-options"] .simple-recommendation h3{margin:8px 0 5px;font-size:17px;line-height:1.3;letter-spacing:-.35px}
+body[data-page="crypto-options"] .simple-recommendation #simpleDecision p{margin:3px 0;color:var(--ws-muted);font-size:10px;line-height:1.5}
+body[data-page="crypto-options"] .selection-rules{margin:6px 0 0;color:var(--ws-muted);font-size:9px}
+body[data-page="crypto-options"] .selection-rules summary{cursor:pointer}
+body[data-page="crypto-options"] .selection-rules p{margin:6px 0 0;font-size:9px}
+
+body[data-page="crypto-options"] #tradePlan,body[data-page="crypto-options"] #monitorPanel{height:100%;padding:15px;border-top:2px solid var(--ws-accent)}
+body[data-page="crypto-options"] #tradePlan h2,body[data-page="crypto-options"] #monitorPanel h2{font-size:15px}
+body[data-page="crypto-options"] #tradePlan dl{display:grid;grid-template-columns:minmax(100px,.8fr) minmax(120px,1.2fr);gap:0;margin:6px 0;border:0}
+body[data-page="crypto-options"] #tradePlan dt{padding:5px 0;border:0;background:none;color:var(--ws-muted);font-size:9px;font-weight:500}
+body[data-page="crypto-options"] #tradePlan dd{margin:0;padding:5px 0;border-bottom:1px solid var(--ws-line);background:none;font-size:10px;line-height:1.4;overflow-wrap:anywhere}
+body[data-page="crypto-options"] #tradePlan p,body[data-page="crypto-options"] #monitorPanel p{margin:5px 0;font-size:10px;line-height:1.5;overflow-wrap:anywhere}
+body[data-page="crypto-options"] #monitorPanel strong{display:block;padding:8px;border:1px solid var(--ws-line);border-radius:8px;background:var(--lfc-surface-soft);font-size:10px}
+.workspace-empty{padding:8px 2px;text-align:left}
+.workspace-empty>span{display:none}
+.workspace-empty h3{margin:0 0 3px;font-size:11px}
+.workspace-empty p{margin:0;color:var(--ws-muted)}
+
+body[data-page="crypto-options"] .compact-disclosure{padding:0 14px;overflow:hidden}
+body[data-page="crypto-options"] .compact-disclosure>summary{display:flex;align-items:center;gap:8px;min-height:42px;cursor:pointer;list-style:disclosure-closed;font-size:10px;font-weight:750}
+body[data-page="crypto-options"] .compact-disclosure>summary span{color:var(--ws-ink)}
+body[data-page="crypto-options"] .compact-disclosure>summary small{margin-left:auto;color:var(--ws-muted);font-size:9px;font-weight:450}
+body[data-page="crypto-options"] .compact-disclosure[open]{padding-bottom:12px}
+body[data-page="crypto-options"] .compact-disclosure[open]>summary{margin-bottom:7px;border-bottom:1px solid var(--ws-line)}
+#optionBlockers details{padding:8px 0;border-bottom:1px solid var(--ws-line)}
+#optionBlockers summary,body[data-page="crypto-options"] #rangeDesk details summary{cursor:pointer;font-size:10px;font-weight:650}
+#optionBlockers p,body[data-page="crypto-options"] #rangeDesk p,body[data-page="crypto-options"] #rangeDesk li{font-size:10px;line-height:1.5}
+body[data-page="crypto-options"] #rangeDesk .range-metrics{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:7px;margin:9px 0}
+body[data-page="crypto-options"] #rangeDesk .range-metrics div{padding:8px;border:1px solid var(--ws-line);border-radius:8px}
+body[data-page="crypto-options"] #rangeDesk .range-metrics small{font-size:8px}
+body[data-page="crypto-options"] #rangeDesk .range-metrics strong{display:block;margin-top:3px;font-size:12px}
+body[data-page="crypto-options"] #rangeDesk #rangeResults h3{font-size:13px}
+body[data-page="crypto-options"] #emailWatch,body[data-page="crypto-options"] .desk-advanced{padding:12px 15px}
+body[data-page="crypto-options"] #emailWatch>summary,body[data-page="crypto-options"] .desk-advanced>summary{cursor:pointer;font-size:10px;font-weight:700}
+body[data-page="crypto-options"] #emailWatch>summary span{margin-left:8px;color:var(--ws-muted);font-size:9px;font-weight:400}
+body[data-page="crypto-options"] .desk-advanced>.card{margin:10px 0;padding:12px}
+body[data-page="crypto-options"] button:focus-visible,body[data-page="crypto-options"] summary:focus-visible,body[data-page="crypto-options"] a:focus-visible{outline:2px solid #4ec5aa;outline-offset:2px}
+
+@media(max-width:1050px){body[data-page="crypto-options"] #main{grid-template-areas:"head head head head head head head head head head head head" "tabs tabs tabs tabs tabs tabs tabs tabs tabs tabs tabs tabs" "input input input input input input input input input input input input" "brief brief brief brief brief brief brief brief brief brief brief brief" "pulse pulse pulse pulse pulse pulse select select select select select select" "plan plan plan plan plan plan monitor monitor monitor monitor monitor monitor" "range range range range range range range range range range range range" "blockers blockers blockers blockers blockers blockers blockers blockers blockers blockers blockers blockers" "email email email email email email email email email email email email" "advanced advanced advanced advanced advanced advanced advanced advanced advanced advanced advanced advanced"}}
+@media(max-width:680px){body[data-page="crypto-options"] #main{grid-template-columns:minmax(0,1fr);gap:9px;padding-top:12px!important;grid-template-areas:"head" "tabs" "input" "brief" "pulse" "select" "plan" "monitor" "range" "blockers" "email" "advanced"}
+ body[data-page="crypto-options"] .options-masthead{align-items:flex-start}
+ .workspace-mode{align-self:center;padding:6px 8px;font-size:9px}.workspace-mode small{display:block;margin:2px 0 0 13px;font-size:8px}
+ body[data-page="crypto-options"] .desk-tabs{gap:2px}.desk-tabs a{font-size:9px!important;padding:6px 8px!important}
+ .controls-heading{margin-bottom:8px}.control-hint{max-width:130px;text-align:right;font-size:8px}
+ body[data-page="crypto-options"] .desk-inputs .row{grid-template-columns:1fr 1fr;gap:8px}
+ body[data-page="crypto-options"] .desk-inputs .capital-field{grid-column:1/-1}
+ body[data-page="crypto-options"] #refreshNow{width:100%}.capital-presets{margin-top:7px}
+ body[data-page="crypto-options"] .simple-trend-grid{gap:5px}.trend-tile{padding:7px!important}
+ body[data-page="crypto-options"] .cockpit-metrics{grid-template-columns:repeat(2,minmax(0,1fr));row-gap:8px}
+ body[data-page="crypto-options"] .cockpit-metrics>div{padding:0 8px}.cockpit-metrics>div:nth-child(odd){padding-left:0}.cockpit-metrics>div:nth-child(even){border:0}
+ body[data-page="crypto-options"] #rangeDesk .range-metrics{grid-template-columns:repeat(2,minmax(0,1fr))}
+ body[data-page="crypto-options"] #tradePlan dl{grid-template-columns:1fr 1fr}
+}
