@@ -61,13 +61,13 @@ async function fixture(ctx,auth=true,admin=true){
   const ctx=await browser.newContext({viewport:{width,height:960}});await fixture(ctx);const page=await ctx.newPage();
   for(const name of pages){let errors=[];const listener=e=>errors.push(e.message);page.on('pageerror',listener);
    await page.goto(origin+'/'+name);await page.waitForSelector('html.auth-ready');await page.waitForTimeout(150);
-   const layout=await page.evaluate(()=>({overflow:document.documentElement.scrollWidth>innerWidth+1,width:document.documentElement.scrollWidth,title:document.title,activeNav:document.querySelectorAll('.sidebar [aria-current="page"]').length,visible:document.querySelector('main')?.getBoundingClientRect().width}));
+   const layout=await page.evaluate(()=>({overflow:document.documentElement.scrollWidth>innerWidth+1,width:document.documentElement.scrollWidth,title:document.title,activeNav:document.querySelectorAll('.sidebar [aria-current="page"]').length,visible:document.querySelector('main')?.getBoundingClientRect().width,optionsGridChildren:document.body.dataset.page!=="crypto-options"||["optionBlockerPanel","rangeDesk","tradePlan","monitorPanel","emailWatch"].every(id=>document.getElementById(id)?.parentElement===document.querySelector("#main"))}));
    results.push({page:name,width,...layout,errors});
    if([1440,390].includes(width))await page.screenshot({path:'qa/'+width+'-'+name.split('?')[0].replaceAll('/','-')+'.png',fullPage:true});
    page.off('pageerror',listener);
   }await ctx.close();
  }
  const ctx=await browser.newContext({viewport:{width:1440,height:960}});await fixture(ctx,false);const page=await ctx.newPage();await page.goto(origin+'/signin.html');await page.screenshot({path:'qa/signin.png',fullPage:true});await ctx.close();
- fs.writeFileSync('qa/page-audit.json',JSON.stringify(results,null,2));console.log(JSON.stringify(results.filter(r=>r.errors.length||r.overflow||r.activeNav!==1),null,2));console.log('Page checks:',results.length);if(results.some(r=>r.errors.length||r.overflow||r.activeNav!==1))process.exitCode=1;await browser.close();server.close();
+ fs.writeFileSync('qa/page-audit.json',JSON.stringify(results,null,2));console.log(JSON.stringify(results.filter(r=>r.errors.length||r.overflow||r.activeNav!==1||!r.optionsGridChildren),null,2));console.log('Page checks:',results.length);if(results.some(r=>r.errors.length||r.overflow||r.activeNav!==1))process.exitCode=1;await browser.close();server.close();
 })();
 module.exports={fixture,origin,session,stamp};
