@@ -10,7 +10,7 @@ const cash=()=>Number($("capital").value);
 const safeText=(id,text)=>{const node=$(id);if(node)node.textContent=text;};
 const R=window.LfcCryptoRange;
 const FRAME_PROFILES={FAST:{minutes:[5,15],label:"5m / 15m"},FAST_30:{minutes:[5,30],label:"5m / 30m"},MID:{minutes:[15,30],label:"15m / 30m"},STANDARD:{minutes:[15,60],label:"15m / 1h"},SLOW:{minutes:[30,60],label:"30m / 1h"}};
-const profile=value=>FRAME_PROFILES[value]||FRAME_PROFILES.FAST;
+const profile=value=>FRAME_PROFILES[value]||FRAME_PROFILES.STANDARD;
 const resolution=minutes=>minutes===60?"1h":minutes+"m";
 let rangeLocked=null;
 let fx=null,fxAt=0,running=false,pendingRefresh=false,locked=null,latestTickers=[],timer=null,controller=null;
@@ -264,7 +264,7 @@ async function refreshOption(isMonitor=false) {
   }catch(e){showMonitor({status:"DATA UNAVAILABLE",reason:"Cannot monitor live exit: "+e.message});safeText("status","Exchange feed unavailable; verify Delta terminal immediately.");}
   return;
  }
- const frameMode=$("optionSignalFrame")?.value||"FAST",assets=["BTC","ETH","XAUT"],results=[];
+ const frameMode=$("optionSignalFrame")?.value||"STANDARD",assets=["BTC","ETH","XAUT"],results=[];
  safeText("status","Scanning BTC, ETH and gold using EMA trend, RSI, MACD, ADX, optional volume and SMC, then risk-checking options…");
  const search=await Promise.all(assets.map(async asset=>{
   try{
@@ -282,7 +282,7 @@ async function refreshOption(isMonitor=false) {
    results.push({asset,trend});return{asset,trend,plan:{status:"NO TRADE",reason:e.message}};
   }
  }));
- if(frameMode!==($("optionSignalFrame")?.value||"FAST")||startedKey!==inputKey())return;
+ if(frameMode!==($("optionSignalFrame")?.value||"STANDARD")||startedKey!==inputKey())return;
  renderRange(search);
  setRows("directionRows",assets.map(asset=>rowTrend(asset,results.find(x=>x.asset===asset)?.trend||{side:"UNKNOWN",why:"No exchange response"})));
  simpleSummary(search);
@@ -604,7 +604,7 @@ $("capital").addEventListener("input",()=>{
  debounce=setTimeout(refresh,600);
 });
 if($("optionSignalFrame")){
- $("optionSignalFrame").value=locked?.signalFrameMode||"FAST";
+ $("optionSignalFrame").value=locked?.signalFrameMode||"STANDARD";
  $("optionSignalFrame").addEventListener("change",()=>{rangeLocked=null;renderRange();if(locked){$("optionSignalFrame").value=locked.signalFrameMode||"STANDARD";safeText("status","Paper plan remains locked. Reset paper plan before changing signal candles.");}else refresh();});
 }
 if($("tradeHorizon")){
