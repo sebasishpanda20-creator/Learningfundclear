@@ -12,7 +12,7 @@ const bars=(minutes,asset)=>{
  });
 };
 function quote(symbol,bid,ask,asset="BTC") {
- return{symbol,timestamp:Date.now()*1000,oi_value_usd:5000,quotes:{best_bid:bid,best_ask:ask},
+ return{symbol,timestamp:Date.now()*1000,oi_value_usd:50000,quotes:{best_bid:bid,best_ask:ask},
   product:{state:"live",trading_status:"operational",contract_value:0.001,contract_unit_currency:asset}};
 }
 const server=http.createServer((req,res)=>{
