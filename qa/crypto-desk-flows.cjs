@@ -73,10 +73,13 @@ const server=http.createServer((req,res)=>{
    await page.locator("#refreshNow").click();
    await page.locator("#monitorPanel").getByText("Indicative NET exit quote",{exact:false}).waitFor({timeout:25000});
    assert.match(await page.locator("#monitorPanel").innerText(),/Indicative NET exit quote/);
+   // A timeframe change must not silently revert while a local paper plan is locked.
+   await page.locator("#optionSignalFrame").selectOption("FAST");
+   assert.equal(await page.locator("#optionSignalFrame").inputValue(),"FAST");
    // Changing capital must clear a cached paper plan automatically, never reuse its lots.
    await page.locator("#capital").fill("1000");
    await page.locator("#capitalDiagnostics").getByText("₹20",{exact:false}).waitFor({timeout:7000});
-   assert.match(await page.locator("#capitalImpact").innerText(),/CAPITAL BLOCK/);await page.locator("#optionSignalFrame").selectOption("FAST");assert.equal(await page.locator("#optionSignalFrame").inputValue(),"FAST");
+   assert.match(await page.locator("#capitalImpact").innerText(),/CAPITAL BLOCK/);
    await page.locator("#tradePlan").getByText("No suitable trade right now",{exact:false}).waitFor({timeout:20000});
    await page.locator("#capital").fill("10000");
    await page.locator("#capitalDiagnostics").getByText("₹200",{exact:false}).waitFor({timeout:7000});
