@@ -170,3 +170,21 @@ test("exit monitor fails closed on crossed, incomplete and corrupt two-leg quote
  assert.equal(D.monitor({...p,quantity:0},pair(),now).status,"NO TRADE");
  assert.equal(D.monitor({...p,costBreakdown:null},pair(),now).status,"NO TRADE");
 });
+
+
+test("profit-first gate rejects zero-profit or poor reward even with a directional signal",()=>{
+ const bad=D.sessionEconomics(1,5,0.65,0.8);
+ assert.equal(bad.eligible,false);
+ assert.match(bad.reason,/1.5:1|stop/);
+ const feeConsumed=D.sessionEconomics(1,5,2,0.9);
+ assert.equal(feeConsumed.eligible,false);
+ assert.match(feeConsumed.reason,/fees/);
+ const good=D.sessionEconomics(1,5,0.02,0.95);
+ assert.equal(good.eligible,true);
+ assert(good.rr>=1.5);
+});
+test("a small positive paper payoff is not automatically trade-worthy",()=>{
+ const trendUp=trend(),tiny=pair();
+ const small=D.chooseSpread(tiny,trendUp,"BTC",1e7,now,2);
+ assert.equal(small.status,"NO TRADE","An account sized far beyond market depth must not get a low-value payoff recommendation");
+});
