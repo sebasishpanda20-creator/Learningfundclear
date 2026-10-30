@@ -124,6 +124,9 @@ function liquid(x,asset,now){return x&&x.asset===asset&&x.live&&x.unit===asset&&
  fresh(x.timestamp,now)&&x.expiry>now+3600000&&x.expiry<now+10*86400000;}
 // Conservative cost estimates: four taker fills and no premium fee-cap discounts.
 const GST_RATE=0.18,SLIPPAGE_RATE=0.001,FALLBACK_TAKER_RATE=0.0005;
+// PAPER recommendation only: minimum net target must justify friction, account risk and possible slippage.
+// A target scenario is NOT an expected profit; probability of reaching it remains unvalidated.
+const MIN_NET_TARGET_RR=1.5,MIN_NET_TARGET_CAPITAL_FRACTION=0.005,MIN_NET_TARGET_COST_MULTIPLE=2;
 function roundTripCosts(legs,spot,cv,qty=1){
  if(!ok(spot)||spot<=0||!ok(cv)||cv<=0||!Number.isInteger(qty)||qty<1||!Array.isArray(legs)||legs.length!==2)return null;
  let taker=0,premiums=0,fallback=false;
@@ -144,8 +147,8 @@ function sessionEconomics(debit,width,costs,currentExit){
  if(![debit,width,costs,currentExit].every(ok)||debit<=0||width<=debit||costs<0)return {eligible:false,reason:"Invalid spread economics"};
  const stop=debit*.5,target=Math.min(width*.9,debit*1.6),netReward=target-debit-costs,netLoss=debit-stop+costs;
  const rr=netReward/netLoss,entryDrag=debit-currentExit;
- const reason=netReward<=0?"Estimated fees consume the session target":currentExit<=stop?"Current close quotes already breach the planned stop":rr<1?"Net session target is smaller than the modeled stop loss":"Session target and stop pass cost checks";
- return {eligible:netReward>0&&currentExit>stop&&rr>=1,reason,stop,target,netReward,netLoss,rr,entryDrag,breakEvenWinRate:netLoss/(netLoss+netReward)};
+ const reason=netReward<=0?"Estimated fees consume the session target":currentExit<=stop?"Current close quotes already breach the planned stop":rr<MIN_NET_TARGET_RR?"Net target/stop is below the 1.5:1 minimum":"Session target and stop pass initial cost checks";
+ return {eligible:netReward>0&&currentExit>stop&&rr>=MIN_NET_TARGET_RR,reason,stop,target,netReward,netLoss,rr,entryDrag,breakEvenWinRate:netLoss/(netLoss+netReward)};
 }
 function chooseSpread(tickers,trend,asset,capitalUSD,now=Date.now(),hours=4){
  if(![2,4,8].includes(hours))return wait("Choose a valid 2, 4 or 8 hour trade horizon");
@@ -154,7 +157,7 @@ function chooseSpread(tickers,trend,asset,capitalUSD,now=Date.now(),hours=4){
  if(!trend?.actionable||!["UP","DOWN"].includes(trend.side))return wait("No confirmed direction: "+(trend?.why||"no data"));
  const side=trend.side==="UP"?"C":"P",chain=(Array.isArray(tickers)?tickers:[]).map(parseOption).filter(t=>liquid(t,asset,now)&&t.side===side);
  if(chain.length<2||!ok(trend.current))return wait("Fresh liquid option strikes and verified contract sizes not available");
- let best=null,minOneLotCapital=Infinity,sessionRejected=0;
+ let best=null,minOneLotCapital=Infinity,sessionRejected=0,profitRejected=0;
  const expiries=[...new Set(chain.map(t=>t.expiry))].sort((a,b)=>a-b);
  for(const expiry of expiries.slice(0,3)){
   if(expiry<=now+hours*3600000+3600000)continue;
@@ -174,7 +177,13 @@ function chooseSpread(tickers,trend,asset,capitalUSD,now=Date.now(),hours=4){
    minOneLotCapital=Math.min(minOneLotCapital,Math.max(20,loss/.02,long.cv*trend.current/.30));
    const quantity=Math.floor(Math.min(capitalUSD*0.02/loss,capitalUSD*0.30/(long.cv*trend.current)));
    if(quantity<1)continue;
-   const candidate={status:"PAPER PLAN",direction:trend.side,
+    // Fee-aware minimum opportunity quality, independent of directional evidence score.
+    const netTargetUSD=economics.netReward*quantity;
+    const roundTripReserveUSD=buffer*quantity;
+    const minimumNetTargetUSD=Math.max(capitalUSD*MIN_NET_TARGET_CAPITAL_FRACTION,
+      roundTripReserveUSD*MIN_NET_TARGET_COST_MULTIPLE);
+    if(!Number.isFinite(netTargetUSD)||netTargetUSD<minimumNetTargetUSD){profitRejected++;continue;}
+    const candidate={status:"PAPER PLAN",direction:trend.side,
     signalScore:trend.score,signalMaxScore:trend.maxScore,signalMethod:trend.signalMethod,
     label:side==="C"?"Bull call debit spread":"Bear put debit spread",
     long:long.symbol,short:short.symbol,expiry,contractValue:long.cv,
@@ -187,7 +196,8 @@ function chooseSpread(tickers,trend,asset,capitalUSD,now=Date.now(),hours=4){
     expectedTargetNetUSD:(Math.min(width*0.9,debit*1.6)-debit-buffer)*quantity,
     expectedStopNetUSD:(debit*0.5-debit-buffer)*quantity,
     breakevenSpread:(debit+buffer)/long.cv,
-    why:"Multi-factor 15m/1h direction (SMC or RSI/MACD/ADX) → liquid quoted expiry → positive session target and at least 1:1 net target/stop ratio → 2% modeled maximum spread-risk / 30% notional checks",
+    why:"Completed-candle direction + fresh liquid quotes + net target at least 1.5× stop loss + net target at least 0.5% of capital and 2× estimated round-trip costs. Paper payoff scenario only, NOT predicted profit.",
+     minRequiredNetTargetUSD:minimumNetTargetUSD,modeledNetTargetUSD:netTargetUSD,
     sessionNetRR:economics.rr,breakEvenWinRate:economics.breakEvenWinRate,
     entryDragUSD:economics.entryDrag*quantity,underlyingInvalidation:trend.invalidation,
     selectionMethod:"SESSION_NET_RR_V2",
@@ -198,7 +208,7 @@ function chooseSpread(tickers,trend,asset,capitalUSD,now=Date.now(),hours=4){
  return best||wait(Number.isFinite(minOneLotCapital)&&capitalUSD<minOneLotCapital?
   "CAPITAL BLOCK: smallest qualifying vertical needs approximately $"+minOneLotCapital.toFixed(2)+
   " of modeled research capital for one contract under 2% risk and 30% notional limits; available $"+capitalUSD.toFixed(2):
-  "No option vertical passes direction, timeframe, liquidity and session economics. "+sessionRejected+" pairs rejected because fees consume the target, net target/stop is below 1:1, or close quotes already breach the stop. Increasing capital does not repair poor per-contract economics");
+  "NO TRADE — no option vertical clears the profit-first gate: 1.5:1 net target/stop, net target ≥0.5% of capital and ≥2× modeled round-trip costs. "+sessionRejected+" candidates failed initial economics; "+profitRejected+" had too little net target profit after sizing. A bullish/bearish score alone is not a trade.");
 }
 // Long-volatility alternatives are research-only: a sideways market does not by
 // itself imply imminent movement. Liquidity, fresh quotes and premium risk still apply.
