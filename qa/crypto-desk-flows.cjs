@@ -76,7 +76,17 @@ const server=http.createServer((req,res)=>{
    // Changing capital must clear a cached paper plan automatically, never reuse its lots.
    await page.locator("#capital").fill("1000");
    await page.locator("#capitalDiagnostics").getByText("₹20",{exact:false}).waitFor({timeout:7000});
-   assert.match(await page.locator("#capitalImpact").innerText(),/CAPITAL BLOCK/);await page.locator("#optionSignalFrame").selectOption("FAST");assert.equal(await page.locator("#optionSignalFrame").inputValue(),"FAST");
+   assert.match(await page.locator("#capitalImpact").innerText(),/CAPITAL BLOCK/);
+   await page.locator('[data-signal-mode="FAST"]').click();
+   assert.equal(await page.locator("#optionSignalFrame").inputValue(),"FAST");
+   assert.equal(await page.locator('[data-signal-mode="FAST"]').getAttribute("aria-pressed"),"true");
+   assert.match(await page.locator("#marketPulseFrame").innerText(),/5m \+ 15m/);
+   await page.locator('[data-signal-mode="STANDARD"]').click();
+   assert.equal(await page.locator("#optionSignalFrame").inputValue(),"STANDARD");
+   assert.equal(await page.locator('[data-signal-mode="STANDARD"]').getAttribute("aria-pressed"),"true");
+   await page.locator("#optionSignalFrame").selectOption("FAST");
+   assert.equal(await page.locator('[data-signal-mode="FAST"]').getAttribute("aria-pressed"),"true");
+   assert.equal(await page.evaluate(()=>sessionStorage.getItem("lfc.crypto.signalFrame")),"FAST");
    await page.locator("#tradePlan").getByText("No suitable trade right now",{exact:false}).waitFor({timeout:20000});
    await page.locator("#capital").fill("10000");
    await page.locator("#capitalDiagnostics").getByText("₹200",{exact:false}).waitFor({timeout:7000});
