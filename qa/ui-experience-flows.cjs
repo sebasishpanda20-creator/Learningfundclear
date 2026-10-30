@@ -22,7 +22,17 @@ const srv=http.createServer((req,res)=>{
    await page.locator("html.auth-ready").waitFor({timeout:15000});
    assert.equal(await page.locator(".sidebar .nav-group").count(),4,"Navigation sections");
    assert.equal(await page.locator("#adminNav").getAttribute("hidden"),null,"Admin nav visible to authorized admin");
-   assert.equal(await page.locator(".workspace-links a").count(),4);
+   assert.equal(await page.locator(".launch-card[data-launch-group='trade']:visible").count(),4,"Trading research cards visible");
+   await page.locator("#launchInvestTab").click();
+   assert.equal(await page.locator(".launch-card[data-launch-group='invest']:visible").count(),2,"Investing research cards visible");
+   await page.locator("#launchpadSearch").fill("mutual");
+   assert.equal(await page.locator(".launch-card[data-launch-group='invest']:visible").count(),1,"Workspace search filters cards");
+   await page.locator("#launchpadSearch").fill("");
+   await page.locator("#launchInvestTab").focus();
+   await page.keyboard.press("ArrowRight");
+   assert.equal(await page.locator("#launchReviewTab").getAttribute("aria-selected"),"true","Arrow keys switch workspace tabs");
+   assert.equal(await page.locator(".launch-card[data-launch-group='review']:visible").count(),3,"Review cards visible");
+   await page.locator("#launchTradeTab").click();
    await page.locator("#lfcQuickNavOpen").click();
    await page.locator("#lfcCommandQuery").waitFor({state:"visible"});
    await page.locator("#lfcCommandQuery").fill("crypto funding");
