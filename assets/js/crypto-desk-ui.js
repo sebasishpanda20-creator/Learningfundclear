@@ -193,6 +193,10 @@ function simpleSummary(search){
    else decision.append(node("h3","WAIT — mixed or unavailable direction"),node("p","Strategy map: confirmed UP → Bull Call debit spread; confirmed DOWN → Bear Put debit spread. A mixed trend alone does not justify a neutral option trade. See each market's checks below."));
   }
  }
+ const diagnostics=document.getElementById("optionBlockerPanel");
+ if(diagnostics&&!diagnostics.dataset.autoOpened&&!qualified.length&&!items.some(x=>x.plan?.status==="WATCH ONLY")){
+  diagnostics.open=true;diagnostics.dataset.autoOpened="true";
+ }
 }
 function showMonitor(current){
  const p=$("monitorPanel");if(!p)return;p.replaceChildren();
@@ -208,6 +212,10 @@ function showMonitor(current){
 }
 function renderRange(items=[],current=null){
  const box=$("rangeResults");if(!box)return;box.replaceChildren();
+ const rangeDisclosure=$("rangeDesk");
+ if(rangeDisclosure&&!rangeDisclosure.dataset.autoOpened&&(rangeLocked||items.some(x=>x.neutral?.status==="PAPER CANDIDATE"))){
+  rangeDisclosure.open=true;rangeDisclosure.dataset.autoOpened="true";
+ }
  const ru=v=>Number.isFinite(v)&&fx?"₹"+fnum(v/fx,2):"—";
  if(rangeLocked){
   const p=rangeLocked;
