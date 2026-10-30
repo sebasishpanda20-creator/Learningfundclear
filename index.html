@@ -8,6 +8,7 @@
     <link rel="stylesheet" href="assets/css/tokens.css" />
 
     <link rel="stylesheet" href="assets/css/app.css" />
+    <link rel="stylesheet" href="assets/css/dashboard-launchpad.css" />
     <script src="assets/vendor/supabase.js"></script>
     <script src="assets/js/config.js"></script>
     <script src="auth-guard.js"></script>
@@ -32,7 +33,30 @@
         >
       </div>
       <section class="dashboard-welcome" aria-label="Start your research"><div class="welcome-copy"><p class="eyebrow">A CLEARER WAY TO RESEARCH</p><h2>Find your focus.<br>Build your next idea.</h2><p>Your markets, research and risk plans in one workspace. Start with evidence, then decide what deserves a closer look.</p><a class="button" href="market-scanner.html">Explore the markets ↗</a></div><div class="welcome-steps"><a href="crypto-options.html"><b>01</b><div><strong>Discover a setup</strong><small>Market direction and cost-aware spreads</small></div><span>↗</span></a><a href="trading-plan.html"><b>02</b><div><strong>Define your risk</strong><small>Review capital, position size and exits</small></div><span>↗</span></a><a href="performance.html"><b>03</b><div><strong>Learn from outcomes</strong><small>Review your recorded research results</small></div><span>↗</span></a></div></section>
-      <nav class="workspace-links" aria-label="Quick access to research tools"><a href="crypto-options.html"><span class="tool-symbol" aria-hidden="true">◈</span><span class="tool-arrow">↗</span><strong>Crypto options</strong><small>Direction, spreads and session risk.</small></a><a href="market-scanner.html"><span class="tool-symbol" aria-hidden="true">⌕</span><span class="tool-arrow">↗</span><strong>Market scanner</strong><small>Explore stock and crypto research.</small></a><a href="trading-plan.html"><span class="tool-symbol" aria-hidden="true">▤</span><span class="tool-arrow">↗</span><strong>Trading plan</strong><small>Turn an idea into a reviewed plan.</small></a><a href="funds/top-returns.html"><span class="tool-symbol" aria-hidden="true">◉</span><span class="tool-arrow">↗</span><strong>Mutual funds</strong><small>Compare funds and track NAVs.</small></a></nav>
+      <section class="dashboard-launchpad" aria-labelledby="launchpadTitle">
+        <div class="launchpad-head">
+          <div><p class="eyebrow">QUICK LAUNCH</p><h2 id="launchpadTitle">What do you want to work on?</h2><p>Choose a workspace. Every screen is for research and suggestions; trades are not placed.</p></div>
+          <label class="launchpad-search"><span aria-hidden="true">⌕</span><input id="launchpadSearch" type="search" placeholder="Find a tool…" aria-label="Search workspaces"></label>
+        </div>
+        <div class="launchpad-tabs" role="tablist" aria-label="Workspace category">
+          <button type="button" role="tab" id="launchTradeTab" aria-selected="true" aria-controls="launchpadGrid" data-launch-tab="trade">Trading research <span>4</span></button>
+          <button type="button" role="tab" id="launchInvestTab" aria-selected="false" aria-controls="launchpadGrid" data-launch-tab="invest" tabindex="-1">Investing research <span>2</span></button>
+          <button type="button" role="tab" id="launchReviewTab" aria-selected="false" aria-controls="launchpadGrid" data-launch-tab="review" tabindex="-1">Plans &amp; review <span>3</span></button>
+        </div>
+        <div id="launchpadGrid" class="launchpad-grid" role="tabpanel" aria-labelledby="launchTradeTab">
+          <a class="launch-card" data-launch-group="trade" href="crypto-futures.html"><span class="launch-icon" aria-hidden="true">↗</span><span><strong>Crypto futures</strong><small>Buy and sell setups with levels and risk sizing.</small></span><b aria-hidden="true">→</b></a>
+          <a class="launch-card" data-launch-group="trade" href="crypto-options.html"><span class="launch-icon" aria-hidden="true">◇</span><span><strong>Crypto options</strong><small>Directional and range spreads, when quotes qualify.</small></span><b aria-hidden="true">→</b></a>
+          <a class="launch-card" data-launch-group="trade" href="market-scanner.html"><span class="launch-icon" aria-hidden="true">⌕</span><span><strong>Stock &amp; crypto scanner</strong><small>Completed-candle setups with explicit wait reasons.</small></span><b aria-hidden="true">→</b></a>
+          <a class="launch-card" data-launch-group="trade" href="index-scanner.html"><span class="launch-icon" aria-hidden="true">⌁</span><span><strong>Index scanner</strong><small>Review index context and signal quality.</small></span><b aria-hidden="true">→</b></a>
+          <a class="launch-card" data-launch-group="invest" href="nifty500.html"><span class="launch-icon" aria-hidden="true">◎</span><span><strong>Indian stock universe</strong><small>Search Nifty 500 prices and published snapshots.</small></span><b aria-hidden="true">→</b></a>
+          <a class="launch-card" data-launch-group="invest" href="funds/top-returns.html"><span class="launch-icon" aria-hidden="true">◉</span><span><strong>Mutual fund research</strong><small>Compare fund data and explore NAV history.</small></span><b aria-hidden="true">→</b></a>
+          <a class="launch-card" data-launch-group="review" href="trading-plan.html"><span class="launch-icon" aria-hidden="true">▤</span><span><strong>Trading plan</strong><small>Record entry, stop, target and planned risk.</small></span><b aria-hidden="true">→</b></a>
+          <a class="launch-card" data-launch-group="review" href="setups.html"><span class="launch-icon" aria-hidden="true">◷</span><span><strong>Paper setups</strong><small>Track a setup without sending broker orders.</small></span><b aria-hidden="true">→</b></a>
+          <a class="launch-card" data-launch-group="review" href="performance.html"><span class="launch-icon" aria-hidden="true">▥</span><span><strong>Performance review</strong><small>Learn from recorded outcomes and costs.</small></span><b aria-hidden="true">→</b></a>
+          <p class="launch-empty" id="launchpadEmpty" hidden>No matching workspace. Try “options”, “stock”, or “review”.</p>
+        </div>
+        <p class="launchpad-note"><strong>Investing research:</strong> this shortcut currently opens the stock universe and fund research. A fundamentals-only stock suggestion screen will be a separate, filings-based research tool; it will not place orders.</p>
+      </section>
       <div class="overview-grid">
         <div class="metric">
           <span>Research ideas</span><strong id="totalIdeas">—</strong
@@ -341,6 +365,7 @@
       </section>
     </main>
     <script src="assets/js/shell.js"></script>
+    <script src="assets/js/dashboard-launchpad.js"></script>
     <script type="module" src="assets/js/journal.js"></script>
   </body>
 </html>
