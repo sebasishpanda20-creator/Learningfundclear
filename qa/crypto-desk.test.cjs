@@ -15,7 +15,7 @@ function trend(rising=true){
  return D.direction(a,b,now);
 }
 function option(type,asset,strike,bid,ask,when=now){
- return {symbol:type+"-"+asset+"-"+strike+"-271026",timestamp:when*1000,oi_value_usd:1500,
+ return {symbol:type+"-"+asset+"-"+strike+"-271026",timestamp:when*1000,oi_value_usd:50000,
   quotes:{best_bid:bid,best_ask:ask},
   product:{state:"live",trading_status:"operational",contract_value:0.001,contract_unit_currency:asset,taker_commission_rate:0.0001}};
 }
@@ -169,4 +169,34 @@ test("exit monitor fails closed on crossed, incomplete and corrupt two-leg quote
  assert.equal(D.monitor(p,missing,now).status,"NO TRADE");
  assert.equal(D.monitor({...p,quantity:0},pair(),now).status,"NO TRADE");
  assert.equal(D.monitor({...p,costBreakdown:null},pair(),now).status,"NO TRADE");
+});
+
+
+test("profit-first gate rejects zero-profit or poor reward even with a directional signal",()=>{
+ const bad=D.sessionEconomics(1,5,0.65,0.8);
+ assert.equal(bad.eligible,false);
+ assert.match(bad.reason,/1.5:1|stop/);
+ const feeConsumed=D.sessionEconomics(1,5,2,0.9);
+ assert.equal(feeConsumed.eligible,false);
+ assert.match(feeConsumed.reason,/fees/);
+ const good=D.sessionEconomics(1,5,0.02,0.95);
+ assert.equal(good.eligible,true);
+ assert(good.rr>=1.5);
+});
+test("a small positive paper payoff is not automatically trade-worthy",()=>{
+ const trendUp=trend(),tiny=pair();
+ const small=D.chooseSpread(tiny,trendUp,"BTC",1e7,now,2);
+ assert.equal(small.status,"NO TRADE","An account sized far beyond market depth must not get a low-value payoff recommendation");
+});
+
+test("open interest cap rejects a seemingly profitable but unfillable large account",()=>{
+ const good=D.chooseSpread(pair(),trend(),"BTC",1000,now,2);
+ assert.equal(good.status,"PAPER PLAN");
+ assert(good.quantity*good.contractValue*trend().current<=0.05*50000+1e-8);
+ const shallow=pair().map(x=>({...x,oi_value_usd:550}));
+ assert.equal(D.chooseSpread(shallow,trend(),"BTC",1000,now,2).status,"NO TRADE");
+ const unknownFees=pair().map(x=>({...x,product:{...x.product,taker_commission_rate:undefined}}));
+ const result=D.chooseSpread(unknownFees,trend(),"BTC",1000,now,2);
+ assert.equal(result.status,"NO TRADE");
+ assert.match(result.reason,/verified product fees/);
 });
