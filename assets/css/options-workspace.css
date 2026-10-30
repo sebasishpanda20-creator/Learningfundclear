@@ -70,3 +70,11 @@ body[data-page="crypto-options"] #optionBlockerPanel{grid-area:blockers}#optionB
 body[data-page="crypto-options"] .desk-advanced>summary{scroll-margin-top:110px}
 
 body[data-page="crypto-options"] #main>#rangeDesk{grid-area:range;border-top:3px solid #187868;padding:22px}#rangeDesk p,#rangeDesk li{font-size:12px;line-height:1.6}#rangeDesk summary{font-weight:700;padding:10px 0;cursor:pointer}#rangeDesk .range-metrics{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin:16px 0}#rangeDesk .range-metrics div{padding:12px;border:1px solid var(--lfc-border);border-radius:9px}#rangeDesk .range-metrics strong{display:block;font-size:16px;margin-top:6px}#rangeDesk .range-metrics small{font-size:10px}#rangeResults{overflow-wrap:anywhere}@media(max-width:600px){#rangeDesk .range-metrics{grid-template-columns:repeat(2,minmax(0,1fr))}}
+
+/* Large, keyboard-accessible signal timeframe targets (native select remains supported). */
+body[data-page="crypto-options"] .signal-frame-buttons{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin-top:10px}
+body[data-page="crypto-options"] .signal-frame-buttons button{min-width:0;min-height:46px!important;padding:8px!important;border:1px solid var(--ws-line);border-radius:9px;background:var(--lfc-surface-soft);color:var(--ws-ink);font-size:12px!important;font-weight:750;touch-action:manipulation}
+body[data-page="crypto-options"] .signal-frame-buttons button[aria-pressed="true"]{background:var(--lfc-primary-soft);border-color:#187868;color:var(--lfc-text-strong);box-shadow:inset 0 0 0 1px #187868}
+body[data-page="crypto-options"] .signal-frame-buttons button:focus-visible,
+body[data-page="crypto-options"] #optionSignalFrame:focus-visible{outline:3px solid #4ec5aa;outline-offset:2px}
+body[data-page="crypto-options"] .signal-frame-help{display:block;margin-top:8px;font-size:10px;line-height:1.6;color:var(--ws-muted)}

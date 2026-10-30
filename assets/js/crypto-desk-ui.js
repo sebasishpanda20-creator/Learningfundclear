@@ -237,20 +237,23 @@ async function refreshOption(isMonitor=false) {
   return;
  }
  if(locked){
+  const activePlan=locked;
   try{
-   const asset=locked.long.split("-")[1],rows=await readOptions(asset,null,[locked.long,locked.short]);
+   const asset=activePlan.long.split("-")[1],rows=await readOptions(asset,null,[activePlan.long,activePlan.short]);
+   if(locked!==activePlan||startedKey!==inputKey())return; // Discard old-frame responses after a switch.
    latestTickers=rows;
-   showPlan(locked);
+   showPlan(activePlan);
    // Restore the simple answer even after page reload while a paper plan is locked.
    let freshTrend;try{freshTrend=await readTrend(asset);}catch(e){freshTrend={side:"UNKNOWN",actionable:false,why:"Current trend feed unavailable"};}
-   simpleSummary([{asset,trend:freshTrend,plan:locked}]);
-   const result=D.monitor(locked,rows);
+   if(locked!==activePlan||startedKey!==inputKey())return;
+   simpleSummary([{asset,trend:freshTrend,plan:activePlan}]);
+   const result=D.monitor(activePlan,rows);
    if(result.status==="MONITOR"&&(!freshTrend.actionable||freshTrend.side!==locked.direction)){
     result.status="TREND REVIEW";result.reason="The current trend no longer confirms the saved plan, or cannot be verified. Review both legs on Delta; original stop/target remain fixed. "+(freshTrend.why||"");
    }
    showMonitor(result);
    safeText("status","Plan locked; monitoring both legs · "+stamp(Date.now())+" · read-only");
-  }catch(e){showMonitor({status:"DATA UNAVAILABLE",reason:"Cannot monitor live exit: "+e.message});safeText("status","Exchange feed unavailable; verify Delta terminal immediately.");}
+  }catch(e){if(locked!==activePlan||startedKey!==inputKey())return;showMonitor({status:"DATA UNAVAILABLE",reason:"Cannot monitor live exit: "+e.message});safeText("status","Exchange feed unavailable; verify Delta terminal immediately.");}
   return;
  }
  const frameMode=$("optionSignalFrame")?.value||"STANDARD",assets=["BTC","ETH","XAUT"],results=[];
@@ -592,9 +595,51 @@ $("capital").addEventListener("input",()=>{
  }
  debounce=setTimeout(refresh,600);
 });
+function syncSignalFrame(){
+ const mode=$("optionSignalFrame")?.value==="FAST"?"FAST":"STANDARD";
+ document.querySelectorAll("[data-signal-mode]").forEach(button=>{
+  const selected=button.dataset.signalMode===mode;
+  button.setAttribute("aria-pressed",String(selected));
+ });
+ safeText("signalFrameHelp",mode==="FAST"?
+  "Selected: 5-minute entries with 15-minute confirmation. Switching settings clears a local paper plan.":"Selected: 15-minute entries with 1-hour confirmation. Switching settings clears a local paper plan.");
+ safeText("marketPulseFrame",mode==="FAST"?
+  "Completed 5m + 15m candles. Direction is evidence, not a prediction.":"Completed 15m + 1h candles. Direction is evidence, not a prediction.");
+}
 if($("optionSignalFrame")){
- $("optionSignalFrame").value=locked?.signalFrameMode||"STANDARD";
- $("optionSignalFrame").addEventListener("change",()=>{rangeLocked=null;renderRange();if(locked){$("optionSignalFrame").value=locked.signalFrameMode||"STANDARD";safeText("status","Paper plan remains locked. Reset paper plan before changing signal candles.");}else refresh();});
+ const control=$("optionSignalFrame");
+ let previous=locked?.signalFrameMode||sessionStorage.getItem("lfc.crypto.signalFrame")||"STANDARD";
+ control.value=["STANDARD","FAST"].includes(previous)?previous:"STANDARD";
+ syncSignalFrame();
+ control.addEventListener("change",()=>{
+  const mode=control.value==="FAST"?"FAST":"STANDARD";
+  try{sessionStorage.setItem("lfc.crypto.signalFrame",mode);}catch(e){}
+  syncSignalFrame();
+  const hadPlan=Boolean(locked||rangeLocked);
+  if(locked){
+   locked=null;latestTickers=[];
+   try{sessionStorage.removeItem("lfc.crypto.plan");}catch(e){}
+  }
+  rangeLocked=null;renderRange();
+  if(hadPlan){
+   showPlan({status:"NO TRADE",reason:"Signal candles changed. Previous local paper plan cleared; a fresh scan is required."});
+   showMonitor({status:"NO TRADE",reason:"Previous local paper plan cleared."});
+   safeText("simpleDecision","Previous paper setup cleared after switching signal candles. Checking fresh market data before suggesting any new setup.");
+  }
+  safeText("status",(hadPlan?"Previous local paper plan cleared; any separate email watch remains active. ":"")+"Using "+(mode==="FAST"?"5m / 15m":"15m / 1h")+" signal candles; checking fresh quotes…");
+  refresh();
+ });
+ document.querySelectorAll("[data-signal-mode]").forEach(button=>button.addEventListener("click",()=>{
+  const mode=button.dataset.signalMode;
+  if(!["STANDARD","FAST"].includes(mode))return;
+  if(control.value===mode){
+   syncSignalFrame();
+   safeText("status",(mode==="FAST"?"5m / 15m":"15m / 1h")+" signal confirmation is already selected. Use Scan for a setup to recheck completed candles.");
+   return;
+  }
+  control.value=mode;
+  control.dispatchEvent(new Event("change",{bubbles:true}));
+ }));
 }
 if($("tradeHorizon")){
  const savedH=Number(sessionStorage.getItem("lfc.crypto.horizon"));
