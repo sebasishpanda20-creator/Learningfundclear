@@ -12,7 +12,7 @@ const R=window.LfcCryptoRange;
 let rangeLocked=null;
 let fx=null,fxAt=0,running=false,pendingRefresh=false,locked=null,latestTickers=[],timer=null,controller=null;
 try{const cached=JSON.parse(sessionStorage.getItem("lfc.crypto.plan")||"null");
- if(cached?.status==="PAPER PLAN"&&cached.timeExit>Date.now()&&cached.signalMethod==="MULTI_FACTOR_V1"&&
+ if(cached?.status==="PAPER PLAN"&&cached.timeExit>Date.now()&&cached.signalMethod==="MULTI_FACTOR_V1"&&cached.selectionMethod==="SESSION_NET_RR_V2"&&Number(cached.sessionNetRR)>=1.5&&Number(cached.expectedTargetNetUSD)>=Number(cached.minRequiredNetTargetUSD)&&
  Number.isFinite(cached.sizedCapitalINR)&&Number(sessionStorage.getItem("lfc.crypto.capital"))===cached.sizedCapitalINR)locked=cached;
  else if(cached?.status==="PAPER PLAN")sessionStorage.removeItem("lfc.crypto.plan");
 }catch(e){}
@@ -153,12 +153,12 @@ function showPlan(plan){
   ["Stop-loss alert",fnum(plan.stopSpread,4)+" USD net spread price"],
   ["Target alert",fnum(plan.targetSpread,4)+" USD net spread price"],
   ["Maximum estimated risk",money(plan.riskUSD)+" / approx. ₹"+fnum(plan.riskUSD/fx,0)],
-  ["Estimated profit at target",money(plan.expectedTargetNetUSD)+" / approx. ₹"+fnum(plan.expectedTargetNetUSD/fx,0)],
-  ["Estimated loss at stop",money(plan.expectedStopNetUSD)+" / approx. ₹"+fnum(plan.expectedStopNetUSD/fx,0)],
+  ["Net profit IF target reached (not forecast)",money(plan.expectedTargetNetUSD)+" / approx. ₹"+fnum(plan.expectedTargetNetUSD/fx,0)],
+  ["Net loss IF stop reached",money(plan.expectedStopNetUSD)+" / approx. ₹"+fnum(plan.expectedStopNetUSD/fx,0)],
   ["Close by",stamp(plan.timeExit)],
   ["Option expiry",stamp(plan.expiry)]];
  for(const [key,value] of fields)dl.append(node("dt",key),node("dd",value));
- box.append(dl,node("p","Stop and target refer to the combined two-option price. They are monitoring alerts; no order will be placed automatically."));
+ box.append(dl,node("p","The displayed net target is a hypothetical outcome, NOT a prediction of profit or a tested win probability. It must exceed the portal’s stricter friction and risk gate. Stop and target refer to the combined two-option price. They are monitoring alerts; no order will be placed automatically."));
 }
 function simpleSummary(search){
  const area=$("simpleDirection"),decision=$("simpleDecision");
