@@ -11,6 +11,7 @@
     scanner: "M10 3a7 7 0 1 0 0 14 7 7 0 0 0 0-14 M15 15l6 6 M7 10h6 M10 7v6",
     "trading-plan": "M4 3h16v18H4z M8 8h8 M8 12h8 M8 16h5",
     setups: "M4 5h16v16H4z M8 3v4 M16 3v4 M8 12h8 M8 16h5",
+    "india-options": "M3 17l6-7 4 4 8-10 M3 21h18",
     gex: "M3 12h4l3-7 4 14 3-7h4",
     crypto: "M3 12h4l3-7 4 14 3-7h4",
     "crypto-options": "M3 12h4l3-7 4 14 3-7h4",
@@ -34,6 +35,7 @@
     ["crypto-options", "Crypto options desk", "crypto-options.html"],
     ["crypto-funding", "Crypto funding desk", "crypto-funding.html"],
     ["crypto-futures", "Futures & stock tokens", "crypto-futures.html"],
+    ["india-options", "Indian options desk", "india-options.html"],
     ["gex", "Options overview", "gex.html"],
     ["funds", "Mutual funds", "funds/top-returns.html"],
     ["admin", "Administration", "admin.html"],
@@ -42,7 +44,7 @@
   ];
   const navGroups = [
     ["OVERVIEW",["dashboard","performance"]],
-    ["MARKET INTELLIGENCE",["nifty500","market-scanner","scanner","index-scanner","crypto","crypto-options","crypto-funding","crypto-futures","gex"]],
+    ["MARKET INTELLIGENCE",["nifty500","market-scanner","scanner","index-scanner","crypto","crypto-options","crypto-funding","crypto-futures","india-options","gex"]],
     ["WORKSPACE & FUNDS",["trading-plan","setups","funds"]],
     ["ACCOUNT & ACCESS",["admin","approvals","account"]],
   ];
