@@ -9,6 +9,9 @@ const stamp=t=>new Date(t).toLocaleString("en-IN",{timeZone:"Asia/Kolkata",hour1
 const cash=()=>Number($("capital").value);
 const safeText=(id,text)=>{const node=$(id);if(node)node.textContent=text;};
 const R=window.LfcCryptoRange;
+const FRAME_PROFILES={FAST:{minutes:[5,15],label:"5m / 15m"},FAST_30:{minutes:[5,30],label:"5m / 30m"},MID:{minutes:[15,30],label:"15m / 30m"},STANDARD:{minutes:[15,60],label:"15m / 1h"},SLOW:{minutes:[30,60],label:"30m / 1h"}};
+const profile=value=>FRAME_PROFILES[value]||FRAME_PROFILES.FAST;
+const resolution=minutes=>minutes===60?"1h":minutes+"m";
 let rangeLocked=null;
 let fx=null,fxAt=0,running=false,pendingRefresh=false,locked=null,latestTickers=[],timer=null,controller=null;
 try{const cached=JSON.parse(sessionStorage.getItem("lfc.crypto.plan")||"null");
@@ -67,8 +70,8 @@ async function history(symbol,resolution,seconds){
   "&resolution="+resolution+"&start="+start+"&end="+end);
 }
 async function readTrend(asset) {
- const fast=$("optionSignalFrame")?.value==="FAST",frames=fast?[5,15]:[15,60];
- const result=await Promise.all([history(asset+"USD",fast?"5m":"15m",(fast?12:36)*3600),history(asset+"USD",fast?"15m":"1h",(fast?36:120)*3600)]);
+ const frames=profile($("optionSignalFrame")?.value).minutes;
+ const result=await Promise.all(frames.map(minutes=>history(asset+"USD",resolution(minutes),minutes*60*120)));
  const trend=D.direction(result[0],result[1],Date.now(),frames);
  if(R)trend.range=R.detect(result[0],result[1],Date.now(),frames);
  return trend;
@@ -261,7 +264,7 @@ async function refreshOption(isMonitor=false) {
   }catch(e){showMonitor({status:"DATA UNAVAILABLE",reason:"Cannot monitor live exit: "+e.message});safeText("status","Exchange feed unavailable; verify Delta terminal immediately.");}
   return;
  }
- const frameMode=$("optionSignalFrame")?.value||"STANDARD",assets=["BTC","ETH","XAUT"],results=[];
+ const frameMode=$("optionSignalFrame")?.value||"FAST",assets=["BTC","ETH","XAUT"],results=[];
  safeText("status","Scanning BTC, ETH and gold using EMA trend, RSI, MACD, ADX, optional volume and SMC, then risk-checking options…");
  const search=await Promise.all(assets.map(async asset=>{
   try{
@@ -279,11 +282,11 @@ async function refreshOption(isMonitor=false) {
    results.push({asset,trend});return{asset,trend,plan:{status:"NO TRADE",reason:e.message}};
   }
  }));
- if(frameMode!==($("optionSignalFrame")?.value||"STANDARD")||startedKey!==inputKey())return;
+ if(frameMode!==($("optionSignalFrame")?.value||"FAST")||startedKey!==inputKey())return;
  renderRange(search);
  setRows("directionRows",assets.map(asset=>rowTrend(asset,results.find(x=>x.asset===asset)?.trend||{side:"UNKNOWN",why:"No exchange response"})));
  simpleSummary(search);
- const blockers=$("optionBlockers");if(blockers){blockers.replaceChildren();for(const x of search){const group=node("details","");group.append(node("summary",x.asset+" · "+x.plan.status+" · "+($("optionSignalFrame")?.value==="FAST"?"5m / 15m":"15m / 1h")),node("p","Direction: "+(x.trend.why||x.trend.side)),node("p","Option result: "+x.plan.status+" · "+(x.plan.reason||x.plan.label||"No contract plan")));for(const alt of x.alternatives||[])group.append(node("p",alt.name+": "+alt.status+" · "+alt.reason));blockers.append(group);}}
+ const blockers=$("optionBlockers");if(blockers){blockers.replaceChildren();for(const x of search){const group=node("details","");group.append(node("summary",x.asset+" · "+x.plan.status+" · "+profile($("optionSignalFrame")?.value).label),node("p","Direction: "+(x.trend.why||x.trend.side)),node("p","Option result: "+x.plan.status+" · "+(x.plan.reason||x.plan.label||"No contract plan")));for(const alt of x.alternatives||[])group.append(node("p",alt.name+": "+alt.status+" · "+alt.reason));blockers.append(group);}}
  const report=$("strategyDiagnostics");
  if(report){
   report.replaceChildren();
@@ -601,7 +604,7 @@ $("capital").addEventListener("input",()=>{
  debounce=setTimeout(refresh,600);
 });
 if($("optionSignalFrame")){
- $("optionSignalFrame").value=locked?.signalFrameMode||"STANDARD";
+ $("optionSignalFrame").value=locked?.signalFrameMode||"FAST";
  $("optionSignalFrame").addEventListener("change",()=>{rangeLocked=null;renderRange();if(locked){$("optionSignalFrame").value=locked.signalFrameMode||"STANDARD";safeText("status","Paper plan remains locked. Reset paper plan before changing signal candles.");}else refresh();});
 }
 if($("tradeHorizon")){
