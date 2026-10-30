@@ -63,5 +63,5 @@ test("₹1,000 and ₹10,000 have different eligibility and notional/risk limits
  assert.equal(high.status,"PAPER PLAN");assert(high.quantity>0);
  assert(high.riskUSD<=.02*120+1e-8);
  const fallback=pair.map(x=>({...x,product:{...x.product,taker_commission_rate:undefined}}));
- assert.equal(D.chooseSpread(fallback,trend,"BTC",120,now,4).status,"NO TRADE","conservative fallback fees make this session unattractive even with sufficient capital");
+ assert.equal(D.chooseSpread(fallback,trend,"BTC",120,now,4).status,"NO TRADE","unverified product fee metadata cannot authorize a trade even if the fallback estimate appears affordable");
 });
