@@ -15,7 +15,28 @@ const {chromium}=require('playwright');const {fixture,origin}=require('./fixture
  await run('navigation, theme, logout and back '+width,async()=>{await page.goto(origin+'/index.html');await page.locator('html.auth-ready').waitFor();if(width===390){await page.locator('.menu-toggle').click();assert.equal(await page.locator('.menu-toggle').getAttribute('aria-expanded'),'true');}await page.locator('[data-lfc-theme-toggle]').click();assert(await page.locator('html.theme-dark').count());await page.locator('#logoutBtn').click();await page.waitForURL('**/signin.html?loggedOut=1');assert.equal(await page.evaluate(()=>localStorage.getItem('sb-chbtjicvbezbiosuouwm-auth-token')),null);await page.goBack();await page.waitForURL('**/signin.html*');assert(await page.locator('#loginBtn').isVisible());});
  await run('zero runtime errors '+width,async()=>assert.deepEqual(errors,[]));await ctx.close();
  }
- await run('sign in honors next; stale stamp cannot authenticate',async()=>{const ctx=await browser.newContext();await fixture(ctx,false);await ctx.addInitScript(()=>localStorage.setItem('lfc.auth',JSON.stringify({u:'stale',t:Date.now()})));const p=await ctx.newPage();await p.goto(origin+'/setups.html');await p.waitForURL('**/signin.html*');await p.locator('#loginUser').fill('qa');await p.locator('#loginPass').fill('test-fixture-only');await p.locator('#loginPass').press('Enter');await p.waitForURL('**/setups.html');await p.locator('html.auth-ready').waitFor();await ctx.close();});
+ await run('all sidebar destinations resolve and activate',async()=>{
+ const ctx=await browser.newContext({viewport:{width:1440,height:960}});await fixture(ctx);const p=await ctx.newPage();
+ await p.goto(origin+'/index.html');await p.locator('html.auth-ready').waitFor();
+ const targets=await p.locator('.sidebar nav a[href]').evaluateAll(links=>links.map(a=>a.href));
+ for(const href of targets){
+  const expected=new URL(href);await p.goto(href);await p.locator('html.auth-ready').waitFor();
+  assert.equal(new URL(p.url()).pathname,expected.pathname,'Sidebar destination redirected: '+href);
+  assert.equal(await p.locator('.sidebar nav a[aria-current="page"]').count(),1,'Exactly one active nav item expected at '+href);
+ }
+ await ctx.close();
+});
+await run('sign in preserves protected deep links; stale stamp cannot authenticate',async()=>{
+ for(const target of ['setups.html','crypto-options.html','crypto-funding.html','crypto-futures.html?mode=funding']){
+  const ctx=await browser.newContext();await fixture(ctx,false);
+  await ctx.addInitScript(()=>localStorage.setItem('lfc.auth',JSON.stringify({u:'stale',t:Date.now()})));
+  const p=await ctx.newPage();await p.goto(origin+'/'+target);await p.waitForURL('**/signin.html*');
+  await p.locator('#loginUser').fill('qa');await p.locator('#loginPass').fill('test-fixture-only');await p.locator('#loginPass').press('Enter');
+  const expected=new URL(target,origin+'/');
+  await p.waitForURL(url=>url.pathname===expected.pathname&&url.search===expected.search);
+  await p.locator('html.auth-ready').waitFor();await ctx.close();
+ }
+});
  await run('non-admin route and menu',async()=>{const ctx=await browser.newContext();await fixture(ctx,true,false);const p=await ctx.newPage();await p.goto(origin+'/admin.html');await p.waitForURL('**/index.html');assert(!(await p.locator('#adminNav').isVisible()));await ctx.close();});
  await run('cross-tab sign out',async()=>{const ctx=await browser.newContext();await fixture(ctx);const a=await ctx.newPage(),b=await ctx.newPage();await a.goto(origin+'/scanner.html');await b.goto(origin+'/funds/index.html');await b.locator('html.auth-ready').waitFor();await a.locator('#logoutBtn').click();await b.waitForURL('**/signin.html*');await ctx.close();});
  await run('failed revoke still clears local session',async()=>{const ctx=await browser.newContext();await fixture(ctx);await ctx.route('**/auth/v1/logout**',r=>r.abort());const p=await ctx.newPage();await p.goto(origin+'/gex.html');await p.locator('html.auth-ready').waitFor();await p.locator('#logoutBtn').click();await p.waitForURL('**/signin.html?loggedOut=1');assert.equal(await p.evaluate(()=>localStorage.getItem('sb-chbtjicvbezbiosuouwm-auth-token')),null);await ctx.close();});
