@@ -2,6 +2,8 @@
 'use strict';if(!await LfcAuth.ready)return;
 const $=id=>document.getElementById(id),D=LfcCryptoDesk,F=LfcFutures,API='https://api.india.delta.exchange/v2',usd=v=>new Intl.NumberFormat('en-US',{style:'currency',currency:'USD',maximumFractionDigits:10}).format(v),inr=v=>new Intl.NumberFormat('en-IN',{style:'currency',currency:'INR',maximumFractionDigits:2}).format(v);let generation=0,plans=[],fx=null,socket=null,displayUntil=0,subscriptionKey="";const liveFunding=new Map(),radar=[],historyCache=[];
 const mode=new URLSearchParams(location.search).get('mode');if(mode==='stock')$('futuresGroup').value='STOCK';if(mode==='funding')$('futuresMode').value='FUNDING';
+const activeDeskTab=mode==='funding'?'funding':mode==='stock'?'stock':'futures';
+document.querySelectorAll('[data-futures-tab]').forEach(a=>{if(a.dataset.futuresTab===activeDeskTab)a.setAttribute('aria-current','page');else a.removeAttribute('aria-current');});
 function subscribe(symbols){const key=[...symbols].sort().join(',');if(key===subscriptionKey&&socket&&socket.readyState<2)return;subscriptionKey=key;socket?.close();liveFunding.clear();if(typeof WebSocket==='undefined')return;try{socket=new WebSocket('wss://public-socket.india.delta.exchange');socket.onopen=()=>socket.send(JSON.stringify({type:'subscribe',payload:{channels:[{name:'funding_rate',symbols:['all']}]}}));socket.onmessage=e=>{try{const f=LfcCryptoContext.funding(JSON.parse(e.data));if(f&&symbols.includes(f.symbol))liveFunding.set(f.symbol,f);}catch{}};}catch{}}
 addEventListener('pagehide',()=>socket?.close());
 const el=(tag,text)=>{const n=document.createElement(tag);n.textContent=text;return n;};

@@ -1397,3 +1397,35 @@ body[data-page="dashboard"] .page-heading{border:0;padding:0;margin-bottom:24px}
 @media(max-width:1100px){.workspace-links{grid-template-columns:repeat(2,minmax(0,1fr))}.dashboard-welcome{grid-template-columns:1fr 1fr}.welcome-copy{padding:25px}.welcome-steps{padding:18px}}
 @media(max-width:600px){.dashboard-welcome{grid-template-columns:1fr;border-radius:16px}.welcome-copy{padding:24px}.welcome-copy h2{font-size:28px}.welcome-steps{border-left:0;border-top:1px solid #ffffff18;padding:10px 20px}.welcome-steps a{padding:13px 0}.workspace-links{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.workspace-links a{padding:16px;gap:10px}.workspace-links a strong{font-size:12px}.workspace-links a small{font-size:10px}.workspace-links a .tool-arrow{right:12px;top:18px}.metric{padding:17px}.metric strong{font-size:29px}}
 @media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}}
+
+
+/* Portal consistency pass: one warm-neutral canvas, compact spacing and aligned breakpoints. */
+body[data-page]{background:var(--lfc-bg)}
+body[data-page] main{max-width:1480px;padding:26px clamp(16px,2.2vw,32px) 38px}
+.topbar{height:68px;padding-inline:clamp(16px,2.2vw,30px)}
+.page-heading{align-items:flex-start;gap:16px;margin-bottom:20px;padding-bottom:16px}
+.page-heading .sub{max-width:760px}
+.card,.hero{padding:20px;margin-bottom:16px;border-radius:14px;box-shadow:0 3px 12px -8px rgba(25,55,42,.16)}
+.card>h2{padding:15px 20px;margin:-20px -20px 14px;background:transparent}
+button,.button,.btn{min-height:38px;border-radius:9px}
+input,select,textarea{min-height:40px}
+.table-wrap,.table-scroll{max-width:100%}
+.desk-tabs{min-width:0}
+@media(min-width:901px) and (max-width:1180px){
+ body[data-page]{padding-left:214px}
+ .sidebar{width:214px}
+ .topbar{padding-inline:22px}
+ body[data-page] main{padding-inline:22px}
+}
+@media(max-width:900px){
+ body[data-page]{padding-left:0}
+ .sidebar{width:min(290px,86vw)}
+ .topbar{height:62px}
+}
+@media(max-width:600px){
+ body[data-page] main{padding:20px 14px 30px}
+ .page-heading{display:block;margin-bottom:18px;padding-bottom:14px}
+ .page-heading .button{margin-top:12px}
+ .card,.hero{margin-bottom:13px;padding:16px}
+ .card>h2{margin:-16px -16px 13px;padding:14px 16px}
+}

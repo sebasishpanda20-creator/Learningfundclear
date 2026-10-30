@@ -248,20 +248,23 @@ async function refreshOption(isMonitor=false) {
   return;
  }
  if(locked){
+  const saved=locked;
   try{
-   const asset=locked.long.split("-")[1],rows=await readOptions(asset,null,[locked.long,locked.short]);
+   const asset=saved.long.split("-")[1],rows=await readOptions(asset,null,[saved.long,saved.short]);
+   if(locked!==saved||startedKey!==inputKey())return;
    latestTickers=rows;
-   showPlan(locked);
-   // Restore the simple answer even after page reload while a paper plan is locked.
+   showPlan(saved);
+   // A timeframe, capital or holding-window change invalidates this local plan.
    let freshTrend;try{freshTrend=await readTrend(asset);}catch(e){freshTrend={side:"UNKNOWN",actionable:false,why:"Current trend feed unavailable"};}
-   simpleSummary([{asset,trend:freshTrend,plan:locked}]);
-   const result=D.monitor(locked,rows);
-   if(result.status==="MONITOR"&&(!freshTrend.actionable||freshTrend.side!==locked.direction)){
+   if(locked!==saved||startedKey!==inputKey())return;
+   simpleSummary([{asset,trend:freshTrend,plan:saved}]);
+   const result=D.monitor(saved,rows);
+   if(result.status==="MONITOR"&&(!freshTrend.actionable||freshTrend.side!==saved.direction)){
     result.status="TREND REVIEW";result.reason="The current trend no longer confirms the saved plan, or cannot be verified. Review both legs on Delta; original stop/target remain fixed. "+(freshTrend.why||"");
    }
    showMonitor(result);
    safeText("status","Plan locked; monitoring both legs · "+stamp(Date.now())+" · read-only");
-  }catch(e){showMonitor({status:"DATA UNAVAILABLE",reason:"Cannot monitor live exit: "+e.message});safeText("status","Exchange feed unavailable; verify Delta terminal immediately.");}
+  }catch(e){if(locked===saved&&startedKey===inputKey()){showMonitor({status:"DATA UNAVAILABLE",reason:"Cannot monitor live exit: "+e.message});safeText("status","Exchange feed unavailable; verify Delta terminal immediately.");}}
   return;
  }
  const frameMode=$("optionSignalFrame")?.value||"STANDARD",assets=["BTC","ETH","XAUT"],results=[];
@@ -604,8 +607,24 @@ $("capital").addEventListener("input",()=>{
  debounce=setTimeout(refresh,600);
 });
 if($("optionSignalFrame")){
- $("optionSignalFrame").value=locked?.signalFrameMode||"STANDARD";
- $("optionSignalFrame").addEventListener("change",()=>{rangeLocked=null;renderRange();if(locked){$("optionSignalFrame").value=locked.signalFrameMode||"STANDARD";safeText("status","Paper plan remains locked. Reset paper plan before changing signal candles.");}else refresh();});
+ const savedFrame=sessionStorage.getItem("lfc.crypto.signalFrame");
+ const initialFrame=locked?.signalFrameMode||(FRAME_PROFILES[savedFrame]?savedFrame:"STANDARD");
+ $("optionSignalFrame").value=initialFrame;
+ try{sessionStorage.setItem("lfc.crypto.signalFrame",initialFrame);}catch(e){}
+ $("optionSignalFrame").addEventListener("change",()=>{
+  const mode=$("optionSignalFrame").value;
+  if(!FRAME_PROFILES[mode]){$("optionSignalFrame").value="STANDARD";return;}
+  try{sessionStorage.setItem("lfc.crypto.signalFrame",mode);}catch(e){}
+  rangeLocked=null;renderRange();
+  if(locked){
+   locked=null;latestTickers=[];
+   try{sessionStorage.removeItem("lfc.crypto.plan");}catch(e){}
+   showPlan({status:"NO TRADE",reason:"Signal timeframe changed. The previous local paper plan was cleared; the selected candles will be rescanned."});
+   showMonitor({status:"NO TRADE",reason:"The previous paper plan was cleared after changing the signal timeframe. Waiting for a fresh scan."});
+  }
+  safeText("status","Signal timeframe: "+profile(mode).label+" · rescanning with the selected completed candles.");
+  refresh();
+ });
 }
 if($("tradeHorizon")){
  const savedH=Number(sessionStorage.getItem("lfc.crypto.horizon"));
