@@ -34,7 +34,7 @@
     ["crypto", "Crypto markets", "crypto.html"],
     ["crypto-options", "Crypto options desk", "crypto-options.html"],
     ["crypto-funding", "Crypto funding desk", "crypto-funding.html"],
-    ["crypto-futures", "Futures & stock tokens", "crypto-futures.html"],
+    ["crypto-futures", "Crypto futures & US stock tokens", "crypto-futures.html"],
     ["india-options", "Indian options desk", "india-options.html"],
     ["gex", "Options overview", "gex.html"],
     ["funds", "Mutual funds", "funds/top-returns.html"],
@@ -44,8 +44,11 @@
   ];
   const navGroups = [
     ["OVERVIEW",["dashboard","performance"]],
-    ["MARKET INTELLIGENCE",["nifty500","market-scanner","scanner","index-scanner","crypto","crypto-options","crypto-funding","crypto-futures","india-options","gex"]],
-    ["WORKSPACE & FUNDS",["trading-plan","setups","funds"]],
+    ["MARKET INTELLIGENCE",[
+      ["India & Stocks",["nifty500","market-scanner","scanner","index-scanner","trading-plan","setups","india-options","gex"]],
+      ["Crypto",["crypto","crypto-options","crypto-funding","crypto-futures"]],
+    ]],
+    ["WORKSPACE & FUNDS",["funds"]],
     ["ACCOUNT & ACCESS",["admin","approvals","account"]],
   ];
   const navByKey = new Map(nav.map((entry) => [entry[0], entry]));
@@ -55,8 +58,16 @@
   };
   const svg = (key) =>
     `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="${icons[key]}"/></svg>`;
-  const groupedNav = navGroups.map(([heading,keys]) =>
-    `<div class="nav-group"><p class="nav-group-title">${heading}</p>${keys.map(k=>navLink(navByKey.get(k))).join("")}</div>`).join("");
+  const groupedNav = navGroups.map(([heading,items]) => {
+    if (heading === "MARKET INTELLIGENCE") {
+      const sections = items.map(([label,keys]) => {
+        const active = keys.includes(page);
+        return `<details class="nav-subgroup" ${active ? "open" : ""}><summary class="nav-subgroup-title">${label}<span aria-hidden="true"></span></summary><div class="nav-subgroup-links">${keys.map(k=>navLink(navByKey.get(k))).join("")}</div></details>`;
+      }).join("");
+      return `<div class="nav-group"><p class="nav-group-title">${heading}</p>${sections}</div>`;
+    }
+    return `<div class="nav-group"><p class="nav-group-title">${heading}</p>${items.map(k=>navLink(navByKey.get(k))).join("")}</div>`;
+  }).join("");
 
   const aside = document.createElement("aside");
   aside.className = "sidebar";
