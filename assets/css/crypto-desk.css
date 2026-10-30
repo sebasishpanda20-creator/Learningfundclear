@@ -170,3 +170,18 @@ body[data-page="crypto-options"] .desk-advanced-input{display:none}
 @media(max-width:500px){body[data-page="crypto-options"] .simple-trend-grid{grid-template-columns:1fr}body[data-page="crypto-options"] #tradePlan dl{grid-template-columns:1fr}.cockpit-head{align-items:start}.cockpit-badge{white-space:normal}.cockpit-metrics strong{font-size:1.05rem}}
 
 #emailWatch{border-color:var(--lfc-primary)}
+
+
+/* Keep the crypto desk mastheads aligned with the portal's graphite/emerald palette. */
+.desk-hero:not(.options-masthead){
+ border-color:#315547;
+ background:radial-gradient(circle at 80% -45%,#356b52 0,transparent 54%),linear-gradient(120deg,#10251e 0%,#18392c 55%,#10251e 100%);
+ color:#e7f3ec;
+ box-shadow:0 20px 44px -34px #10251e90;
+}
+.desk-hero:not(.options-masthead) h1 em{color:#c9efa5}
+.desk-hero:not(.options-masthead) p{color:#c3d9cb}
+.desk-hero:not(.options-masthead) .desk-hero-eyebrow{color:#b5d49c}
+.desk-hero:not(.options-masthead) .desk-hero-meta span{border-color:#ffffff25;background:#ffffff0d;color:#e2efe6}
+.desk-hero:not(.options-masthead) .desk-hero-symbol>span{border-color:#aec9a571;background:#ffffff0d;color:#d5e6d9}
+.desk-hero:not(.options-masthead) .desk-hero-symbol>strong{color:#c9efa5;filter:drop-shadow(0 20px 30px #86d8b144)}
