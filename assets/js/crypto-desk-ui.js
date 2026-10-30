@@ -619,10 +619,13 @@ if($("optionSignalFrame")){
   if(locked){
    locked=null;latestTickers=[];
    try{sessionStorage.removeItem("lfc.crypto.plan");}catch(e){}
-   showPlan({status:"NO TRADE",reason:"Signal candles changed. Previous local paper plan cleared; a fresh scan is required."});
-   showMonitor({status:"NO TRADE",reason:"Previous local paper plan cleared."});
   }
   rangeLocked=null;renderRange();
+  if(hadPlan){
+   showPlan({status:"NO TRADE",reason:"Signal candles changed. Previous local paper plan cleared; a fresh scan is required."});
+   showMonitor({status:"NO TRADE",reason:"Previous local paper plan cleared."});
+   safeText("simpleDecision","Previous paper setup cleared after switching signal candles. Checking fresh market data before suggesting any new setup.");
+  }
   safeText("status",(hadPlan?"Previous local paper plan cleared; any separate email watch remains active. ":"")+"Using "+(mode==="FAST"?"5m / 15m":"15m / 1h")+" signal candles; checking fresh quotes…");
   refresh();
  });
