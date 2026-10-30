@@ -127,6 +127,10 @@ const GST_RATE=0.18,SLIPPAGE_RATE=0.001,FALLBACK_TAKER_RATE=0.0005;
 // PAPER recommendation only: minimum net target must justify friction, account risk and possible slippage.
 // A target scenario is NOT an expected profit; probability of reaching it remains unvalidated.
 const MIN_NET_TARGET_RR=1.5,MIN_NET_TARGET_CAPITAL_FRACTION=0.005,MIN_NET_TARGET_COST_MULTIPLE=2;
+// 1.9x debit is an aggressive, UNVALIDATED paper exit scenario; not an expected return.
+// Limit any candidate to 5% of the smaller leg's reported USD open interest.
+// Open interest is NOT order-book depth, and passing this gate never guarantees a fill.
+const MAX_SESSION_TARGET_DEBIT_MULTIPLE=1.9,MAX_OPEN_INTEREST_SHARE=0.05;
 function roundTripCosts(legs,spot,cv,qty=1){
  if(!ok(spot)||spot<=0||!ok(cv)||cv<=0||!Number.isInteger(qty)||qty<1||!Array.isArray(legs)||legs.length!==2)return null;
  let taker=0,premiums=0,fallback=false;
@@ -145,9 +149,9 @@ function roundTripCosts(legs,spot,cv,qty=1){
 // Session economics are planning scenarios, not expected returns or win probability.
 function sessionEconomics(debit,width,costs,currentExit){
  if(![debit,width,costs,currentExit].every(ok)||debit<=0||width<=debit||costs<0)return {eligible:false,reason:"Invalid spread economics"};
- const stop=debit*.5,target=Math.min(width*.9,debit*2.1),netReward=target-debit-costs,netLoss=debit-stop+costs;
+ const stop=debit*.5,target=Math.min(width*.9,debit*MAX_SESSION_TARGET_DEBIT_MULTIPLE),netReward=target-debit-costs,netLoss=debit-stop+costs;
  const rr=netReward/netLoss,entryDrag=debit-currentExit;
- const reason=netReward<=0?"Estimated fees consume the session target":currentExit<=stop?"Current close quotes already breach the planned stop":rr<MIN_NET_TARGET_RR?"Net target/stop is below the 1.5:1 minimum":"Session target and stop pass initial cost checks";
+ const reason=netReward<=0?"Estimated fees consume the session target":currentExit<=stop?"Current close quotes already breach the planned stop":rr<MIN_NET_TARGET_RR?"Net target/stop is below the 1.5:1 minimum after fees, GST and slippage":"Session target and stop pass initial cost checks";
  return {eligible:netReward>0&&currentExit>stop&&rr>=MIN_NET_TARGET_RR,reason,stop,target,netReward,netLoss,rr,entryDrag,breakEvenWinRate:netLoss/(netLoss+netReward)};
 }
 function chooseSpread(tickers,trend,asset,capitalUSD,now=Date.now(),hours=4){
@@ -157,7 +161,7 @@ function chooseSpread(tickers,trend,asset,capitalUSD,now=Date.now(),hours=4){
  if(!trend?.actionable||!["UP","DOWN"].includes(trend.side))return wait("No confirmed direction: "+(trend?.why||"no data"));
  const side=trend.side==="UP"?"C":"P",chain=(Array.isArray(tickers)?tickers:[]).map(parseOption).filter(t=>liquid(t,asset,now)&&t.side===side);
  if(chain.length<2||!ok(trend.current))return wait("Fresh liquid option strikes and verified contract sizes not available");
- let best=null,minOneLotCapital=Infinity,sessionRejected=0,profitRejected=0;
+ let best=null,minOneLotCapital=Infinity,sessionRejected=0,profitRejected=0,feeMetadataRejected=0,liquidityRejected=0;
  const expiries=[...new Set(chain.map(t=>t.expiry))].sort((a,b)=>a-b);
  for(const expiry of expiries.slice(0,3)){
   if(expiry<=now+hours*3600000+3600000)continue;
@@ -169,14 +173,19 @@ function chooseSpread(tickers,trend,asset,capitalUSD,now=Date.now(),hours=4){
    const width=Math.abs(short.strike-long.strike)*long.cv,debit=(long.ask-short.bid)*long.cv;
    const costs=roundTripCosts([long,short],trend.current,long.cv);
    if(!costs)continue;
+   // Unknown exchange commission is acceptable for displaying a conservative cost
+   // estimate but cannot authorize a profit-qualified paper recommendation.
+   if(costs.feeRateSource!=="PRODUCT TAKER RATES"){feeMetadataRejected++;continue;}
    const buffer=costs.totalUSD;
    const loss=debit+buffer,gain=width-debit-buffer;
    if(debit<=0||loss<=0||gain<=0||gain/loss<1.15)continue;
    const economics=sessionEconomics(debit,width,buffer,(long.bid-short.ask)*long.cv);
    if(!economics.eligible){sessionRejected++;continue;}
    minOneLotCapital=Math.min(minOneLotCapital,Math.max(20,loss/.02,long.cv*trend.current/.30));
-   const quantity=Math.floor(Math.min(capitalUSD*0.02/loss,capitalUSD*0.30/(long.cv*trend.current)));
-   if(quantity<1)continue;
+   const notionalPerContract=long.cv*trend.current;
+   const maxByReportedOI=Math.floor(Math.min(long.oi,short.oi)*MAX_OPEN_INTEREST_SHARE/notionalPerContract);
+   const quantity=Math.floor(Math.min(capitalUSD*0.02/loss,capitalUSD*0.30/notionalPerContract,maxByReportedOI));
+   if(quantity<1){liquidityRejected++;continue;}
     // Fee-aware minimum opportunity quality, independent of directional evidence score.
     const netTargetUSD=economics.netReward*quantity;
     const roundTripReserveUSD=buffer*quantity;
@@ -188,15 +197,15 @@ function chooseSpread(tickers,trend,asset,capitalUSD,now=Date.now(),hours=4){
     label:side==="C"?"Bull call debit spread":"Bear put debit spread",
     long:long.symbol,short:short.symbol,expiry,contractValue:long.cv,
     quantity,entrySpread:debit/long.cv,stopSpread:debit*0.5/long.cv,
-    targetSpread:Math.min(width*0.9,debit*2.1)/long.cv,
+    targetSpread:economics.target/long.cv,
     timeExit:now+hours*3600000,horizonHours:hours,
     riskUSD:loss*quantity,estimatedFeesUSD:costs.commissionUSD*quantity,
     costBreakdown:roundTripCosts([long,short],trend.current,long.cv,quantity),
     estimatedMaxGainUSD:gain*quantity,
-    expectedTargetNetUSD:(Math.min(width*0.9,debit*2.1)-debit-buffer)*quantity,
+    expectedTargetNetUSD:economics.netReward*quantity,
     expectedStopNetUSD:(debit*0.5-debit-buffer)*quantity,
     breakevenSpread:(debit+buffer)/long.cv,
-    why:"Completed-candle direction + fresh liquid quotes + net target at least 1.5× stop loss + net target at least 0.5% of capital and 2× estimated round-trip costs. Paper payoff scenario only, NOT predicted profit.",
+    why:"Completed-candle direction + fresh quotes + verified product fee rates + 5% smaller-leg OI participation ceiling + net target at least 1.5× stop loss + net target at least 0.5% of capital and 2× estimated round-trip costs. A 1.9× debit exit is an unvalidated scenario, NOT predicted profit.",
      minRequiredNetTargetUSD:minimumNetTargetUSD,modeledNetTargetUSD:netTargetUSD,
     sessionNetRR:economics.rr,breakEvenWinRate:economics.breakEvenWinRate,
     entryDragUSD:economics.entryDrag*quantity,underlyingInvalidation:trend.invalidation,
@@ -208,7 +217,7 @@ function chooseSpread(tickers,trend,asset,capitalUSD,now=Date.now(),hours=4){
  return best||wait(Number.isFinite(minOneLotCapital)&&capitalUSD<minOneLotCapital?
   "CAPITAL BLOCK: smallest qualifying vertical needs approximately $"+minOneLotCapital.toFixed(2)+
   " of modeled research capital for one contract under 2% risk and 30% notional limits; available $"+capitalUSD.toFixed(2):
-  "NO TRADE — no option vertical clears the profit-first gate: 1.5:1 net target/stop, net target ≥0.5% of capital and ≥2× modeled round-trip costs. "+sessionRejected+" candidates failed initial economics; "+profitRejected+" had too little net target profit after sizing. A bullish/bearish score alone is not a trade.");
+  "NO TRADE — no option vertical clears verified fee data, ≤5% smaller-leg reported OI sizing, 1.5:1 net target/stop, net target ≥0.5% of capital and ≥2× modeled round-trip costs. "+feeMetadataRejected+" lack verified product fees; "+liquidityRejected+" exceed available OI participation; "+sessionRejected+" fail session economics; "+profitRejected+" are too small after realistic sizing. A bullish/bearish score alone is not a trade.");
 }
 // Long-volatility alternatives are research-only: a sideways market does not by
 // itself imply imminent movement. Liquidity, fresh quotes and premium risk still apply.
