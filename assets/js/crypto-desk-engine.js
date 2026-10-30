@@ -145,7 +145,7 @@ function roundTripCosts(legs,spot,cv,qty=1){
 // Session economics are planning scenarios, not expected returns or win probability.
 function sessionEconomics(debit,width,costs,currentExit){
  if(![debit,width,costs,currentExit].every(ok)||debit<=0||width<=debit||costs<0)return {eligible:false,reason:"Invalid spread economics"};
- const stop=debit*.5,target=Math.min(width*.9,debit*1.6),netReward=target-debit-costs,netLoss=debit-stop+costs;
+ const stop=debit*.5,target=Math.min(width*.9,debit*2.1),netReward=target-debit-costs,netLoss=debit-stop+costs;
  const rr=netReward/netLoss,entryDrag=debit-currentExit;
  const reason=netReward<=0?"Estimated fees consume the session target":currentExit<=stop?"Current close quotes already breach the planned stop":rr<MIN_NET_TARGET_RR?"Net target/stop is below the 1.5:1 minimum":"Session target and stop pass initial cost checks";
  return {eligible:netReward>0&&currentExit>stop&&rr>=MIN_NET_TARGET_RR,reason,stop,target,netReward,netLoss,rr,entryDrag,breakEvenWinRate:netLoss/(netLoss+netReward)};
@@ -188,12 +188,12 @@ function chooseSpread(tickers,trend,asset,capitalUSD,now=Date.now(),hours=4){
     label:side==="C"?"Bull call debit spread":"Bear put debit spread",
     long:long.symbol,short:short.symbol,expiry,contractValue:long.cv,
     quantity,entrySpread:debit/long.cv,stopSpread:debit*0.5/long.cv,
-    targetSpread:Math.min(width*0.9,debit*1.6)/long.cv,
+    targetSpread:Math.min(width*0.9,debit*2.1)/long.cv,
     timeExit:now+hours*3600000,horizonHours:hours,
     riskUSD:loss*quantity,estimatedFeesUSD:costs.commissionUSD*quantity,
     costBreakdown:roundTripCosts([long,short],trend.current,long.cv,quantity),
     estimatedMaxGainUSD:gain*quantity,
-    expectedTargetNetUSD:(Math.min(width*0.9,debit*1.6)-debit-buffer)*quantity,
+    expectedTargetNetUSD:(Math.min(width*0.9,debit*2.1)-debit-buffer)*quantity,
     expectedStopNetUSD:(debit*0.5-debit-buffer)*quantity,
     breakevenSpread:(debit+buffer)/long.cv,
     why:"Completed-candle direction + fresh liquid quotes + net target at least 1.5× stop loss + net target at least 0.5% of capital and 2× estimated round-trip costs. Paper payoff scenario only, NOT predicted profit.",
