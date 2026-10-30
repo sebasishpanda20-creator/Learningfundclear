@@ -1405,8 +1405,8 @@ body[data-page] main{max-width:1480px;padding:26px clamp(16px,2.2vw,32px) 38px}
 .topbar{height:68px;padding-inline:clamp(16px,2.2vw,30px)}
 .page-heading{align-items:flex-start;gap:16px;margin-bottom:20px;padding-bottom:16px}
 .page-heading .sub{max-width:760px}
-.card,.hero{margin-bottom:16px;border-radius:14px;box-shadow:0 3px 12px -8px rgba(25,55,42,.16)}
-.card>h2{padding:15px 18px;margin:-18px -18px 14px;background:transparent}
+.card,.hero{padding:20px;margin-bottom:16px;border-radius:14px;box-shadow:0 3px 12px -8px rgba(25,55,42,.16)}
+.card>h2{padding:15px 20px;margin:-20px -20px 14px;background:transparent}
 button,.button,.btn{min-height:38px;border-radius:9px}
 input,select,textarea{min-height:40px}
 .table-wrap,.table-scroll{max-width:100%}
