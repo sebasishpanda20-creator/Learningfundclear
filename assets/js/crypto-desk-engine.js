@@ -61,7 +61,7 @@ function adx(rows,n=14){
  return{value,plusDI:last.plusDI,minusDI:last.minusDI};
 }
 function direction(raw15,raw60,now=Date.now(),frames=[15,60]){
- if(!Array.isArray(frames)||![[15,60],[5,15]].some(x=>x[0]===frames[0]&&x[1]===frames[1]))return {side:"UNKNOWN",actionable:false,why:"Unsupported signal timeframe"};
+ if(!Array.isArray(frames)||![[5,15],[5,30],[15,30],[15,60],[30,60]].some(x=>x[0]===frames[0]&&x[1]===frames[1]))return {side:"UNKNOWN",actionable:false,why:"Unsupported signal timeframe"};
  const [entryMinutes,confirmMinutes]=frames;
  let a,b;try{a=candles(raw15,entryMinutes,now);b=candles(raw60,confirmMinutes,now);}
  catch(e){return{side:"UNKNOWN",actionable:false,score:0,why:e.message};}

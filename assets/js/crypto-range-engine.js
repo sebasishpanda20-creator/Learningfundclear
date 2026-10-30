@@ -5,7 +5,7 @@ const wait=reason=>({status:'WAIT',reason});
 function ema(a,n){let v=a[0];for(const x of a.slice(1))v+=(x-v)*2/(n+1);return v;}
 function detect(raw,confirm,now=Date.now(),frames=[15,60]){
  try{
- if(![[15,60],[5,15]].some(f=>f[0]===frames[0]&&f[1]===frames[1]))return wait('Unsupported range timeframe.');
+ if(![[5,15],[5,30],[15,30],[15,60],[30,60]].some(f=>f[0]===frames[0]&&f[1]===frames[1]))return wait('Unsupported range timeframe.');
  const a=D.candles(raw,frames[0],now),h=D.candles(confirm,frames[1],now);
  for(const [bars,m] of [[a,frames[0]],[h,frames[1]]])for(let i=1;i<bars.length;i++)if(bars[i].time-bars[i-1].time!==m*60000)return wait('Missing candles: range cannot be verified.');
  const recent=a.slice(-25,-1),last=a.at(-1),high=Math.max(...recent.map(b=>b.high)),low=Math.min(...recent.map(b=>b.low)),width=high-low;
