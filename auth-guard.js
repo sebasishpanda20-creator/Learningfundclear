@@ -33,16 +33,22 @@
         }),
     },
   });
+  const allowedTargets = new Set([
+    "index.html", "performance.html", "admin.html", "approvals.html", "account.html",
+    "trading-plan.html", "market-scanner.html", "scanner.html", "index-scanner.html",
+    "nifty500.html", "setups.html", "gex.html", "crypto.html", "crypto-options.html",
+    "crypto-funding.html", "crypto-futures.html", "india-options.html",
+    "funds/index.html", "funds/top-returns.html", "funds/funds.html", "funds/scheme.html",
+    "funds/compare.html", "funds/calculators.html", "funds/methodology.html", "funds/legal.html",
+  ]);
   function safeTarget(raw) {
     try {
       const target = new URL(raw || "index.html", base);
       const relative = target.pathname.slice(base.pathname.length).replace(/\/$/, "");
       const canonical = relative === "" ? "index.html" : relative.endsWith(".html") ? relative : relative + ".html";
-      const allowed =
-        /^(index|performance|admin|approvals|account|trading-plan|market-scanner|scanner|index-scanner|nifty500|setups|gex|crypto|india-options)\.html$|^funds\/(index|top-returns|funds|scheme|compare|calculators|methodology|legal)\.html$/;
       return target.origin === base.origin &&
         target.pathname.startsWith(base.pathname) &&
-        allowed.test(canonical)
+        allowedTargets.has(canonical)
         ? new URL(canonical, base).pathname + target.search + target.hash
         : new URL("index.html", base).pathname;
     } catch {
