@@ -38,7 +38,7 @@ body[data-page="crypto-options"] .desk-inputs{position:static;padding:14px 16px!
 .controls-heading{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:10px}
 body[data-page="crypto-options"] .desk-inputs h2.desk-input-heading{margin:2px 0 0!important;font-size:15px;letter-spacing:-.25px}
 .control-hint{color:var(--ws-muted);font-size:10px}
-body[data-page="crypto-options"] .desk-inputs .row{display:grid;grid-template-columns:minmax(180px,1.2fr) minmax(200px,1.25fr) minmax(130px,.8fr) minmax(125px,.8fr) auto;gap:9px;align-items:end}
+body[data-page="crypto-options"] .desk-inputs .row{display:grid;grid-template-columns:minmax(180px,1.2fr) minmax(200px,1.25fr) minmax(130px,.8fr) minmax(125px,.8fr) auto;gap:9px;align-items:start}
 body[data-page="crypto-options"] .desk-inputs .capital-field{width:auto;max-width:none;min-width:0}
 body[data-page="crypto-options"] .desk-inputs label{display:block;margin:0 0 4px;color:var(--ws-muted);font-size:9px;font-weight:700}
 body[data-page="crypto-options"] .capital-field input,body[data-page="crypto-options"] .session-duration select{width:100%;height:38px;min-height:38px;padding:7px 10px;border:1px solid var(--ws-line);border-radius:8px;background:var(--lfc-surface-soft);color:var(--ws-ink);font-size:12px;box-shadow:none}
@@ -141,3 +141,6 @@ body[data-page="crypto-options"] #simpleDecision:empty{display:none}
  body[data-page="crypto-options"] .simple-direction,body[data-page="crypto-options"] .simple-recommendation{height:auto}
  body[data-page="crypto-options"] #tradePlan,body[data-page="crypto-options"] #monitorPanel{height:auto}
 }
+
+body[data-page="crypto-options"] #refreshNow,body[data-page="crypto-options"] #resetPlan{align-self:start;margin-top:18px}
+@media(max-width:680px){body[data-page="crypto-options"] #refreshNow,body[data-page="crypto-options"] #resetPlan{margin-top:0}}
