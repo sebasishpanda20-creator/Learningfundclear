@@ -22,5 +22,6 @@ node qa/ui-experience-flows.cjs
 node qa/research-flows.cjs
 node qa/nifty500-flows.cjs
 node qa/index-scanner-flows.cjs
+node qa/india-options-flows.cjs
 mkdir -p visual-qa-artifacts
 cp qa/*.png qa/*results.json qa/page-audit.json visual-qa-artifacts/
