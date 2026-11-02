@@ -110,16 +110,39 @@
     if (origin) origin.textContent = host;
     if (open) open.href = base + "/";
 
+    // An iframe's load event also fires for the browser's error page, so it
+    // cannot tell "terminal up" from "host unreachable". Probe the health
+    // endpoint with a no-cors request instead: it needs no CORS headers and
+    // rejects when the tunnel/daemon is down.
+    function probe() {
+      var controller = window.AbortController ? new AbortController() : null;
+      var timer = controller ? setTimeout(function () { controller.abort(); }, 6000) : null;
+      return fetch(base + "/api/v1/health", {
+        mode: "no-cors",
+        cache: "no-store",
+        signal: controller ? controller.signal : undefined,
+      }).then(function () { return true; }).catch(function () { return false; }).then(function (ok) {
+        if (timer) clearTimeout(timer);
+        return ok;
+      });
+    }
+
     function load() {
       status.textContent = "Connecting…";
       status.dataset.state = "pending";
       frame.src = base + "/";
+      probe().then(function (ok) {
+        status.textContent = ok ? "Terminal online" : "Terminal unreachable";
+        status.dataset.state = ok ? "online" : "offline";
+      });
     }
 
     frame.addEventListener("load", function () {
       if (!frame.src || frame.src === "about:blank") return;
-      status.textContent = "Terminal loaded";
-      status.dataset.state = "online";
+      probe().then(function (ok) {
+        status.textContent = ok ? "Terminal online" : "Terminal unreachable";
+        status.dataset.state = ok ? "online" : "offline";
+      });
     });
 
     if (reload) reload.addEventListener("click", load);
