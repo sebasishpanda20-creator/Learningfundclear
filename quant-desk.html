@@ -1,0 +1,130 @@
+<!doctype html>
+<html lang="en-IN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<title>Quant Desk · LearningFundClear</title>
+<link rel="stylesheet" href="assets/css/tokens.css">
+<link rel="stylesheet" href="assets/css/app.css">
+<script src="assets/vendor/supabase.js"></script>
+<script src="assets/js/config.js"></script>
+<script src="assets/js/quant-config.js"></script>
+<script src="auth-guard.js"></script>
+<script src="assets/js/theme.js"></script>
+<style>
+  .quant-shell { margin-top: 18px; }
+  .quant-toolbar { display:flex; flex-wrap:wrap; gap:10px; align-items:center; justify-content:space-between; margin-bottom:10px; }
+  .quant-toolbar .cluster { display:flex; flex-wrap:wrap; gap:8px; align-items:center; }
+  .quant-status { font-size:.8rem; font-weight:650; letter-spacing:.02em; padding:6px 10px; border-radius:999px; border:1px solid var(--lfc-border,#b8c3c8); background:var(--lfc-surface); }
+  .quant-status[data-state="online"] { color:#0a7a3f; border-color:#0a7a3f55; }
+  .quant-status[data-state="offline"] { color:#a12a2a; border-color:#a12a2a55; }
+  .quant-frame-wrap { border:1px solid var(--lfc-border,#b8c3c8); border-radius:12px; overflow:hidden; background:var(--lfc-surface); }
+  .quant-frame { display:block; width:100%; height:calc(100vh - 260px); min-height:560px; border:0; background:#020617; }
+  .quant-note { margin-top:10px; font-size:.78rem; color:#5b6b73; }
+  .quant-fallback { padding:18px; }
+  @media (max-width:760px) { .quant-frame { height:calc(100vh - 210px); min-height:520px; } }
+</style>
+</head>
+<body data-page="quant-desk">
+<main id="main">
+  <p class="eyebrow">EXECUTION TERMINAL · SIX-GATE RISK ENGINE</p>
+  <h1>Quant <span class="desk-title-accent">Desk</span></h1>
+  <p class="sub">
+    Strategy scan, pre-trade 6-gate audit and SPAN-sequenced execution run on the
+    Quant daemon. This desk embeds that terminal directly; research tools above
+    stay read-only and separate from it.
+  </p>
+
+  <section class="quant-shell" aria-label="Quant terminal">
+    <div class="quant-toolbar">
+      <div class="cluster">
+        <span id="qStatus" class="quant-status" data-state="pending" role="status" aria-live="polite">Checking terminal…</span>
+        <span id="qOrigin" class="quant-note"></span>
+      </div>
+      <div class="cluster">
+        <button id="qReload" class="button" type="button">Reload terminal</button>
+        <a id="qOpen" class="button primary" href="#" target="_blank" rel="noopener">Open full screen ↗</a>
+      </div>
+    </div>
+
+    <div class="quant-frame-wrap">
+      <iframe id="qFrame" class="quant-frame" title="Quant execution terminal" src="about:blank"
+              loading="eager" referrerpolicy="no-referrer"></iframe>
+    </div>
+    <div id="qFallback" class="quant-fallback" hidden>
+      <p><strong>Terminal not configured.</strong> Set <code>window.QUANT_TERMINAL.url</code> in
+        <code>assets/js/quant-config.js</code> to the daemon's HTTPS origin.</p>
+    </div>
+    <p class="quant-note">
+      If the panel stays blank, the daemon (or its tunnel) is offline — this desk
+      cannot start it from here. Signing in to the terminal is separate from your
+      LearningFundClear login: the daemon only grants execution rights to a session
+      created with its own admin key.
+    </p>
+  </section>
+
+  <section class="card" style="margin-top:22px">
+    <h2>What this desk does</h2>
+    <p class="desk-minor">
+      Read-only telemetry is safe for every signed-in user. Execution controls stay
+      hidden unless the terminal session is authenticated as administrator, and the
+      daemon re-runs all six risk gates server-side before any order is sequenced.
+    </p>
+    <ul class="desk-minor" style="line-height:1.7">
+      <li>Strategy scan across the options, GARCH and smart-money engines</li>
+      <li>Six-gate pre-trade audit: Hurst regime, tax, SPAN capital, drawdown, MCX devolution, EOD cutoff</li>
+      <li>SPAN buy-leg-first sequencing with DRY-RUN as the default execution mode</li>
+      <li>Emergency kill switch, administrator only</li>
+    </ul>
+  </section>
+</main>
+
+<script src="assets/js/shell.js"></script>
+<script>
+  (function () {
+    "use strict";
+    var cfg = window.QUANT_TERMINAL || {};
+    var base = (cfg.url || "").trim().replace(/\/+$/, "");
+    var frame = document.getElementById("qFrame");
+    var status = document.getElementById("qStatus");
+    var origin = document.getElementById("qOrigin");
+    var open = document.getElementById("qOpen");
+    var reload = document.getElementById("qReload");
+    var fallback = document.getElementById("qFallback");
+
+    if (!frame || !status) return;
+
+    if (!base) {
+      if (fallback) fallback.hidden = false;
+      frame.hidden = true;
+      status.textContent = "Not configured";
+      status.dataset.state = "offline";
+      if (open) open.hidden = true;
+      if (reload) reload.hidden = true;
+      return;
+    }
+
+    var host = "";
+    try { host = new URL(base).host; } catch (e) { host = base; }
+    if (origin) origin.textContent = host;
+    if (open) open.href = base + "/";
+
+    function load() {
+      status.textContent = "Connecting…";
+      status.dataset.state = "pending";
+      frame.src = base + "/";
+    }
+
+    frame.addEventListener("load", function () {
+      if (!frame.src || frame.src === "about:blank") return;
+      status.textContent = "Terminal loaded";
+      status.dataset.state = "online";
+    });
+
+    if (reload) reload.addEventListener("click", load);
+    load();
+  })();
+</script>
+</body>
+</html>

@@ -12,6 +12,7 @@
     crypto: "M3 12h4l3-7 4 14 3-7h4",
     "crypto-options": "M3 12h4l3-7 4 14 3-7h4",
     "crypto-funding": "M4 6h16 M4 12h16 M4 18h16",
+    "quant-desk": "M4 5h16v14H4z M7 9l3 3-3 3 M13 15h4",
     funds: "M3 9l9-6 9 6 M5 10v8 M12 10v8 M19 10v8 M3 21h18",
     admin: "M12 3l8 4v5c0 5-8 9-8 9s-8-4-8-9V7z",
   };
@@ -24,6 +25,7 @@
     ["crypto", "Crypto markets", "crypto.html"],
     ["crypto-options", "Crypto options desk", "crypto-options.html"],
     ["crypto-funding", "Crypto funding desk", "crypto-funding.html"],
+    ["quant-desk", "Quant desk", "quant-desk.html"],
     ["gex", "Options overview", "gex.html"],
     ["funds", "Mutual funds", "funds/top-returns.html"],
     ["admin", "Administration", "admin.html"],
