@@ -33,15 +33,22 @@ jobs:
         run: node --test qa/crypto-email.test.mjs
       - name: Validate worker bundle
         run: npm run check:cloudflare
-      - name: Check optional Cloudflare deployment credentials
+      - name: Check Cloudflare deployment credentials
         id: credentials
         shell: bash
         run: |
+          # PR runs are a preflight and may pass without credentials, but a
+          # push/workflow_dispatch that builds everything and then quietly
+          # skips the deploy is exactly how a missing-token outage gets
+          # mistaken for a live release. Fail loudly instead.
           if [[ -n "$CLOUDFLARE_API_TOKEN" && -n "$CLOUDFLARE_ACCOUNT_ID" ]]; then
             echo "ready=true" >> "$GITHUB_OUTPUT"
-          else
+          elif [[ "${{ github.event_name }}" == "pull_request" ]]; then
             echo "ready=false" >> "$GITHUB_OUTPUT"
-            echo "::warning::Cloudflare deploy NOT performed: configure CLOUDFLARE_API_TOKEN and CLOUDFLARE_ACCOUNT_ID in repository Actions secrets. GitHub Pages deployment is separate."
+            echo "::warning::Cloudflare deploy is preflight-only in PR: credentials missing, production deploy is limited to main pushes."
+          else
+            echo "::error::Cloudflare credentials missing on main push. Configure the CLOUDFLARE_API_TOKEN and CLOUDFLARE_ACCOUNT_ID repository Actions secrets, then re-run. The Workers deploy for this commit did NOT happen."
+            exit 1
           fi
       - name: Deploy to existing learningfundclear Workers service
         if: github.event_name != 'pull_request' && steps.credentials.outputs.ready == 'true'
@@ -53,6 +60,4 @@ jobs:
             echo "Cloudflare Worker preflight passed in PR; production deploy is limited to main pushes." >> "$GITHUB_STEP_SUMMARY"
           elif [[ "${{ steps.credentials.outputs.ready }}" == "true" ]]; then
             echo "Cloudflare deploy command completed for Worker: learningfundclear" >> "$GITHUB_STEP_SUMMARY"
-          else
-            echo "Cloudflare deployment skipped: missing repository-scoped Cloudflare credentials." >> "$GITHUB_STEP_SUMMARY"
           fi
