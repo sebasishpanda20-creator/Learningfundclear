@@ -11,6 +11,18 @@
   }
   if (params.has("loggedOut"))
     msg.textContent = "You’re signed out of this browser.";
+  // Where to land after sign-in: an explicit ?next= deep link always wins,
+  // then the desk the user was last on (recorded by shell.js on every verified
+  // page), then the dashboard. LfcAuth.safeTarget validates whatever this
+  // returns — unknown or off-origin values fall back to index.html.
+  function resumeTarget() {
+    try {
+      return params.get("next") || localStorage.getItem("lfc.lastPage");
+    } catch {
+      return params.get("next");
+    }
+  }
+  const target = () => LfcAuth.safeTarget(resumeTarget());
   document.getElementById("showPassword").onclick = function () {
     const show = pass.type === "password";
     pass.type = show ? "text" : "password";
@@ -19,7 +31,7 @@
   };
   LfcAuth.ready.then((user) => {
     if (user && !params.has("loggedOut"))
-      location.replace(LfcAuth.safeTarget(params.get("next")));
+      location.replace(target());
   });
   form.onsubmit = async (event) => {
     event.preventDefault();
@@ -47,7 +59,7 @@
         return;
       }
       pass.value = "";
-      location.replace(LfcAuth.safeTarget(params.get("next")));
+      location.replace(target());
     } catch (error) {
       msg.textContent = error.message?.includes("Invalid login")
         ? "Username or password is incorrect. Please try again."

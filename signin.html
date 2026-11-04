@@ -10,6 +10,14 @@
     <script src="assets/vendor/supabase.js"></script>
     <script src="assets/js/config.js"></script>
     <script src="auth-guard.js"></script>
+    <script>
+      /* The sign-in page defaults to the dark palette so it matches the Quant
+         terminal. A stored light/dark choice always wins; only an unset
+         preference is defaulted to dark. theme.js below reads lfc.theme. */
+      try {
+        if (!localStorage.getItem("lfc.theme")) localStorage.setItem("lfc.theme", "dark");
+      } catch (e) {}
+    </script>
     <script src="assets/js/theme.js"></script>
   </head>
   <body class="signin-page">
