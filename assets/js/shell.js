@@ -123,6 +123,17 @@
   });
   LfcAuth.ready.then((user) => {
     if (!user) return;
+    // Remember the desk the user is actually on, verified session only, so a
+    // later sign-in resumes there instead of always landing on the dashboard.
+    // Values are validated by LfcAuth.safeTarget at read time (unknown or
+    // off-origin entries fall back to index.html rather than navigating).
+    try {
+      // Path only, no query/hash: the desk is the page, not its parameters.
+      localStorage.setItem(
+        "lfc.lastPage",
+        LfcAuth.safeTarget(location.href).split("?")[0].split("#")[0],
+      );
+    } catch {}
     document.getElementById("userDisplay").textContent =
       user.display_name || user.username;
     top.querySelector(".avatar").textContent = (

@@ -10,8 +10,24 @@
     <link rel="stylesheet" href="assets/css/app.css" />
     <script src="assets/vendor/supabase.js"></script>
     <script src="assets/js/config.js"></script>
+    <script src="assets/js/quant-config.js"></script>
     <script src="auth-guard.js"></script>
     <script src="assets/js/theme.js"></script>
+    <style>
+      /* Quant Terminal embed on the dashboard. Styles mirror quant-desk.html
+         locally so the shared app.css stays unchanged. */
+      .quant-shell { display: flex; flex-direction: column; gap: 10px; }
+      .quant-toolbar { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; justify-content: space-between; }
+      .quant-toolbar .cluster { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+      .quant-status { font-size: .8rem; font-weight: 650; letter-spacing: .02em; padding: 6px 10px; border-radius: 999px; border: 1px solid var(--lfc-border, #b8c3c8); background: var(--lfc-surface, #fff); }
+      .quant-status[data-state="online"] { color: #0a7a3f; border-color: #0a7a3f55; }
+      .quant-status[data-state="offline"] { color: #a12a2a; border-color: #a12a2a55; }
+      .quant-frame-wrap { border: 1px solid var(--lfc-border, #b8c3c8); border-radius: 12px; overflow: hidden; background: var(--lfc-surface, #fff); }
+      .quant-frame { display: block; width: 100%; height: calc(100vh - 320px); min-height: 520px; border: 0; background: #020617; }
+      .quant-note { font-size: .78rem; color: #5b6b73; }
+      .quant-fallback { padding: 18px; }
+      @media (max-width: 760px) { .quant-frame { height: calc(100vh - 260px); min-height: 480px; } }
+    </style>
   </head>
   <body data-page="dashboard">
     <main id="main">
@@ -337,7 +353,65 @@
           </div>
         </div>
       </section>
+
+      <section
+        id="quantTerminal"
+        class="card"
+        data-quant-embed
+        aria-label="Quant execution terminal"
+        style="margin-top: 22px"
+      >
+        <h2>Quant execution terminal</h2>
+        <p class="sub" style="margin-bottom: 12px">
+          Strategy scan, pre-trade 6-gate audit and SPAN-sequenced execution run
+          on the Quant daemon — the same terminal as the Quant desk tab, now on
+          your dashboard. Research sections above stay read-only and separate
+          from it.
+        </p>
+        <div class="quant-shell">
+          <div class="quant-toolbar">
+            <div class="cluster">
+              <span id="qtStatus" class="quant-status" data-state="pending" role="status" aria-live="polite"
+                >Checking terminal…</span
+              >
+              <span id="qtOrigin" class="quant-note" data-quant-origin></span>
+            </div>
+            <div class="cluster">
+              <button id="qtReload" class="button" type="button" data-quant-reload>
+                Reload terminal
+              </button>
+              <a id="qtOpen" class="button primary" href="#" target="_blank" rel="noopener" data-quant-open
+                >Open full screen ↗</a
+              >
+            </div>
+          </div>
+          <div class="quant-frame-wrap">
+            <iframe
+              id="qtFrame"
+              class="quant-frame"
+              title="Quant execution terminal"
+              src="about:blank"
+              loading="eager"
+              referrerpolicy="no-referrer"
+            ></iframe>
+          </div>
+          <div id="qtFallback" class="quant-fallback empty" hidden>
+            <p>
+              <strong>Terminal not configured.</strong> Set
+              <code>window.QUANT_TERMINAL.url</code> in
+              <code>assets/js/quant-config.js</code> to the daemon's HTTPS origin.
+            </p>
+          </div>
+          <p class="quant-note">
+            If the panel stays blank, the daemon (or its tunnel) is offline — the
+            dashboard cannot start it from here. Signing in to the terminal is
+            separate from your LearningFundClear login: the daemon only grants
+            execution rights to a session created with its own admin key.
+          </p>
+        </div>
+      </section>
     </main>
+    <script src="assets/js/quant-embed.js"></script>
     <script src="assets/js/shell.js"></script>
     <script type="module" src="assets/js/journal.js"></script>
   </body>
