@@ -21,6 +21,10 @@
 
     var cfg = window.QUANT_TERMINAL || {};
     var base = String(cfg.url || "").trim().replace(/\/+$/, "");
+    // Same-origin mirror path on this Pages project (see functions/quant-terminal).
+    // Falls back to the raw daemon origin when no proxy path is configured.
+    var frameBase = String(cfg.proxy || "").trim().replace(/\/+$/, "");
+    if (!frameBase) frameBase = base;
     var frame = root.querySelector(".quant-frame");
     var status = root.querySelector(".quant-status");
     var open = root.querySelector("[data-quant-open]");
@@ -28,7 +32,7 @@
     var fallback = root.querySelector(".quant-fallback");
     if (!frame || !status) return;
 
-    if (!base) {
+    if (!frameBase) {
       if (fallback) fallback.hidden = false;
       frame.hidden = true;
       status.textContent = "Not configured";
@@ -47,7 +51,7 @@
     function probe() {
       var controller = window.AbortController ? new AbortController() : null;
       var timer = controller ? setTimeout(function () { controller.abort(); }, 6000) : null;
-      return fetch(base + "/api/v1/health", {
+      return fetch(frameBase + "/api/v1/health", {
         mode: "no-cors",
         cache: "no-store",
         signal: controller ? controller.signal : undefined,
@@ -60,7 +64,7 @@
     function load() {
       status.textContent = "Connecting…";
       status.dataset.state = "pending";
-      frame.src = base + "/";
+      frame.src = frameBase + "/";
       probe().then(function (ok) {
         status.textContent = ok ? "Terminal online" : "Terminal unreachable";
         status.dataset.state = ok ? "online" : "offline";
