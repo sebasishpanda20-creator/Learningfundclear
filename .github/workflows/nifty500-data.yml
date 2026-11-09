@@ -3,8 +3,11 @@ on:
   schedule:
     # 09:30–15:45 IST, weekdays; source timestamps determine freshness.
     - cron: '0,15,30,45 4-10 * * 1-5'
-    # 18:00 IST, separately from intraday collection.
+    # 18:00, 19:30 and 21:00 IST. GitHub can delay or drop one scheduled run,
+    # so the EOD collection is retried later the same evening.
     - cron: '30 12 * * 1-5'
+    - cron: '0 14 * * 1-5'
+    - cron: '30 15 * * 1-5'
   workflow_dispatch:
     inputs:
       mode:
@@ -36,9 +39,15 @@ jobs:
           python - <<'PY'
           import os,datetime
           now=datetime.datetime.now(datetime.timezone(datetime.timedelta(hours=5,minutes=30)))
-          mode=('eod delayed' if os.environ['EVENT']=='push' else os.environ.get('REQUESTED_MODE')) or ('eod' if os.environ.get('SCHEDULE')=='30 12 * * 1-5' else 'delayed')
+          event=os.environ['EVENT']
+          eod_schedules={'30 12 * * 1-5','0 14 * * 1-5','30 15 * * 1-5'}
+          mode=('eod delayed' if event=='push' else os.environ.get('REQUESTED_MODE')) or ('eod' if os.environ.get('SCHEDULE') in eod_schedules else 'delayed')
           minute=now.hour*60+now.minute
-          allowed=os.environ['EVENT']!='schedule' or (now.weekday()<5 and (mode=='eod' or 570<=minute<=945))
+          weekday=now.weekday()<5
+          # A delayed run must not silently skip the day: after the 15:45 IST close
+          # a late intraday run becomes that evening's EOD collection instead.
+          if event=='schedule' and 'eod' not in mode and weekday and minute>945: mode='eod'
+          allowed=event!='schedule' or weekday
           with open(os.environ['GITHUB_OUTPUT'],'a') as f:f.write(f'mode={mode}\nenabled={str(allowed).lower()}\n')
           PY
       - name: Collect snapshot

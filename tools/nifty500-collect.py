@@ -67,6 +67,11 @@ def latest_eod(members,now):
         except urllib.error.HTTPError as e:
             if e.code==404:continue
             raise
+        # A weekday session that has closed must publish its own report. Falling
+        # back to an older weekday file would label stale prices as today's, so
+        # return an explicit unavailable snapshot and let the evening retries run.
+        if day!=end and end.weekday()<5:
+            raise ValueError(f'{end} NSE report is not published yet; refusing to publish the {day} session as current')
         return parse_eod(raw,members,day.isoformat()),day.isoformat()
     raise ValueError('No published NSE report found in the last 10 calendar days')
 
