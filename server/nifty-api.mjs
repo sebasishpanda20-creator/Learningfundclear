@@ -15,7 +15,7 @@ export async function decryptSnapshot(envelope,pem){
  return result;
 }
 export async function serveNifty(request,env,config,fetcher=fetch){
- const reply=(data,status=200)=>Response.json(data,{status,headers:{'Cache-Control':'private, no-store','Vary':'Authorization'}});
+ const reply=(data,status=200)=>Response.json(data,{status,headers:{'Cache-Control':'private, no-store','Vary':'Authorization','X-LFC-Build':'nifty-raw-3'}});
  if(request.method!=='GET')return reply({error:'Method not allowed'},405);
  const auth=request.headers.get('Authorization')||'';
  if(!/^Bearer [\w.-]+$/.test(auth))return reply({error:'Sign in to view prices'},401);
@@ -29,14 +29,20 @@ export async function serveNifty(request,env,config,fetcher=fetch){
   const p=await fetcher(config.url+'/rest/v1/app_users?id=eq.'+encodeURIComponent(user.id)+'&select=is_active',{headers:h,signal:AbortSignal.timeout(10000)});
   if(!p.ok||!(await p.json()).some(x=>x.is_active===true))return reply({error:'Active portal account required'},403);
   if(!env.NIFTY_FEED_PRIVATE_KEY)return reply({error:'Price service is not configured'},503);
-  const url='https://raw.githubusercontent.com/sebasishpanda20-creator/Learningfundclear/main/market-data/'+mode+'-latest.enc.json';
-  const r=await fetcher(url,{headers:{'Cache-Control':'no-cache'},signal:AbortSignal.timeout(15000)});
+  // raw.githubusercontent.com serves commit files through a shared CDN cache,
+  // which kept returning a previous snapshot after the workflow committed a new
+  // one. github.com/<repo>/raw redirects to a fresh signed URL instead, so each
+  // read sees the current commit without cache-busting tricks.
+  const raw='https://github.com/sebasishpanda20-creator/Learningfundclear/raw/main/market-data/';
+  const bust='?v='+Math.floor(Date.now()/60000);
+  const url=raw+mode+'-latest.enc.json'+bust;
+  const r=await fetcher(url,{headers:{'Cache-Control':'no-cache'},cache:'no-store',signal:AbortSignal.timeout(15000)});
   if(!r.ok)return reply({error:'No '+mode+' snapshot published yet'},503);
   const latest=await decryptSnapshot(await r.json(),env.NIFTY_FEED_PRIVATE_KEY);
   if(latest.mode!==mode)throw Error('Mode mismatch');
   let previous=null;
   if(latest.available===0){
-   const old=await fetcher(url.replace('-latest.','-last-usable.'),{signal:AbortSignal.timeout(15000)});
+   const old=await fetcher(raw+mode+'-last-usable.enc.json'+bust,{cache:'no-store',signal:AbortSignal.timeout(15000)});
    // Historical fallback may predate this host's key; still return valid latest data.
    if(old.ok){try{previous=await decryptSnapshot(await old.json(),env.NIFTY_FEED_PRIVATE_KEY);if(previous.mode!==mode)previous=null;}catch{previous=null;}}
   }
