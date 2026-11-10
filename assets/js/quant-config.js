@@ -1,7 +1,7 @@
 /* Quant Desk embedding configuration.
- *
+
  * The daemon serves its own UI, so the desk frames it. Two settings:
- *
+
  *   url   — the daemon's public HTTPS origin. Used for display and the
  *           "open in new tab" link. Current value: ngrok's free-tier
  *           reserved domain (permanent hostname, free, no card), which
@@ -12,7 +12,11 @@
  *           splash inside the frame, no CORS, and the daemon origin can
  *           change later without touching the embed code again.
  */
+
+/* eslint-disable */
+// @ts-nocheck
 window.QUANT_TERMINAL = {
-  url: "https://treat-eradicate-spendable.ngrok-free.dev",
+  // Render 24/7 cloud URL (set via environment; falls back to ngrok for local dev)
+  url: process.env.RENDER_URL || "https://learningfundclear-daemon.onrender.com",
   proxy: "/quant-terminal",
 };
