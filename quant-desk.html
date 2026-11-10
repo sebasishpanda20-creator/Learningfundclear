@@ -20,10 +20,11 @@
   .quant-status[data-state="online"] { color:#0a7a3f; border-color:#0a7a3f55; }
   .quant-status[data-state="offline"] { color:#a12a2a; border-color:#a12a2a55; }
   .quant-frame-wrap { border:1px solid var(--lfc-border,#b8c3c8); border-radius:12px; overflow:hidden; background:var(--lfc-surface); }
-  .quant-frame { display:block; width:100%; height:calc(100vh - 260px); min-height:560px; border:0; background:#020617; }
+  .quant-frame { display:block; width:100%; height:calc(100vh - 40px); min-height:300px; border:0; background:#020617; }
   .quant-note { margin-top:10px; font-size:.78rem; color:#5b6b73; }
   .quant-fallback { padding:18px; }
-  @media (max-width:760px) { .quant-frame { height:calc(100vh - 210px); min-height:520px; } }
+  @media (max-width:760px) { .quant-frame { height:calc(100vh - 30px); min-height:250px; } }
+  @media (max-width:480px) { .quant-frame { height:calc(100vh - 20px); min-height:200px; } }
 </style>
 </head>
 <body data-page="quant-desk">
@@ -85,17 +86,25 @@
   (function () {
     "use strict";
     var cfg = window.QUANT_TERMINAL || {};
-    var base = (cfg.url || "").trim().replace(/\/+$/, "");
+    var base = (cfg.url || "").trim().replace(/\/$/, "");
+    // The daemon only answers the signed-in Worker, so the frame goes through
+    // the same-origin mirror (server/terminal-gate.mjs) instead of the raw
+    // public origin, which answers 403 to anything that is not the Worker.
+    var frameBase = (cfg.proxy || "").trim().replace(/\/$/, "");
+    var gated = !!frameBase;
+    var POLL_MS = 30000;
+    if (!frameBase) frameBase = base;
     var frame = document.getElementById("qFrame");
     var status = document.getElementById("qStatus");
     var origin = document.getElementById("qOrigin");
     var open = document.getElementById("qOpen");
     var reload = document.getElementById("qReload");
     var fallback = document.getElementById("qFallback");
+    var authorized = false;
 
     if (!frame || !status) return;
 
-    if (!base) {
+    if (!frameBase) {
       if (fallback) fallback.hidden = false;
       frame.hidden = true;
       status.textContent = "Not configured";
@@ -105,44 +114,137 @@
       return;
     }
 
+    // Freshness marker. The pill reports the last probe result; this says when
+    // that result was taken, so a stale "Terminal online" is visible instead of
+    // silently ageing while the tunnel dies behind it.
+    var stamped = document.createElement("span");
+    stamped.className = "quant-checked";
+    stamped.style.cssText = "margin-left:6px;opacity:.65;font-size:.85em;white-space:nowrap";
+    if (status.parentNode) status.parentNode.insertBefore(stamped, status.nextSibling);
+
+    function noteCheck() {
+      var at = new Date();
+      var time = at.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+      stamped.textContent = "· checked " + time;
+      status.title = "Last checked " + at.toLocaleString() + ". Re-probed every " + Math.round(POLL_MS / 1000) + " s.";
+    }
+
+    // Stamp every probe result, including the sign-in 401, so the time shown
+    // always matches the last request actually made.
+    function probe() {
+      return probeOnce().then(function (result) {
+        noteCheck();
+        return result;
+      });
+    }
+
     var host = "";
     try { host = new URL(base).host; } catch (e) { host = base; }
     if (origin) origin.textContent = host;
-    if (open) open.href = base + "/";
+    if (open) open.href = frameBase + "/";
 
     // An iframe's load event also fires for the browser's error page, so it
     // cannot tell "terminal up" from "host unreachable". Probe the health
-    // endpoint with a no-cors request instead: it needs no CORS headers and
-    // rejects when the tunnel/daemon is down.
-    function probe() {
+    // endpoint instead. Through the gate the request is same-origin, so a real
+    // status code comes back: 200 means the daemon answered, and the gate's 401
+    // (no cookie yet) correctly reads as not reachable rather than "online".
+    function probeOnce() {
+      if (gated) {
+        return fetch(frameBase + "/api/v1/health", {
+          cache: "no-store",
+          credentials: "same-origin",
+        }).then(function (response) { return { ok: response.ok, unauthorized: response.status === 401 }; }).catch(function () { return { ok: false, unauthorized: false }; });
+      }
       var controller = window.AbortController ? new AbortController() : null;
       var timer = controller ? setTimeout(function () { controller.abort(); }, 6000) : null;
       return fetch(base + "/api/v1/health", {
         mode: "no-cors",
         cache: "no-store",
         signal: controller ? controller.signal : undefined,
-      }).then(function () { return true; }).catch(function () { return false; }).then(function (ok) {
+      }).then(function () { return { ok: true, unauthorized: false }; }).catch(function () { return { ok: false, unauthorized: false }; }).then(function (result) {
         if (timer) clearTimeout(timer);
-        return ok;
+        return result;
       });
+    }
+
+    // An iframe navigation cannot carry an Authorization header, so exchange the
+    // Supabase session for the short-lived terminal cookie before framing.
+    function authorize() {
+      var auth = window.LfcAuth;
+      if (!gated) return Promise.resolve(true);
+      if (!auth || !auth.client || !auth.client.auth) return Promise.resolve(false);
+      return auth.client.auth.getSession().then(function (result) {
+        var session = result && result.data && result.data.session;
+        if (!session || !session.access_token) return false;
+        return fetch("/api/terminal-ticket", {
+          method: "POST",
+          credentials: "same-origin",
+          cache: "no-store",
+          headers: { Authorization: "Bearer " + session.access_token },
+        }).then(function (response) { return response.ok; });
+      }).catch(function () { return false; });
+    }
+
+    var lastOk = null;
+
+    // A frame parked on the browser's error page never recovers by itself: once
+    // a probe says the daemon is back, point it at the terminal again so the
+    // panel stops showing the dead page and nobody has to press Reload.
+    function reloadFrame() {
+      if (!frame || !frameBase) return;
+      frame.src = frameBase + "/?_r=" + Date.now();
+    }
+
+    function showReachability(result) {
+      if (!authorized) return;
+      if (result.unauthorized) {
+        status.textContent = "Sign in again to open the terminal";
+        status.dataset.state = "offline";
+        return;
+      }
+      var wasDown = lastOk === false;
+      lastOk = !!result.ok;
+      status.textContent = result.ok ? "Terminal online" : "Terminal unreachable";
+      status.dataset.state = result.ok ? "online" : "offline";
+      if (result.ok && wasDown) reloadFrame();
     }
 
     function load() {
       status.textContent = "Connecting…";
       status.dataset.state = "pending";
-      frame.src = base + "/";
-      probe().then(function (ok) {
-        status.textContent = ok ? "Terminal online" : "Terminal unreachable";
-        status.dataset.state = ok ? "online" : "offline";
+      authorize().then(function (granted) {
+        authorized = granted;
+        if (!granted) {
+          status.textContent = "Sign in again to open the terminal";
+          status.dataset.state = "offline";
+        }
+        frame.src = frameBase + "/";
+        return probe().then(showReachability);
       });
     }
 
     frame.addEventListener("load", function () {
       if (!frame.src || frame.src === "about:blank") return;
-      probe().then(function (ok) {
-        status.textContent = ok ? "Terminal online" : "Terminal unreachable";
-        status.dataset.state = ok ? "online" : "offline";
+      probe().then(showReachability);
+    });
+
+    // Keep the pill honest after the page has loaded. Without this the panel
+    // keeps saying "Terminal online" until someone presses Reload, even if the
+    // daemon or its tunnel died a minute later.
+    function poll() {
+      probe().then(function (result) {
+        if (!result.unauthorized) { showReachability(result); return; }
+        // The terminal cookie is short-lived; try a fresh ticket before calling
+        // this an outage, because the dashboard session itself may still be fine.
+        authorize().then(function (ok) {
+          if (!ok) { showReachability(result); return; }
+          probe().then(showReachability);
+        });
       });
+    }
+    window.setInterval(poll, POLL_MS);
+    document.addEventListener("visibilitychange", function () {
+      if (!document.hidden) poll();
     });
 
     if (reload) reload.addEventListener("click", load);
