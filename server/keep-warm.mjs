@@ -3,9 +3,9 @@
  *
  * Render's free plan suspends an idle web service after ~15 minutes, and the
  * next request then waits ~50s for a cold start — which the desk renders as
- * "Terminal unreachable". The Worker already runs a */1 cron for alerts, so the
- * same tick polls the daemon's health endpoint and never leaves the instance
- * idle. No third-party monitor account is required.
+ * "Terminal unreachable". The Worker already runs an every-minute cron for
+ * alerts, so the same tick polls the daemon's health endpoint and never leaves
+ * the instance idle. No third-party monitor account is required.
  *
  * Kept in its own module (rather than inline in worker.mjs) so it can be tested
  * without pulling in the Worker's bundler-only imports.
