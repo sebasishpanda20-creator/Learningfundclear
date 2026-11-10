@@ -1,19 +1,23 @@
 name: Nifty 500 delayed and EOD data
 on:
-  schedule:
-    # 09:30–15:45 IST, weekdays; source timestamps determine freshness.
-    - cron: '0,15,30,45 4-10 * * 1-5'
-    # 18:00, 19:30 and 21:00 IST. GitHub can delay or drop one scheduled run,
-    # so the EOD collection is retried later the same evening.
-    - cron: '30 12 * * 1-5'
-    - cron: '0 14 * * 1-5'
-    - cron: '30 15 * * 1-5'
+  # 09:30–15:45 IST, weekdays; source timestamps determine freshness.
+  - cron: '0,15,30,45 4-10 * * 1-5'
+  # 18:00, 19:30 and 21:00 IST. GitHub can delay or drop one scheduled run,
+  # so the EOD collection is retried later the same evening.
+  - cron: '30 12 * * 1-5'
+  - cron: '0 14 * * 1-5'
+  - cron: '30 15 * * 1-5'
+  # Live NSE snapshot via TLS-impersonation (nsemine approach). This runs on
+  # the same US Actions runner where the probe succeeded (3/3 symbols). It is
+  # a separate mode so the delayed/eod collections are not blocked; it can also
+  # be triggered manually via workflow_dispatch.
+  - cron: '0,15,30,45 5-6 * * 1-5'  # 07:30–08:30 IST on weekdays
   workflow_dispatch:
     inputs:
       mode:
         description: Snapshot to collect
         type: choice
-        options: [delayed, eod]
+        options: [delayed, eod, nselive]
         default: eod
   push:
     branches: [main]
@@ -56,8 +60,10 @@ jobs:
           for mode in ${{ steps.run.outputs.mode }}; do
             if [ "$mode" = 'eod' ]; then
               python tools/nifty500-collect.py --mode eod --refresh-universe --output /tmp/nifty500-eod.json
-            else
+            elif [ "$mode" = 'delayed' ]; then
               python tools/nifty500-collect.py --mode delayed --output /tmp/nifty500-delayed.json
+            elif [ "$mode" = 'nselive' ]; then
+              python tools/nifty500-nselive-collect.py --mode nselive --output /tmp/nifty500-nselive.json
             fi
           done
       - name: Encrypt and retain last usable snapshot

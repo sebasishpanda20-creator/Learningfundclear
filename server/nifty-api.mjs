@@ -1,6 +1,6 @@
 const decode=s=>Uint8Array.from(atob(s),c=>c.charCodeAt(0));
 export async function decryptSnapshot(envelope,pem){
- const der=decode(pem.replace(/-----[^-]+-----/g,'').replace(/\s/g,''));
+ const der=decode(pem.replace(/-----[^-]+-----/g,'').replace(/\\s/g,''));
  const privateKey=await crypto.subtle.importKey('pkcs8',der,{name:'RSA-OAEP',hash:'SHA-256'},false,['decrypt']);
  let key;
  for(const wrapped of [envelope.cloudflareKey,envelope.key]){
@@ -12,7 +12,24 @@ export async function decryptSnapshot(envelope,pem){
  const raw=await crypto.subtle.decrypt({name:'AES-GCM',iv:decode(envelope.iv)},aes,decode(envelope.data));
  const result=JSON.parse(await new Response(new Blob([raw]).stream().pipeThrough(new DecompressionStream('gzip'))).text());
  if(result.version!==1||!Array.isArray(result.rows)||result.total!==result.rows.length)throw Error('Invalid snapshot');
- return result;
+ 
+// Validate circuit integrity — nsemine TLS-impersonation payloads have
+// upper_circuit < lower_circuit (swapped at source). Detect and fix.
+let circuitSwapDetected = false;
+if (Array.isArray(result.rows)) {
+  for (const row of result.rows) {
+    if (row.upper_circuit !== undefined && row.lower_circuit !== undefined) {
+      if (row.upper_circuit < row.lower_circuit) {
+        // Swapped: fix by swapping back
+        [row.upper_circuit, row.lower_circuit] = [row.lower_circuit, row.upper_circuit]
+        circuitSwapDetected = true
+      }
+    }
+  }
+}
+// Attach swap flag so downstream consumers know the data was corrected
+result._nsemine_circuit_swap = circuitSwapDetected;
+return result;
 }
 export async function serveNifty(request,env,config,fetcher=fetch){
  const reply=(data,status=200)=>Response.json(data,{status,headers:{'Cache-Control':'private, no-store','Vary':'Authorization','X-LFC-Build':'nifty-raw-3'}});
