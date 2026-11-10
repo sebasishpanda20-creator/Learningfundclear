@@ -5,6 +5,7 @@ import {serveDeltaAccount} from './delta-account.mjs';
 import {proxyToDaemon} from './quant-proxy.mjs';
 import {issueTicket,guardTerminal,portalRole} from './terminal-gate.mjs';
 import {serveMarketYahoo,serveMarketMfapi} from './market-proxy.mjs';
+import {keepDaemonWarm} from './keep-warm.mjs';
 
 // The terminal cookie is a browser credential for this worker only: never let
 // it reach the daemon behind the tunnel.
@@ -21,22 +22,6 @@ function withPortalRole(request,role){
   headers.delete('cookie');
   headers.set('x-portal-admin',role==='admin'?'1':'0');
   return new Request(request,{headers});
-}
-
-// Keeps the Render-hosted daemon awake. Render's free plan suspends an idle
-// service after ~15 minutes, and the next request then waits ~50s for a cold
-// start, which the desk shows as "Terminal unreachable". This Worker already
-// runs a cron every minute for alerts, so the same tick polls the daemon's
-// health endpoint and never leaves it idle — no third-party monitor needed.
-// No-op until QUANT_API_ORIGIN points at the daemon's real HTTPS origin.
-export async function keepDaemonWarm(env,fetcher=fetch){
- const origin=String((env&&env.QUANT_API_ORIGIN)||'').trim().replace(/\/+$/,'');
- if(!/^https?:\/\//i.test(origin))return false;
- const headers={};
- // A free ngrok origin answers its splash page without this header.
- if(/\.ngrok-free\.(dev|app)$/i.test(origin))headers['ngrok-skip-browser-warning']='learningfundclear-portal';
- try{await fetcher(origin+'/api/v1/health',{method:'GET',headers,cache:'no-store',signal:AbortSignal.timeout(10000)});return true;}
- catch{/* The desk's own probe stays the source of truth for outages; a failed warm-up must not fail the cron. */return false;}
 }
 
 export default {async fetch(request,env){
