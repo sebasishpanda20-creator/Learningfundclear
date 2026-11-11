@@ -328,7 +328,7 @@
             if (Number(mData.ltp) > 0) {
               const st = String(mData.state || 'SNAPSHOT').toUpperCase();
               const liveM = st.indexOf('REAL-TIME') === 0;
-              return { provider: 'Local Python Proxy (' + (liveM ? 'MCX Direct' : 'MCX Snapshot') + ')', state: st, ltp: Number(mData.ltp), volume: mData.volume, upper: mData.upper_circuit, lower: mData.lower_circuit };
+              return { provider: 'Local Python Proxy (' + (liveM ? 'MCX Direct' : 'MCX Snapshot') + ')', state: st, ltp: Number(mData.ltp), volume: mData.volume, pChange: Number(mData.pChange) || 0, upper: mData.upper_circuit, lower: mData.lower_circuit, currency: '₹' };
             }
           }
         } catch (_) {}
