@@ -299,6 +299,7 @@
 
     async function fetchLiveMetrics(sym) {
       const proxyBase = getProxyBaseUrl();
+      const feedHost = proxyBase ? 'Local Python Proxy' : 'Cloud Edge';
       const onVdaDesk = (STATE.group === 'crypto' || STATE.group === 'risk_tax') && /USD$/.test(sym.toUpperCase());
 
       // 1. VDA desks read Delta India directly — the NSE route has no crypto feed.
@@ -332,7 +333,7 @@
             if (Number(mData.ltp) > 0) {
               const st = String(mData.state || 'SNAPSHOT').toUpperCase();
               const liveM = st.indexOf('REAL-TIME') === 0;
-              return { provider: 'Local Python Proxy (' + (liveM ? 'MCX Direct' : 'MCX Snapshot') + ')', state: st, ltp: Number(mData.ltp), volume: mData.volume, pChange: Number(mData.pChange) || 0, upper: mData.upper_circuit, lower: mData.lower_circuit, expiry: mData.expiry || '', currency: '₹' };
+              return { provider: feedHost + ' (' + (liveM ? 'MCX Direct' : 'MCX Snapshot') + ')', state: st, ltp: Number(mData.ltp), volume: mData.volume, pChange: Number(mData.pChange) || 0, upper: mData.upper_circuit, lower: mData.lower_circuit, expiry: mData.expiry || '', currency: '₹' };
             }
           }
         } catch (_) {}
@@ -348,7 +349,7 @@
           if (Number(d.ltp) > 0) {
             const nst = String(d.state || 'SNAPSHOT').toUpperCase();
             const nLive = nst.indexOf('REAL-TIME') === 0;
-            return { provider: 'Local Python Proxy (' + (nLive ? 'NSE Direct' : 'NSE Snapshot') + ')', state: nst, ltp: Number(d.ltp), volume: d.volume, change: d.change, pChange: Number(d.pChange) || 0, currency: '₹' };
+            return { provider: feedHost + ' (' + (nLive ? 'NSE Direct' : 'NSE Snapshot') + ')', state: nst, ltp: Number(d.ltp), volume: d.volume, change: d.change, pChange: Number(d.pChange) || 0, currency: '₹' };
           }
         }
       } catch (_) {}
