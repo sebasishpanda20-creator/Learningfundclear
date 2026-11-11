@@ -505,8 +505,9 @@
               <div class="gate-item"><span>Size from Capital × Risk</span><strong>${condorPlan.lots} lot(s) × ${condorPlan.lotSize}</strong></div>
               ${condorPlan.lots === 0 ? '<div class="gate-item"><span>Risk Budget</span><span class="tag fail">INSUFFICIENT FOR 1 LOT — NO TRADE</span></div>' : ''}
               <div class="gate-item"><span>Statutory Cost Gate</span><span class="tag ${condorPlan.pass ? 'pass' : 'fail'}">${condorPlan.pass ? 'PASSED' : 'FAILED'} · E_net ${condorPlan.net >= 0 ? '+' : ''}${curSym}${Math.round(condorPlan.net)}</span></div>
-              <div class="gate-item"><span>Max Profit (both wings expire OTM)</span><strong>+${curSym}${Math.round(condorMaxProfit)}</strong></div>
-              <div class="gate-item"><span>Max Loss (either wing breached)</span><strong>−${curSym}${Math.round(condorMaxLoss)}</strong></div>
+              <div class="gate-item"><span>Max Profit / Lot (both wings expire OTM)</span><strong>+${curSym}${Math.round(credit * condorPlan.lotSize)}</strong></div>
+              <div class="gate-item"><span>Max Loss / Lot (either wing breached)</span><strong>−${curSym}${Math.round((step * 2 - credit) * condorPlan.lotSize)}</strong></div>
+              ${condorPlan.lots > 0 ? `<div class="gate-item"><span>Total at ${condorPlan.lots} lot(s)</span><strong>+${curSym}${Math.round(condorMaxProfit)} / −${curSym}${Math.round(condorMaxLoss)}</strong></div>` : ''}
               <div class="gate-item"><span>Exit Plan</span><strong>Buy back at ${condorTp} (50% captured) · cut if premium ≥ ${condorSl} · close ${Math.max(1, dte - 2)} DTE</strong></div>
             </div>`;
         }
@@ -535,8 +536,9 @@
             <div class="gate-item"><span>Size from Capital × Risk</span><strong>${plan.lots} lot(s) × ${plan.lotSize}</strong></div>
             ${plan.lots === 0 ? '<div class="gate-item"><span>Risk Budget</span><span class="tag fail">INSUFFICIENT FOR 1 LOT — NO TRADE</span></div>' : ''}
             <div class="gate-item"><span>Statutory Cost Gate</span><span class="tag ${plan.pass ? 'pass' : 'fail'}">${plan.pass ? 'PASSED' : 'FAILED'} · E_net ${plan.net >= 0 ? '+' : ''}${curSym}${Math.round(plan.net)}</span></div>
-            <div class="gate-item"><span>Max Profit (full credit decay)</span><strong>+${curSym}${Math.round(maxProfit)}</strong></div>
-            <div class="gate-item"><span>Max Loss (short strike breached)</span><strong>−${curSym}${Math.round(maxLoss)}</strong></div>
+            <div class="gate-item"><span>Max Profit / Lot (full credit decay)</span><strong>+${curSym}${Math.round(credit * plan.lotSize)}</strong></div>
+            <div class="gate-item"><span>Max Loss / Lot (short strike breached)</span><strong>−${curSym}${Math.round((step - credit) * plan.lotSize)}</strong></div>
+            ${plan.lots > 0 ? `<div class="gate-item"><span>Total at ${plan.lots} lot(s)</span><strong>+${curSym}${Math.round(maxProfit)} / −${curSym}${Math.round(maxLoss)}</strong></div>` : ''}
             <div class="gate-item"><span>Exit Plan</span><strong>Buy back at ${curSym}${tpPremium.toFixed(1)} (50% captured) · cut if premium ≥ ${curSym}${slPremium.toFixed(1)} · close ${Math.max(1, dte - 2)} DTE</strong></div>
           </div>`;
       }
