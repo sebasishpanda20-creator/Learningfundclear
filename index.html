@@ -236,9 +236,13 @@
   <script>
     const STATE = { group: 'daily_income', subtab: 'di-board', mode: 'ADVISORY', panic: false, symbol: 'NIFTY', tf: '15m|1h', cap: 150000, risk: 1.5 };
 
-    // Remote proxy support: a free HTTPS tunnel lets the phone reach the laptop proxy.
+    // Hosted deployments talk to their own origin; localhost keeps the laptop proxy.
     function getProxyBaseUrl() {
-      return localStorage.getItem('LFC_PROXY_URL') || 'http://127.0.0.1:8000';
+      const saved = localStorage.getItem('LFC_PROXY_URL');
+      if (saved) return saved.replace(/\/+$/, '');
+      const host = location.hostname;
+      const isLocal = host === '127.0.0.1' || host === 'localhost' || location.protocol === 'file:';
+      return isLocal ? 'http://127.0.0.1:8000' : '';
     }
 
     // Dedicated Product Desks including Standalone MCX Commodities Desk
@@ -586,7 +590,7 @@
 
       const hostEl = document.getElementById('tel-host');
       const proxyUrl = getProxyBaseUrl();
-      if (hostEl) hostEl.innerText = /trycloudflare|ngrok/.test(proxyUrl) ? 'Remote HTTPS' : 'Local';
+      if (hostEl) hostEl.innerText = !proxyUrl ? 'Cloud' : (/trycloudflare|ngrok/.test(proxyUrl) ? 'Tunnel' : 'Local');
 
       const hasPrice = Number(feed.ltp) > 0;
       const cur = feed.currency || '₹';
