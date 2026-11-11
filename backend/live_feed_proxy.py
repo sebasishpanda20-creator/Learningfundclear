@@ -1,4 +1,4 @@
-"""LearningFundClear local data proxy v5.1 — NSE, MCX and Delta India feeds.
+"""LearningFundClear local data proxy v5.3 — NSE, MCX and Delta India feeds.
 
 Data-layer fixes:
   * MCX: the ASP.NET endpoint rejects POSTs that lack the AJAX header stack and an
@@ -7,7 +7,8 @@ Data-layer fixes:
     comes back as a JSON *string* rather than a list.
   * MCX fallback chain: direct scrape -> yfinance futures stream (converted to
     INR) -> labelled constant. Always HTTP 200.
-  * NSE: nsemine -> yfinance (^NSEI / ^NSEBANK / SYMBOL.NS) -> labelled constant.
+  * NSE: nsepython (NSE's own REST API) -> nsemine -> yfinance (^NSEI / ^NSEBANK /
+    SYMBOL.NS) -> labelled constant.
     The route never returns 503, so the badge can trust the ``state`` field.
   * ``state`` is the single source of truth for the UI badge:
     "REAL-TIME MCX DIRECT" / "REAL-TIME NSE DIRECT" / "REAL-TIME YFINANCE" when a
@@ -48,6 +49,26 @@ try:
 except Exception:
     yf = None  # type: ignore
     HAS_YFINANCE = False
+
+# nsepython (github.com/aeron7/nsepython) talks to NSE's own REST API. That feed is
+# not IP-throttled like Yahoo, so it is the primary NSE source. Optional on import.
+try:
+    import nsepython as nse_client  # type: ignore
+
+    HAS_NSEPYTHON = True
+except Exception:
+    nse_client = None  # type: ignore
+    HAS_NSEPYTHON = False
+
+# MCX sits behind Akamai, which fingerprints the TLS stack: plain `requests` gets a
+# 403. curl_cffi (github.com/lexiforest/curl_cffi) impersonates Chrome and passes.
+try:
+    from curl_cffi import requests as curl_requests  # type: ignore
+
+    HAS_CURL_CFFI = True
+except Exception:
+    curl_requests = None  # type: ignore
+    HAS_CURL_CFFI = False
 
 
 @asynccontextmanager
@@ -220,15 +241,121 @@ def _prev_close(ticker_symbol: str) -> Optional[float]:
 # ---------------------------------------------------------------------------
 # MCX
 # ---------------------------------------------------------------------------
-MCX_URL = "https://www.mcxindia.com/backpage.aspx/GetMarketWatch"
+# The old ASP.NET route (/backpage.aspx/GetMarketWatch) is gone — every path under
+# it returns MCX's HTML 404. The site's own JS calls a page-relative route instead:
+#     GetData("/GetMarketWatch?culture=en-US", "GET", null, ...)  ->  data.Data
+MCX_URL = "https://www.mcxindia.com/market-data/market-watch/GetMarketWatch"
+MCX_PAGE = "https://www.mcxindia.com/market-data/market-watch"
 
 MCX_HEADERS = {
-    "Content-Type": "application/json; charset=UTF-8",
     "Accept": "application/json, text/javascript, */*; q=0.01",
     "X-Requested-With": "XMLHttpRequest",
-    "Origin": "https://www.mcxindia.com",
-    "Referer": "https://www.mcxindia.com/market-data/market-watch",
+    "Referer": MCX_PAGE,
 }
+
+MCX_CACHE_SECONDS = 20.0
+_mcx_cache: dict[str, Any] = {"rows": None, "ts": 0.0}
+
+_mcx_client: Any = None
+if HAS_CURL_CFFI:
+    try:
+        _mcx_client = curl_requests.Session(impersonate="chrome")
+    except Exception:
+        _mcx_client = None
+
+
+def _parse_mcx_expiry(value: Any) -> Optional[float]:
+    """MCX sends ExpiryDate as e.g. '17NOV2026'."""
+    text = str(value or "").strip().upper()
+    if not text:
+        return None
+    try:
+        return time.mktime(time.strptime(text, "%d%b%Y"))
+    except Exception:
+        return None
+
+
+def _mcx_watch_rows() -> Optional[list[Any]]:
+    """Full market-watch payload (~2.8 MB), cached briefly; stale copy on failure."""
+    cached_rows = _mcx_cache.get("rows")
+    if cached_rows and (time.time() - _mcx_cache.get("ts", 0.0)) < MCX_CACHE_SECONDS:
+        return cached_rows
+
+    client = _mcx_client or session
+    try:
+        resp = client.get(MCX_URL, headers=MCX_HEADERS, timeout=12)
+        if resp.status_code != 200:
+            return cached_rows
+
+        payload = resp.json()
+        rows: Any = payload
+        if isinstance(payload, dict):
+            if isinstance(payload.get("data"), dict):
+                rows = payload["data"].get("Data")
+            elif "d" in payload:
+                rows = payload.get("d")
+        # some responses double-encode the list as a JSON string
+        if isinstance(rows, str):
+            try:
+                rows = json.loads(rows)
+            except Exception:
+                return cached_rows
+        if isinstance(rows, dict):
+            rows = rows.get("Data") or rows.get("data")
+        if not isinstance(rows, list):
+            return cached_rows
+
+        _mcx_cache["rows"] = rows
+        _mcx_cache["ts"] = time.time()
+        return rows
+    except Exception:
+        return cached_rows
+
+
+def _mcx_scrape(commodity: str) -> Optional[dict[str, Any]]:
+    """Nearest-expiry FUTCOM contract for `commodity` from MCX's own market watch."""
+    rows = _mcx_watch_rows()
+    if not rows:
+        return None
+
+    target = commodity.upper()
+    candidates: list[tuple[float, dict[str, Any]]] = []
+    for row in rows:
+        if not isinstance(row, dict):
+            continue
+        instrument = str(_pick(row, "InstrumentName") or "").upper()
+        if instrument and instrument != "FUTCOM":
+            continue
+        symbol = str(_pick(row, "Symbol", "ProductCode") or "").upper()
+        if symbol != target:
+            continue
+        ltp = _num(_pick(row, "LTP", "LastPrice"))
+        if ltp <= 0:
+            continue
+        expiry = _parse_mcx_expiry(_pick(row, "ExpiryDate")) or float("inf")
+        candidates.append((expiry, row))
+
+    if not candidates:
+        return None
+
+    candidates.sort(key=lambda item: item[0])
+    row = candidates[0][1]
+
+    ltp = _num(_pick(row, "LTP", "LastPrice"))
+    circuit_pct = _num(_pick(row, "CircuitLimit", "circuitlimit"), 4.0) or 4.0
+    return {
+        "symbol": str(_pick(row, "Symbol", "ProductCode") or target).upper(),
+        "ltp": round(ltp, 2),
+        "high": _num(_pick(row, "High")),
+        "low": _num(_pick(row, "Low")),
+        "open": _num(_pick(row, "Open")),
+        "volume": _num(_pick(row, "Volume")),
+        "expiry": str(_pick(row, "ExpiryDate") or ""),
+        "upper_circuit": round(ltp * (1 + circuit_pct / 100), 2),
+        "lower_circuit": round(ltp * (1 - circuit_pct / 100), 2),
+        "state": "REAL-TIME MCX DIRECT",
+        "feed_note": "MCX market watch (GetMarketWatch, FUTCOM nearest expiry)",
+    }
 
 # yfinance futures → MCX contract conversion
 YF_MAP = {
@@ -240,53 +367,6 @@ YF_MAP = {
 }
 
 MCX_DEFAULTS = {"CRUDEOIL": 6850.0, "GOLD": 75400.0, "SILVER": 92400.0}
-
-
-def _mcx_scrape(commodity: str) -> Optional[dict[str, Any]]:
-    """Direct MCX scrape with the full ASP.NET AJAX header stack."""
-    try:
-        resp = session.post(MCX_URL, json={"Option": "1"}, headers=MCX_HEADERS, timeout=5)
-        if resp.status_code != 200:
-            return None
-
-        payload = resp.json()
-        rows = payload.get("d", [])
-        # MCX sometimes double-encodes and returns `d` as a JSON string.
-        if isinstance(rows, str):
-            try:
-                rows = json.loads(rows)
-            except Exception:
-                return None
-        if isinstance(rows, dict):
-            rows = rows.get("Data") or rows.get("data") or []
-        if not isinstance(rows, list):
-            return None
-
-        target = commodity.upper()
-        for row in rows:
-            if not isinstance(row, dict):
-                continue
-            symbol = str(_pick(row, "Symbol", "symbol") or "").upper()
-            if not symbol or target not in symbol:
-                continue
-            ltp = _num(_pick(row, "LTP", "ltp", "LastPrice"))
-            if ltp <= 0:
-                continue
-            circuit_pct = _num(_pick(row, "CircuitLimit", "circuitlimit"), 4.0) or 4.0
-            return {
-                "symbol": symbol,
-                "ltp": ltp,
-                "high": _num(_pick(row, "High", "high")),
-                "low": _num(_pick(row, "Low", "low")),
-                "open": _num(_pick(row, "Open", "open")),
-                "volume": _num(_pick(row, "Volume", "volume")),
-                "upper_circuit": round(ltp * (1 + circuit_pct / 100), 2),
-                "lower_circuit": round(ltp * (1 - circuit_pct / 100), 2),
-                "state": "REAL-TIME MCX DIRECT",
-            }
-    except Exception:
-        return None
-    return None
 
 
 @app.api_route("/api/v1/mcx/live/{commodity}", methods=["GET", "POST"])
@@ -366,11 +446,78 @@ def _nsemine_quote(symbol: str) -> Optional[dict[str, Any]]:
     return None
 
 
+NSE_INDEX_NAMES = {
+    "NIFTY": "NIFTY 50",
+    "NIFTY50": "NIFTY 50",
+    "BANKNIFTY": "NIFTY BANK",
+    "NIFTYBANK": "NIFTY BANK",
+    "FINNIFTY": "NIFTY FINANCIAL SERVICES",
+    "MIDCPNIFTY": "NIFTY MIDCAP 50",
+}
+
+# Last good nsepython tick, so a hiccup on NSE's side serves a fresh-ish number
+# instead of dropping to the constant.
+_NSE_LAST: dict[str, dict[str, Any]] = {}
+NSE_STALE_SECONDS = 300.0
+
+
+def _nsepython_quote(symbol: str) -> Optional[dict[str, Any]]:
+    """Live NSE quote via nsepython (index names and equities)."""
+    sym = symbol.upper().replace("^", "")
+    quote: Optional[dict[str, Any]] = None
+
+    if HAS_NSEPYTHON:
+        try:
+            index_name = NSE_INDEX_NAMES.get(sym)
+            if index_name:
+                row = nse_client.nse_get_index_quote(index_name)
+                if row:
+                    ltp = _num(row.get("last"))
+                    if ltp > 0:
+                        quote = {
+                            "ltp": ltp,
+                            "change": _num(row.get("variation")),
+                            "pChange": _num(row.get("percentChange")),
+                        }
+            else:
+                info = (nse_client.nse_eq(sym) or {}).get("priceInfo") or {}
+                ltp = _num(info.get("lastPrice"))
+                if ltp > 0:
+                    quote = {
+                        "ltp": ltp,
+                        "change": _num(info.get("change")),
+                        "pChange": _num(info.get("pChange")),
+                    }
+        except Exception:
+            quote = None
+
+    if quote:
+        _NSE_LAST[sym] = {**quote, "ts": time.time()}
+        return quote
+
+    previous = _NSE_LAST.get(sym)
+    if previous and (time.time() - previous["ts"]) < NSE_STALE_SECONDS:
+        return {key: previous[key] for key in ("ltp", "change", "pChange")}
+    return None
+
+
 @app.get("/api/v1/nse/live/{symbol}")
 def get_nse_live_quote(symbol: str) -> JSONResponse:
     sym_upper = symbol.upper()
 
-    # 1. nsemine
+    # 1. nsepython -> NSE's own API
+    quote = _nsepython_quote(sym_upper)
+    if quote:
+        return JSONResponse({
+            "symbol": sym_upper,
+            "ltp": quote["ltp"],
+            "change": quote["change"],
+            "pChange": quote["pChange"],
+            "state": "REAL-TIME NSE DIRECT",
+            "feed_note": "nsepython (NSE official API)",
+        })
+
+    # 2. nsemine
     quote = _nsemine_quote(sym_upper)
     if quote:
         return JSONResponse({
@@ -396,7 +543,7 @@ def get_nse_live_quote(symbol: str) -> JSONResponse:
             "state": "REAL-TIME YFINANCE",
         })
 
-    # 3. Constant — never 503
+    # 4. Constant — never 503
     default_ltp = NSE_DEFAULTS.get(sym_upper, 1250.0)
     return JSONResponse({
         "symbol": sym_upper,
@@ -415,10 +562,13 @@ def health() -> dict[str, Any]:
     last_success = _refresh_state["last_success"]
     return {
         "status": "ONLINE",
-        "version": "5.2",
+        "version": "5.3",
         "proxy": "Quant Core Local Proxy",
+        "nsepython": HAS_NSEPYTHON,
+        "curl_cffi": HAS_CURL_CFFI,
         "nsemine": HAS_NSEMINE,
         "yfinance": HAS_YFINANCE,
+        "mcx_watch_rows": len(_mcx_cache.get("rows") or []),
         "refresher": {
             "running": bool(_refresh_thread and _refresh_thread.is_alive()),
             "watchlist": len(WATCHLIST),
