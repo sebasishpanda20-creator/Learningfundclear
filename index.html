@@ -395,7 +395,8 @@
     function executionPlan(sym, step, credit) {
       const capEl = document.getElementById('inp-cap');
       const riskEl = document.getElementById('inp-risk');
-      const cap = Number(capEl ? capEl.value : 150000) || 150000;
+      const fx = STATE.group === 'crypto' ? 86.5 : 1;   // capital is ₹, VDA risk is $
+      const cap = (Number(capEl ? capEl.value : 150000) || 150000) / fx;
       const riskPct = Number(riskEl ? riskEl.value : 1.5) || 1.5;
       const lotSize = getLotSize(sym);
       const riskBudget = cap * riskPct / 100;
@@ -431,7 +432,7 @@
       const step = getStrikeStep(sym, ltp);
       const curSym = desk === 'crypto' ? '$' : '₹';
       const dte = currentDte();
-      const iv = 0.18;
+      const iv = desk === 'crypto' ? 0.55 : 0.18;   // VDA realised vol >> index vol
 
       if (STATE.panic) {
         return `
@@ -694,10 +695,9 @@
               </div>
               <div class="kv-grid">
                 <div class="kv"><span>BSM Delta (Δ)</span><strong>${bsm.delta.toFixed(3)}</strong></div>
-                <div class="kv"><span>Theta Burn (Θ)</span><strong>${cur}${thetaPerDay.toFixed(2)}/day</strong></div>
+                <div class="kv"><span>Theta Burn (Θ)</span><strong>${thetaPerDay < 0 ? '-' : '+'}${cur}${Math.abs(thetaPerDay).toFixed(2)}/day</strong></div>
                 <div class="kv"><span>POP % (CDF)</span><strong>${(bsm.pop * 100).toFixed(1)}%</strong></div>
               </div>
-              <div class="gate-item"><span>Statutory Cost Gate</span><span class="tag ${STATE.panic ? 'fail' : 'pass'}">${STATE.panic ? 'LOCKED (PANIC)' : 'PASSED (E_net > ₹0)'}</span></div>
               <div class="gate-item"><span>Sec 115BBH VDA Tax</span><span class="tag info">31.2% FLAT AUDITED</span></div>
               ${legsHTML}
             </div>

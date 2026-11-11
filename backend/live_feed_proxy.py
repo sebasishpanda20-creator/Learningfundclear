@@ -350,6 +350,8 @@ def _mcx_scrape(commodity: str) -> Optional[dict[str, Any]]:
         "low": _num(_pick(row, "Low")),
         "open": _num(_pick(row, "Open")),
         "volume": _num(_pick(row, "Volume")),
+        "change": round(_num(_pick(row, "AbsoluteChange")), 2),
+        "pChange": round(_num(_pick(row, "PercentChange")), 2),
         "expiry": str(_pick(row, "ExpiryDate") or ""),
         "upper_circuit": round(ltp * (1 + circuit_pct / 100), 2),
         "lower_circuit": round(ltp * (1 - circuit_pct / 100), 2),
