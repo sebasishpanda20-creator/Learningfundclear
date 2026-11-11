@@ -379,7 +379,7 @@
 
     function getLotSize(sym) {
       const s = sym.toUpperCase();
-      const sizes = { NIFTY: 75, BANKNIFTY: 35, CRUDEOIL: 100, GOLD: 10, SILVER: 30, NATURALGAS: 1250, COPPER: 2500 };
+      const sizes = { NIFTY: 75, BANKNIFTY: 35, CRUDEOIL: 100, GOLD: 100, SILVER: 30, NATURALGAS: 1250, COPPER: 2500, ALUMINIUM: 5000 };
       return sizes[s] || 1;
     }
 
@@ -603,8 +603,19 @@
 
       // Render Dedicated MCX Desk Layout
       if (STATE.group === 'mcx') {
-        const lotSize = STATE.symbol === 'CRUDEOIL' ? '100 Barrels' : (STATE.symbol === 'GOLD' ? '1 Kg (1000g)' : '30 Kg');
-        const units = STATE.symbol === 'CRUDEOIL' ? 100 : (STATE.symbol === 'GOLD' ? 10 : 30);
+        // Contract multipliers differ per commodity; a single fallback mislabels the lot
+        // and misstates the notional (NATURALGAS is 1250 mmBtu, not 30 kg).
+        const MCX_CONTRACTS = {
+          CRUDEOIL: { units: 100, label: '100 Barrels' },
+          GOLD: { units: 100, label: '1 Kg (100 × 10g)' },
+          SILVER: { units: 30, label: '30 Kg' },
+          NATURALGAS: { units: 1250, label: '1250 mmBtu' },
+          COPPER: { units: 2500, label: '2500 Kg' },
+          ALUMINIUM: { units: 5000, label: '5 MT' }
+        };
+        const contract = MCX_CONTRACTS[STATE.symbol] || { units: 1, label: '1 Unit' };
+        const lotSize = contract.label;
+        const units = contract.units;
         const notionalValue = (feed.ltp * units).toLocaleString('en-IN');
         const upper = feed.upper || Math.round(feed.ltp * 1.04);
         const lower = feed.lower || Math.round(feed.ltp * 0.96);
