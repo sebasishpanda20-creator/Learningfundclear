@@ -1,5 +1,4 @@
 User-agent: *
 Allow: /
 
-# Fund pages sitemap
-Sitemap: https://YOUR-SITE.example/funds/sitemap.xml
+# LearningFundClear - institutional quant portal (static single-file app, v4.0)
