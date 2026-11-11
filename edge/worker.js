@@ -313,15 +313,22 @@ async function deltaProducts() {
       const products = (body && body.result) || [];
       const categories = { Futures: [], Options: [], "RWA Tokens": [] };
       // Delta reports tradable products as state "live", not "active".
-      // RWA tokens are the token-settled perps/spots (PAXG, XAUT), not options on them.
-      const RWA_TOKEN = /^(PAXG|XAUT)[A-Z]*USD$/i;
+      // RWA/tokenised instruments are described as "<asset> Token perpetual future"
+      // (Tether Gold, PAX Gold, ONDO Token, bStocks Token), so the description is the
+      // reliable discriminator — symbol prefixes only covered PAXG/XAUT.
+      const RWA_DESC = /(ondo|bstock|rwa|tokeni[sz]ed|gold token|silver.*token) token|[a-z] token perpetual/i;
       for (const product of products) {
         const state = String(product.state || "").toLowerCase();
         if (state !== "active" && state !== "live") continue;
         const sym = String(product.symbol || "");
         const contractType = String(product.contract_type || "").toLowerCase();
-        if (product.is_rwa === true || RWA_TOKEN.test(sym) || /rwa/i.test(sym)) {
-          categories["RWA Tokens"].push({ id: sym, label: `${sym} (RWA token)` });
+        const descriptor = `${product.description || ""} ${product.short_description || ""}`;
+        const isToken = product.is_rwa === true || /rwa/i.test(sym) || RWA_DESC.test(descriptor);
+        if (isToken && !contractType.includes("option")) {
+          categories["RWA Tokens"].push({
+            id: sym,
+            label: product.short_description || `${sym} (RWA token)`,
+          });
         } else if (contractType.includes("option")) {
           categories.Options.push({ id: sym, label: `${sym} (Option)` });
         } else {

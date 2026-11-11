@@ -288,7 +288,7 @@
         const seen = new Set(catalogByDesk.crypto.map(x => x.s));
         tokens.forEach(t => {
           if (!t || !t.id || seen.has(t.id)) return;
-          catalogByDesk.crypto.push({ s: t.id, n: 'RWA Token', e: 'DELTA' });
+          catalogByDesk.crypto.push({ s: t.id, n: t.label || 'RWA Token', e: 'DELTA' });
           seen.add(t.id);
         });
       } catch (_) {}
