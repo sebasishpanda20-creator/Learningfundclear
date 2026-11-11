@@ -594,6 +594,9 @@
       const verdictText = STATE.panic ? 'WAIT (PANIC LOCKED)'
         : (!hasPrice ? 'WAIT (NO FEED)'
         : (pct > 0.35 ? 'ADVISORY BULLISH' : (pct < -0.35 ? 'ADVISORY BEARISH' : 'ADVISORY NEUTRAL')));
+      // Set before the legs render, otherwise the plan pill shows the previous contract's expiry.
+      STATE.expiry = feed.expiry ? String(feed.expiry) : '';
+
       const legsHTML = hasPrice
         ? generateUniversalLegs(STATE.symbol, feed.ltp, verdictText, STATE.group)
         : '<div class="trade-legs-container"><div class="leg-box neutral-leg"><div class="leg-header"><span>NO LIVE FEED</span><span>EXECUTION LOCKED</span></div><div class="leg-strike">WAIT</div><div class="leg-sub">An unverified price is never converted into a trade suggestion.</div></div></div>';
@@ -607,7 +610,6 @@
         const lower = feed.lower || Math.round(feed.ltp * 0.96);
         // Which contract this price belongs to — a bare LTP is ambiguous across expiries.
         const expiry = feed.expiry ? String(feed.expiry) : '—';
-        STATE.expiry = expiry;
 
         mount.innerHTML = `
           <div class="split-2">
