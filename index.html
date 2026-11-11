@@ -1,296 +1,181 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="light">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<meta name="robots" content="noindex">
-<title>LearningFundClear · Research Dashboard</title>
-<link rel="stylesheet" href="assets/css/tokens.css">
-<link rel="stylesheet" href="assets/css/app.css">
-<link rel="stylesheet" href="assets/css/portal-shell.css">
-<style>
-/* ── index.html page-native overrides (light token-driven only) ───────────
- * The shared design system (assets/css/tokens.css + app.css) owns layout,
- * surfaces, text, borders, shapes, buttons, tabs, and status roles. Only the
- * Dashboard/Performance page-specific tweaks live here.
- */
-#dashboard h2.card-head, #performance h2.card-head {
-  background: var(--lfc-surface); border-bottom: 1px solid var(--lfc-border);
-  color: var(--lfc-text-strong);
-}
-#dashboard { animation: rise 0.4s ease both; }
-
-.search-bar { display: flex; gap: 8px; flex-wrap: wrap; }
-.search-bar input { min-width: 260px; flex: 1 1 260px; }
-
-#dashboard .filters {
-  display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px;
-}
-#dashboard .filters label { font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--lfc-muted); }
-#dashboard .filters select, #dashboard .filters input { background: var(--lfc-surface-soft); border-color: var(--lfc-border); }
-
-#dashboard .periods { display: inline-flex; gap: 8px; flex-wrap: wrap; align-items: center; padding: 4px 0; }
-#dashboard .periods button { min-height: 0; padding: 8px 14px; border-radius: 99px; font-size: 12.5px; border: 1px solid var(--lfc-border); background: var(--lfc-surface-soft); color: var(--lfc-text); }
-#dashboard .periods button.active { background: var(--lfc-primary); border-color: transparent; color: #FFFFFF; box-shadow: var(--lfc-shadow-sm); }
-
-#dashboard .summary-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; }
-
-#dashboard .metric {
-  background: var(--lfc-surface); border: 1px solid var(--lfc-border); border-radius: var(--lfc-radius);
-  padding: 16px 18px;
-}
-#dashboard .metric span { color: var(--lfc-muted); font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.12em; }
-#dashboard .metric strong { display: block; margin-top: 6px; font-size: 26px; letter-spacing: -0.01em; color: var(--lfc-text-strong); }
-#dashboard .metric.positive strong { color: var(--lfc-positive); }
-#dashboard .metric.negative strong { color: var(--lfc-negative); }
-#dashboard .metric.positive { border-color: rgba(21, 128, 61, 0.28); background: var(--lfc-positive-soft); }
-#dashboard .metric.negative { border-color: rgba(185, 28, 28, 0.28); background: var(--lfc-negative-soft); }
-
-#performance .table-wrap { border: 1px solid var(--lfc-border); border-radius: var(--lfc-radius); }
-#performance .positive { color: var(--lfc-primary); }
-#performance .negative { color: var(--lfc-negative); }
-
-#performance table th, #performance table td { padding: 11px 12px; border-bottom: 1px solid var(--lfc-border-soft); }
-#performance table thead th { background: var(--lfc-surface-soft); color: var(--lfc-muted); font-size: 10.5px; letter-spacing: 0.1em; }
-
-.empty { text-align: center; padding: 22px; color: var(--lfc-muted); }
-
-@keyframes rise { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
-</style>
-<script src="assets/js/theme.js"></script>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>LearningFundClear — Institutional Trading & Fundamental Portal (v4.0)</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #f1f5f9; --surface: #ffffff; --surface-alt: #f8fafc; --surface-muted: #e2e8f0;
+      --border: #cbd5e1; --text: #0f172a; --text-sec: #334155; --text-muted: #64748b;
+      --primary: #0f52ba; --primary-hover: #0a3d8f; --primary-soft: #dbeafe;
+      --cyan: #0369a1; --success: #15803d; --success-bg: #dcfce7;
+      --warn: #b45309; --warn-bg: #fef3c7; --danger: #b91c1c; --danger-bg: #fee2e2;
+      --purple: #6d28d9; --purple-bg: #ede9fe; --sidebar-w: 245px; --header-h: 52px; --subtab-h: 42px;
+      --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      --font-mono: 'JetBrains Mono', monospace;
+    }
+    [data-theme="dark"] {
+      --bg: #060913; --surface: #0f172a; --surface-alt: #152036; --surface-muted: #1e293b;
+      --border: #283652; --text: #f8fafc; --text-sec: #cbd5e1; --text-muted: #94a3b8;
+      --primary: #3b82f6; --primary-hover: #2563eb; --primary-soft: rgba(59, 130, 246, 0.18);
+      --cyan: #38bdf8; --success: #22c55e; --success-bg: rgba(34, 197, 94, 0.16);
+      --warn: #f59e0b; --warn-bg: rgba(245, 158, 11, 0.16); --danger: #ef4444; --danger-bg: rgba(239, 68, 68, 0.18);
+    }
+    *, *::before, *::after { box-sizing: border-box; }
+    body { margin: 0; background: var(--bg); color: var(--text); font-family: var(--font-sans); font-size: 12.5px; line-height: 1.45; }
+    .panic-bar { display: none; background: var(--danger); color: #fff; padding: 8px 16px; font-family: var(--font-mono); font-size: 12px; font-weight: 800; align-items: center; justify-content: center; gap: 12px; position: sticky; top: 0; z-index: 100; }
+    .panic-bar.active { display: flex; }
+    .app-shell { display: grid; grid-template-columns: var(--sidebar-w) minmax(0, 1fr); min-height: 100vh; }
+    .sidebar { background: var(--surface); border-right: 1px solid var(--border); display: flex; flex-direction: column; position: sticky; top: 0; height: 100vh; z-index: 50; }
+    .brand-header { height: var(--header-h); padding: 0 14px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--border); }
+    .brand-title { display: flex; align-items: center; gap: 8px; font-weight: 800; font-size: 13.5px; }
+    .brand-icon { width: 28px; height: 28px; border-radius: 6px; background: linear-gradient(135deg, var(--primary), var(--cyan)); color: #fff; display: inline-flex; align-items: center; justify-content: center; font-family: var(--font-mono); font-weight: 900; }
+    .nav-section-label { padding: 10px 14px 4px; font-size: 10px; font-weight: 800; text-transform: uppercase; color: var(--text-muted); }
+    .nav-list { list-style: none; margin: 0; padding: 4px 8px; display: flex; flex-direction: column; gap: 3px; flex: 1; overflow-y: auto; }
+    .nav-btn { width: 100%; display: flex; align-items: center; justify-content: space-between; padding: 8px 10px; border-radius: 6px; border: 1px solid transparent; background: transparent; color: var(--text-sec); font-size: 12px; font-weight: 600; cursor: pointer; text-align: left; }
+    .nav-btn:hover { background: var(--surface-alt); color: var(--text); }
+    .nav-btn.active { background: var(--primary-soft); color: var(--primary); border-color: rgba(15, 82, 186, 0.3); font-weight: 700; }
+    .pill { font-family: var(--font-mono); font-size: 9.5px; font-weight: 700; padding: 2px 6px; border-radius: 4px; background: var(--surface-muted); color: var(--text-sec); }
+    .sidebar-footer { border-top: 1px solid var(--border); padding: 10px 12px; background: var(--surface-alt); display: flex; flex-direction: column; gap: 8px; }
+    .main-col { display: flex; flex-direction: column; min-width: 0; }
+    .topbar { min-height: var(--header-h); background: var(--surface); border-bottom: 1px solid var(--border); padding: 6px 14px; display: flex; align-items: center; justify-content: space-between; gap: 10px; position: sticky; top: 0; z-index: 40; }
+    .topbar-right { display: flex; align-items: center; gap: 8px; font-family: var(--font-mono); font-size: 11px; }
+    .btn { padding: 6px 12px; border-radius: 5px; border: 1px solid var(--border); background: var(--surface-alt); color: var(--text); font-size: 11px; font-weight: 700; cursor: pointer; font-family: var(--font-mono); display: inline-flex; align-items: center; gap: 6px; }
+    .btn:hover { border-color: var(--primary); color: var(--primary); }
+    .btn-primary { background: var(--primary); color: #fff; border-color: var(--primary); }
+    .btn-danger { background: var(--danger); color: #fff; border-color: var(--danger); }
+    .btn-warn { background: var(--warn-bg); color: var(--warn); border-color: var(--warn); }
+    .mobile-btn { display: none; }
+    .feed-badge { padding: 3px 8px; border-radius: 4px; font-weight: 800; font-size: 10px; font-family: var(--font-mono); text-transform: uppercase; }
+    .feed-badge[data-state="REAL-TIME WS"], .feed-badge[data-state="REAL-TIME LOCAL PROXY"] { background: var(--success-bg); color: var(--success); border: 1px solid var(--success); }
+    .feed-badge[data-state="SNAPSHOT"] { background: var(--warn-bg); color: var(--warn); border: 1px solid var(--warn); }
+    .subtab-bar { min-height: var(--subtab-h); background: var(--surface); border-bottom: 1px solid var(--border); padding: 0 14px; display: flex; align-items: center; gap: 4px; overflow-x: auto; position: sticky; top: var(--header-h); z-index: 35; }
+    .subtab-btn { padding: 10px 14px; border: none; border-bottom: 2px solid transparent; background: transparent; color: var(--text-sec); font-size: 12px; font-weight: 600; white-space: nowrap; cursor: pointer; }
+    .subtab-btn.active { color: var(--primary); border-bottom-color: var(--primary); font-weight: 700; }
+    .workspace { padding: 14px; display: flex; flex-direction: column; gap: 14px; }
+    .mandate-strip { background: var(--primary-soft); border: 1px solid rgba(15, 82, 186, 0.25); border-left: 4px solid var(--primary); border-radius: 6px; padding: 8px 14px; display: flex; justify-content: space-between; align-items: center; font-size: 11.5px; }
+    .controls-grid { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 12px 14px; display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 10px; align-items: end; }
+    .field label { display: block; font-size: 10px; font-weight: 800; text-transform: uppercase; color: var(--text-muted); margin-bottom: 4px; }
+    .field input, .field select { width: 100%; padding: 7px 10px; border-radius: 5px; border: 1px solid var(--border); background: var(--surface-alt); color: var(--text); font-family: var(--font-mono); font-size: 12px; }
+    .split-2 { display: grid; grid-template-columns: 1.25fr 1fr; gap: 14px; }
+    .card { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 14px; display: flex; flex-direction: column; gap: 12px; }
+    .card-head { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 1px solid var(--border); padding-bottom: 10px; }
+    .card-title { font-size: 13.5px; font-weight: 800; }
+    .card-sub { font-size: 11px; color: var(--text-muted); font-family: var(--font-mono); }
+    .verdict-banner { padding: 10px 14px; border-radius: 6x; font-family: var(--font-mono); font-size: 12.5px; font-weight: 800; display: flex; justify-content: space-between; }
+    .verdict-banner.buy { background: var(--success-bg); color: var(--success); border: 1px solid var(--success); }
+    .verdict-banner.sell { background: var(--danger-bg); color: var(--danger); border: 1px solid var(--danger); }
+    .verdict-banner.wait { background: var(--warn-bg); color: var(--warn); border: 1px solid var(--warn); }
+    .kv-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; font-family: var(--font-mono); font-size: 11.5px; }
+    .kv { background: var(--surface-alt); border: 1px solid var(--border); padding: 8px 10px; border-radius: 6px; }
+    .kv span { display: block; font-family: var(--font-sans); font-size: 10px; color: var(--text-muted); font-weight: 600; }
+    .gate-item { display: flex; justify-content: space-between; align-items: center; padding: 7px 10px; border-radius: 5px; background: var(--surface-alt); border: 1px solid var(--border); font-size: 11.5px; }
+    .tag { font-family: var(--font-mono); font-size: 10px; font-weight: 800; padding: 3px 8px; border-radius: 4px; }
+    .tag.pass { background: var(--success-bg); color: var(--success); border: 1px solid var(--success); }
+    .tag.fail { background: var(--danger-bg); color: var(--danger); border: 1px solid var(--danger); }
+    .tag.info { background: var(--purple-bg); color: var(--purple); border: 1px solid var(--purple); }
+    canvas#inst-chart { width: 100%; height: 310px; background: var(--surface-alt); border: 1px solid var(--border); border-radius: 6x; }
+    .table-wrap { overflow-x: auto; width: 100%; }
+    table.inst-table { width: 100%; border-collapse: collapse; font-size: 11.5px; font-family: var(--font-mono); }
+    table.inst-table th, table.inst-table td { padding: 8px 10px; border-bottom: 1px solid var(--border); text-align: left; }
+    table.inst-table th { background: var(--surface-alt); color: var(--text-muted); font-family: var(--font-sans); font-size: 10px; text-transform: uppercase; font-weight: 800; }
+  </style>
 </head>
 <body>
+  <div class="panic-bar" id="panic-bar">
+    <span>🚨 PANIC KILL-SWITCH ACTIVE: ALL SIGNALS & EXECUTION HARD-LOCKED TO WAIT / NO TRADE</span>
+    <button type="button" class="btn btn-primary" id="btn-disarm">DISARM KILL-SWITCH</button>
+  </div>
 
-<!-- ═══ Unauthenticated shell (only ever shown before auth resolves) ═══ -->
-<div id="authPending" class="hidden">
-  <div class="brand-block" style="display:flex;align-items:center;gap:12px;padding:22px 18px;background:var(--lfc-surface);border-bottom:1px solid var(--lfc-border);">
-    <div class="header-logo" aria-hidden="true">
-      <svg viewBox="0 0 24 24" fill="none" width="40" height="40" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M4 17.5 9.5 12l4 3.5L20 7"/><path d="M14.5 7H20v5.5"/></svg>
-    </div>
-    <div>
-      <h1 style="margin:0;font-size:15px;letter-spacing:.22em;">LearningFundClear</h1>
-      <small style="margin:0;font-size:10px;letter-spacing:.22em;">Research portal</small>
+  <div class="app-shell">
+    <aside class="sidebar" id="sidebar">
+      <div class="brand-header">
+        <div class="brand-title">
+          <span class="brand-icon">LFC</span>
+          <div>
+            <div>LearningFundClear</div>
+            <div style="font-size:10px; color:var(--text-muted); font-weight:600;">Institutional Terminal v4.0</div>
+          </div>
+        </div>
+        <span class="pill">IST ₹</span>
+      </div>
+      <div class="nav-section-label">Product Modules</div>
+      <ul class="nav-list" id="sidebar-nav"></ul>
+      <div class="sidebar-footer">
+        <div style="display:flex; justify-content:space-between; font-size:11px;">
+          <span>Admin: <strong id="user-label">sebasish.trading</strong></span>
+          <span class="pill" style="background:var(--success-bg); color:var(--success);">ACTIVE</span>
+        </div>
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:6px;">
+          <button type="button" class="btn" id="btn-theme">Dark Mode</button>
+          <button type="button" class="btn" id="btn-signout" style="color:var(--danger);">Sign Out</button>
+        </div>
+      </div>
+    </aside>
+
+    <div class="main-col">
+      <header class="topbar">
+        <div style="display:flex; align-items:center; gap:8px;">
+          <strong id="breadcrumb" style="font-size:13px;">Daily Income & Theta Desk / Multi-Regime Income Board</strong>
+        </div>
+        <div class="topbar-right">
+          <button type="button" class="btn btn-warn" id="btn-mode">🛡️ ADVISORY (SIGNAL)</button>
+          <button type="button" class="btn btn-danger" id="btn-panic">🚨 PANIC SWITCH</button>
+          <span>Source: <strong id="tel-source">Initializing...</strong></span>
+          <span>Tick IST: <strong id="tel-time">--</strong></span>
+          <span class="feed-badge" id="tel-badge" data-state="REAL-TIME WS">LIVE WS</span>
+        </div>
+      </header>
+
+      <nav class="subtab-bar" id="subtab-bar"></nav>
+
+      <main class="workspace">
+        <div class="mandate-strip">
+          <div><strong>INSTITUTIONAL MANDATE:</strong> NO PROFITABLE SETUP AFTER STATUTORY COSTS + EXPECTANCY > ₹0, NO TRADE SUGGESTION.</div>
+          <span style="font-family:var(--font-mono); font-size:11px;">USD/INR: <strong>₹86.50</strong></span>
+        </div>
+
+        <section class="controls-grid">
+          <div class="field"><label for="sel-symbol">Active Instrument</label><select id="sel-symbol"></select></div>
+          <div class="field">
+            <label for="sel-tf">Timeframe Pair</label>
+            <select id="sel-tf">
+              <option value="5m|15m">5m Entry / 15m Confirm (Scalp)</option>
+              <option value="15m|1h" selected>15m Entry / 1h Confirm (Intraday)</option>
+              <option value="1h|4h">1h Entry / 4h Confirm (Swing)</option>
+            </select>
+          </div>
+          <div class="field"><label for="inp-cap">Capital (₹ INR)</label><input type="number" id="inp-cap" value="150000" /></div>
+          <div class="field"><label for="inp-risk">Max Risk / Trade (%)</label><input type="number" id="inp-risk" value="1.5" step="0.25" /></div>
+          <div class="field"><label for="inp-daily-target">Daily Income Goal (₹)</label><input type="number" id="inp-daily-target" value="1500" /></div>
+          <div class="field"><label>&nbsp;</label><button type="button" class="btn btn-primary" id="btn-run" style="width:100%;">⚡ Scan & Test</button></div>
+        </section>
+
+        <div id="desk-mount"></div>
+      </main>
     </div>
   </div>
-  <main style="padding:22px 18px;">
-    <section id="login" class="card" style="max-width:420px;padding:28px;">
-      <h2 style="font-size:20px;margin:0 0 6px;">Welcome back</h2>
-      <p class="login-sub" style="font-size:13px;margin-bottom:18px;">Sign in to reach the journal, the demand-zone scanner, and the fund portal.</p>
-      <label>Username
-        <input id="loginUser" type="text" autocomplete="username" placeholder="you@portal.local" style="width:100%;padding:11px 12px;border-radius:9px;border:1px solid var(--lfc-border);background:var(--lfc-surface-soft);color:var(--lfc-text);font-size:14px;">
-      </label>
-      <label>Password
-        <input id="loginPass" type="password" autocomplete="current-password" placeholder="••••••••" style="width:100%;padding:11px 12px;border-radius:9px;border:1px solid var(--lfc-border);background:var(--lfc-surface-soft);color:var(--lfc-text);font-size:14px;">
-      </label>
-      <button class="primary" id="loginBtn" style="width:100%;margin-top:16px;padding:12px;border:0;border-radius:10px;background:var(--lfc-primary);color:#FFFFFF;font-size:15px;font-weight:600;cursor:pointer;">Sign in</button>
-      <p class="muted" style="margin:14px 0 0;font-size:12.5px;">Private portal. Use the credentials provided by the administrator.</p>
-      <p id="loginMsg" class="muted" style="min-height:18px;font-size:13px;color:var(--lfc-positive);margin-top:10px;"></p>
-    </section>
-  </main>
-</div>
 
-<!-- ═══ Authenticated app shell (hidden until auth resolves, then revealed) ═══ -->
-<div id="appShell" class="hidden">
-  <header id="header">
-    <div class="header-brand">
-      <div class="header-logo" aria-hidden="true">
-        <svg viewBox="0 0 24 24" fill="none"><path d="M4 17.5 9.5 12l4 3.5L20 7" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/><path d="M14.5 7H20v5.5" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
-      </div>
-      <div>
-        <h1>LearningFundClear</h1>
-        <small>Research dashboard</small>
-      </div>
-    </div>
-    <div class="userbar">
-      <span id="userDisplay">—</span>
-      <button class="nav-btn active" data-nav="dashboard">Dashboard</button>
-      <button class="nav-btn" data-nav="performance">Performance</button>
-      <button class="nav-btn" data-nav="funds">Mutual Funds</button>
-      <button class="nav-btn" data-nav="scanner">Scanner</button>
-      <button class="nav-btn" data-nav="setups">Setups</button>
-      <button class="nav-btn" data-nav="gex">GEX</button>
-      <button class="nav-btn hidden" id="adminBtn" data-nav="admin">Admin</button>
-      <button class="nav-btn" id="themeToggle" data-lfc-theme-toggle style="margin-left:auto;" aria-pressed="false">Dark</button>
-      <button class="nav-btn" id="logoutBtn">Logout</button>
-    </div>
-  </header>
-  <main>
-    <section id="dashboard" class="card" style="padding:22px;">
-      <header class="card-head"><span>Dashboard · All ideas</span></header>
-      <div class="card-body">
-        <p class="muted" style="margin:0;">Authenticated research dashboard.</p>
-      </div>
-    </section>
-    <section id="performance" class="card hidden" style="padding:22px;">
-      <header class="card-head"><span>Performance</span></header>
-      <div class="card-body">
-        <p class="muted" style="margin:0;">Research performance data.</p>
-      </div>
-    </section>
-  </main>
-</div>
+  <script>
+    const STATE = { group: 'daily_income', subtab: 'di-board', mode: 'ADVISORY', panic: false, usdInr: 86.50, activeSymbol: 'NIFTY', activeTf: '15m|1h' };
+    const TAXONOMY = [
+      { id: 'daily_income', label: 'Daily Income & Theta Desk', badge: 'Multi-Regime', subtabs: [{ id: 'di-board', label: 'Daily Income Board' }, { id: 'di-theta', label: 'Defined-Risk Theta Spreads' }] },
+      { id: 'stocks', label: 'Stocks (India NSE/MCX)', badge: 'TradFi', subtabs: [{ id: 'stk-options', label: 'Options BSM Greeks' }, { id: 'stk-hedges', label: 'Beta Index Hedge & Collar' }] },
+      { id: 'crypto', label: 'Crypto (Delta India)', badge: 'LIVE WS', subtabs: [{ id: 'cry-perps', label: 'Perps & Walk-Forward' }, { id: 'cry-funding', label: '8h Funding Carry' }] },
+      { id: 'investing', label: 'Fundamental Investing', badge: 'Piotroski/DCF', subtabs: [{ id: 'inv-desk', label: '9-Pt Piotroski & DCF Engine' }] },
+      { id: 'risk_tax', label: 'Risk & Tax Ledger', badge: '115BBH', subtabs: [{ id: 'rt-tax', label: 'Sec 115BBH VDA Tax Ledger' }] }
+    ];
 
-<script src="auth-guard.js"></script>
-<script type="module">
-import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm";
+    const ALL_INSTRUMENTS = [
+      { id: 'NIFTY', name: 'NIFTY 50 Index (Lot: 75)', market: 'INDIA', lot: 75, step: 50 },
+      { id: 'BANKNIFTY', name: 'BANKNIFTY Index (Lot: 30)', market: 'INDIA', lot: 30, step: 100 },
+      { id: 'RELIANCE', name: 'RELIANCE F&O (Lot: 500)', market: 'INDIA', lot: 500, step: 20 },
+      { id: 'BTCUSD', name: 'BTCUSD Perp (0.001 BTC)', market: 'CRYPTO', mult: 0.001, lot: 1, step: 500 }
+    ];
 
-const SUPABASE_URL = "https://chbtjicvbezbiosuouwm.supabase.co";
-const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNoYnRqaWN2YmV6Ymlvc3VvdXdtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODkzODc2NjAsImV4cCI6MjEwNDk2MzY2MH0.jlTyYWnf1TnvmwCa4NCc-hJ4wZgjWTuSc94DqvMTdNQ";
-const sb = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-const params = new URLSearchParams(location.search);
-
-// DOM refs
-const $ = id => document.getElementById(id);
-const pending = $("#authPending");
-const shell = $("#appShell");
-const loginCard = $("#login");
-const loginMsg = $("#loginMsg");
-const userDisplay = $("#userDisplay");
-const adminBtn = $("#adminBtn");
-let isAdmin = false;
-
-// auth-guard.js local-session stamp (convenience flag for the static fund pages)
-const stamp = u => { try { window.LfcAuth && LfcAuth.stamp({ u: u.username || u.id, n: u.display_name || u.username || "", a: !!u.is_admin }); } catch (e) {} };
-
-function showLoginOnly() {
-  // top-level containers: #authPending holds the login UI, so it must be VISIBLE
-  // for the signed-out state; the shell stays hidden. Nothing private flashes.
-  pending.classList.remove("hidden");
-  shell.classList.add("hidden");
-  userDisplay.textContent = "—";
-  if (adminBtn) adminBtn.classList.add("hidden");
-}
-function showShell() {
-  // authenticated: shell visible, login card hidden, nothing private flashes.
-  pending.classList.add("hidden");
-  shell.classList.remove("hidden");
-}
-
-async function activeUser(session) {
-  if (!session?.user?.id) return null;
-  const { data: u } = await sb.from("app_users").select("*").eq("id", session.user.id).single();
-  return u && u.is_active ? u : null;
-}
-
-// ── Auth state machine ──
-(async function initAuth() {
-  showLoginOnly();
-
-  try {
-    const { data: { session } } = await sb.auth.getSession();
-    const u = await activeUser(session);
-    if (!u) { showLoginOnly(); return; }
-
-    isAdmin = !!u.is_admin;
-    stamp(u);
-    userDisplay.textContent = u.display_name || u.username || "";
-
-    // only admins see Admin controls
-    if (adminBtn) adminBtn.classList.toggle("hidden", !isAdmin);
-
-    showShell();
-
-    // honour same-site ?next= (e.g. ?next=performance.html); otherwise stay on the journal
-    const next = params.get("next");
-    if (next && !/^https?:\/\//.test(next) && !next.startsWith("//")) {
-      const u2 = new URL(next, location.origin);
-      if (u2.origin === location.origin) location.replace(u2.pathname + u2.search + u2.hash);
-    }
-  } catch (e) {
-    // session gone / database stale: clear the local flag so the visitor is
-    // bounced to the clean login page by auth-guard.js on the way out
-    try { window.LfcAuth && LfcAuth.clear(); } catch (e) {}
-    showLoginOnly();
-  }
-})();
-
-// ── Login form ──
-$("#loginBtn").onclick = async () => {
-  const u = $("#loginUser").value.trim(), p = $("#loginPass").value;
-  if (!u || !p) { loginMsg.textContent = "Enter username and password."; return; }
-  $("#loginBtn").disabled = true;
-  loginMsg.textContent = "Signing in…";
-  try {
-    const { error } = await sb.auth.signInWithPassword({
-      email: (u.includes("@") ? u : u + "@portal.local").toLowerCase(), password: p,
-    });
-    if (error) {
-      loginMsg.textContent = "Sign-in failed: " + error.message;
-      $("#loginBtn").disabled = false;
-      return;
-    }
-    const { data: { session } } = await sb.auth.getSession();
-    const uRow = await activeUser(session);
-    if (!uRow || !uRow.is_active) {
-      await sb.auth.signOut();
-      loginMsg.textContent = "This account is not active.";
-      $("#loginBtn").disabled = false;
-      return;
-    }
-    stamp(uRow);
-    const next = params.get("next");
-    if (next && !/^https?:\/\//.test(next) && !next.startsWith("//")) {
-      const u2 = new URL(next, location.origin);
-      if (u2.origin === location.origin) location.replace(u2.pathname + u2.search + u2.hash);
-      return;
-    }
-    location.replace("index.html");
-  } catch (e) {
-    loginMsg.textContent = "Sign-in failed: " + e.message;
-    $("#loginBtn").disabled = false;
-  }
-};
-
-// ── Logout: clean login-only state ──
-const logoutBtn = document.getElementById("logoutBtn");
-if (logoutBtn) {
-  logoutBtn.addEventListener("click", async () => {
-    logoutBtn.disabled = true;
-    try {
-      if (window.LfcAuth) LfcAuth.clear();
-      await sb.auth.signOut();
-    } catch (err) {
-      console.error("Logout error:", err);
-    } finally {
-      // clean login-only state; Back must not restore private page
-      window.location.replace("signin.html");
-    }
-  });
-}
-
-sb.auth.onAuthStateChange(e => { if (e === "SIGNED_OUT") location.reload(); });
-
-// ── ONE data-nav navigation system ──
-function setActiveNav(page) {
-  document.querySelectorAll("[data-nav]").forEach(btn => {
-    btn.classList.toggle("active", btn.dataset.nav === page);
-  });
-}
-
-document.querySelectorAll("[data-nav]").forEach(btn => {
-  btn.addEventListener("click", () => {
-    const page = btn.dataset.nav;
-    if (page === "dashboard") {
-      location.href = "index.html";
-    } else if (page === "performance") {
-      location.href = "performance.html";
-    } else if (page === "admin") {
-      if (!isAdmin) return;
-      location.href = "index.html#admin";
-    } else if (page === "funds") {
-      location.href = "funds/index.html";
-    } else if (page === "scanner") {
-      location.href = "scanner.html";
-    } else if (page === "setups") {
-      location.href = "setups.html";
-    } else if (page === "gex") {
-      location.href = "gex.html";
-    }
-    setActiveNav(page);
-  });
-});
-
-$("#loginPass").addEventListener("keydown", e => { if (e.key === "Enter") $("#loginBtn").click(); });
-</script>
-</body>
-</html>
+    async function fetchFeed(inst) {
+      // 1. Try Local Python Un-Delayed
