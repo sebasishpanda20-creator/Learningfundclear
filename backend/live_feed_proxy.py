@@ -395,14 +395,25 @@ def get_mcx_commodity_quote(commodity: str) -> JSONResponse:
                     "feed_note": f"yfinance {ticker_symbol} converted at USDINR {USDINR}",
                 })
 
-    # 3. Controlled constant — still HTTP 200
-    default_ltp = MCX_DEFAULTS.get(comm_upper, 92400.0)
+    # 3. Known reference level only; unknown commodities are unavailable, not priced.
+    if comm_upper in MCX_DEFAULTS:
+        default_ltp = MCX_DEFAULTS[comm_upper]
+        return JSONResponse({
+            "symbol": comm_upper,
+            "ltp": default_ltp,
+            "upper_circuit": round(default_ltp * 1.04, 2),
+            "lower_circuit": round(default_ltp * 0.96, 2),
+            "state": "SNAPSHOT",
+            "feed_note": "static reference level",
+        })
+
     return JSONResponse({
         "symbol": comm_upper,
-        "ltp": default_ltp,
-        "upper_circuit": round(default_ltp * 1.04, 2),
-        "lower_circuit": round(default_ltp * 0.96, 2),
-        "state": "SNAPSHOT",
+        "ltp": 0.0,
+        "upper_circuit": 0.0,
+        "lower_circuit": 0.0,
+        "state": "UNAVAILABLE",
+        "feed_note": "no feed for this commodity",
     })
 
 
@@ -543,14 +554,26 @@ def get_nse_live_quote(symbol: str) -> JSONResponse:
             "state": "REAL-TIME YFINANCE",
         })
 
-    # 4. Constant — never 503
-    default_ltp = NSE_DEFAULTS.get(sym_upper, 1250.0)
+    # 4. Known index reference level only. An unknown symbol must never inherit a
+    #    plausible-looking price — that would be a tradeable number with no feed.
+    if sym_upper in NSE_DEFAULTS:
+        default_ltp = NSE_DEFAULTS[sym_upper]
+        return JSONResponse({
+            "symbol": sym_upper,
+            "ltp": default_ltp,
+            "change": 0.0,
+            "pChange": 0.0,
+            "state": "SNAPSHOT",
+            "feed_note": "static reference level",
+        })
+
     return JSONResponse({
         "symbol": sym_upper,
-        "ltp": default_ltp,
+        "ltp": 0.0,
         "change": 0.0,
         "pChange": 0.0,
-        "state": "SNAPSHOT",
+        "state": "UNAVAILABLE",
+        "feed_note": "no feed for this symbol",
     })
 
 
@@ -590,6 +613,55 @@ def cached_prices() -> JSONResponse:
             for ticker_symbol, (price, ts) in sorted(_PRICE_CACHE.items())
         },
         "state": "CACHE",
+    })
+
+
+DELTA_TICKER_BASE = "https://api.india.delta.exchange/v2/tickers"
+DELTA_CACHE_SECONDS = 10.0
+_delta_cache: dict[str, tuple[dict[str, Any], float]] = {}
+
+
+@app.get("/api/v1/delta/ticker/{symbol}")
+def delta_ticker(symbol: str) -> JSONResponse:
+    """Live perpetual/mark price from Delta India's public ticker."""
+    sym = (symbol or "").upper()
+    cached = _delta_cache.get(sym)
+    if cached and (time.time() - cached[1]) < DELTA_CACHE_SECONDS:
+        return JSONResponse(cached[0])
+
+    try:
+        resp = requests.get(f"{DELTA_TICKER_BASE}/{sym}", timeout=6)
+        if resp.status_code == 200:
+            result = (resp.json() or {}).get("result") or {}
+            ltp = _num(result.get("close") or result.get("mark_price"))
+            if ltp > 0:
+                band = result.get("price_band") or {}
+                payload = {
+                    "symbol": sym,
+                    "ltp": round(ltp, 2),
+                    "change": _num(result.get("mark_change_24h")),
+                    "pChange": _num(result.get("mark_change_24h")),
+                    "mark_price": _num(result.get("mark_price")),
+                    "funding_rate": _num(result.get("funding_rate")),
+                    "volume": _num(result.get("turnover_usd") or result.get("turnover")),
+                    "upper_circuit": _num(band.get("upper_limit")),
+                    "lower_circuit": _num(band.get("lower_limit")),
+                    "state": "LIVE DELTA API",
+                }
+                _delta_cache[sym] = (payload, time.time())
+                return JSONResponse(payload)
+    except Exception:
+        pass
+
+    if cached:
+        return JSONResponse({**cached[0], "state": "SNAPSHOT", "feed_note": "stale Delta tick"})
+    return JSONResponse({
+        "symbol": sym,
+        "ltp": 0.0,
+        "change": 0.0,
+        "pChange": 0.0,
+        "state": "UNAVAILABLE",
+        "feed_note": "no Delta tick for this symbol",
     })
 
 

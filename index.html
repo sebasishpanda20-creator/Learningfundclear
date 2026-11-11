@@ -295,8 +295,29 @@
 
     async function fetchLiveMetrics(sym) {
       const proxyBase = getProxyBaseUrl();
+      const onVdaDesk = (STATE.group === 'crypto' || STATE.group === 'risk_tax') && /USD$/.test(sym.toUpperCase());
 
-      // 1. Try MCX endpoint if active desk is MCX
+      // 1. VDA desks read Delta India directly — the NSE route has no crypto feed.
+      if (onVdaDesk) {
+        try {
+          const dRes = await fetch(`${proxyBase}/api/v1/delta/ticker/${sym.toUpperCase()}`, { signal: AbortSignal.timeout(4000) });
+          if (dRes.ok) {
+            const d = await dRes.json();
+            if (Number(d.ltp) > 0) {
+              const dState = String(d.state || 'SNAPSHOT').toUpperCase();
+              return {
+                provider: 'Delta India (' + (dState.indexOf('LIVE') === 0 ? 'Direct' : 'Snapshot') + ')',
+                state: dState, ltp: Number(d.ltp), pChange: Number(d.pChange) || 0, volume: d.volume,
+                upper: d.upper_circuit, lower: d.lower_circuit, mark: d.mark_price, funding: d.funding_rate, currency: '$'
+              };
+            }
+            return { provider: 'Delta India (No Feed)', state: 'UNAVAILABLE', ltp: 0, currency: '$' };
+          }
+        } catch (_) {}
+        return { provider: 'Delta India (No Feed)', state: 'UNAVAILABLE', ltp: 0, currency: '$' };
+      }
+
+      // 2. Try MCX endpoint if active desk is MCX
       if (STATE.group === 'mcx') {
         try {
           // Cold MCX calls parse a ~2.8 MB market-watch payload (~1.5 s), so this
@@ -311,8 +332,8 @@
             }
           }
         } catch (_) {}
-        const baseMcx = sym === 'CRUDEOIL' ? 6850 : (sym === 'GOLD' ? 75400 : 92400);
-        return { provider: 'Institutional MCX Fallback', state: 'SNAPSHOT', ltp: baseMcx, volume: 14200, upper: Math.round(baseMcx * 1.04), lower: Math.round(baseMcx * 0.96) };
+        // No synthesised commodity level: an unreachable feed reads as unavailable.
+        return { provider: 'MCX (No Feed)', state: 'UNAVAILABLE', ltp: 0, volume: 0, upper: 0, lower: 0, currency: '₹' };
       }
 
       // 2. Try NSE endpoint for TradFi / Daily Income
@@ -323,12 +344,11 @@
           if (Number(d.ltp) > 0) {
             const nst = String(d.state || 'SNAPSHOT').toUpperCase();
             const nLive = nst.indexOf('REAL-TIME') === 0;
-            return { provider: 'Local Python Proxy (' + (nLive ? 'NSE Direct' : 'NSE Snapshot') + ')', state: nst, ltp: Number(d.ltp), volume: d.volume, change: d.pChange };
+            return { provider: 'Local Python Proxy (' + (nLive ? 'NSE Direct' : 'NSE Snapshot') + ')', state: nst, ltp: Number(d.ltp), volume: d.volume, change: d.change, pChange: Number(d.pChange) || 0, currency: '₹' };
           }
         }
       } catch (_) {}
-      const basePrice = sym === 'NIFTY' ? 24460 : (sym === 'BANKNIFTY' ? 52180 : (sym === 'BTCUSD' ? 91850 : 2740));
-      return { provider: 'Deterministic Institutional Engine', state: 'SNAPSHOT', ltp: basePrice, volume: 18400 };
+      return { provider: 'No Live Feed', state: 'UNAVAILABLE', ltp: 0, volume: 0, currency: '₹' };
     }
 
     // Black-Scholes-Merton Options Pricing Engine
@@ -349,6 +369,51 @@
       return { price: Math.max(0.05, prem), delta: cdf(d1), putDelta: cdf(d1) - 1, pop: cdf(d2) };
     }
 
+    function currentDte() {
+      const sel = document.getElementById('sel-tf');
+      const tf = sel ? sel.value : '15m|1h';
+      if (tf.indexOf('5m') === 0) return 3;
+      if (tf.indexOf('1h') === 0) return 21;
+      return 7;
+    }
+
+    function getLotSize(sym) {
+      const s = sym.toUpperCase();
+      const sizes = { NIFTY: 75, BANKNIFTY: 35, CRUDEOIL: 100, GOLD: 10, SILVER: 30, NATURALGAS: 1250, COPPER: 2500 };
+      return sizes[s] || 1;
+    }
+
+    // A spread is worth what its two BSM legs say, not a fixed fraction of the step.
+    function legCredit(spot, sellStrike, buyStrike, type, dte, iv) {
+      const optType = type === 'PE' ? 'PUT' : 'CALL';
+      const sell = calculateBSM(spot, sellStrike, dte, iv, optType).price;
+      const buy = calculateBSM(spot, buyStrike, dte, iv, optType).price;
+      return Math.max(0.05, Math.abs(sell - buy));
+    }
+
+    // NSE options cost stack: brokerage, exchange txn, STT on sell premium, GST, stamp.
+    function executionPlan(sym, step, credit) {
+      const capEl = document.getElementById('inp-cap');
+      const riskEl = document.getElementById('inp-risk');
+      const cap = Number(capEl ? capEl.value : 150000) || 150000;
+      const riskPct = Number(riskEl ? riskEl.value : 1.5) || 1.5;
+      const lotSize = getLotSize(sym);
+      const riskBudget = cap * riskPct / 100;
+      const perLotRisk = Math.max(1, (step - credit) * lotSize);
+      const uncapped = Math.floor(riskBudget / perLotRisk);
+      const scale = STATE.mode.indexOf('KELLY') >= 0 ? 0.5 : 1;
+      const lots = Math.max(0, Math.floor(uncapped * scale));
+      const premiumTurnover = credit * lotSize * lots;
+      const brokerage = 40;
+      const txn = premiumTurnover * 0.00035;
+      const stt = premiumTurnover * 0.000625;
+      const gst = (brokerage + txn) * 0.18;
+      const stamp = premiumTurnover * 0.00003;
+      const costs = brokerage + txn + stt + gst + stamp;
+      const net = premiumTurnover - costs;
+      return { lots, lotSize, costs, net, pass: net > 0 && lots > 0, riskBudget, perLotRisk };
+    }
+
     function getStrikeStep(sym, price) {
       const s = sym.toUpperCase();
       if (s.includes('BTC')) return price > 10000 ? 500 : 50;
@@ -364,6 +429,9 @@
 
     function generateUniversalLegs(sym, ltp, verdict, desk) {
       const step = getStrikeStep(sym, ltp);
+      const curSym = desk === 'crypto' ? '$' : '₹';
+      const dte = currentDte();
+      const iv = 0.18;
 
       if (STATE.panic) {
         return `
@@ -384,19 +452,20 @@
           sellStrike = Math.floor(ltp / step) * step;
           if (sellStrike >= ltp) sellStrike -= step;
           buyStrike = sellStrike - step;
-          credit = Math.round(step * 0.35);
+          credit = legCredit(ltp, sellStrike, buyStrike, 'PE', dte, iv);
         } else if (verdict.includes('BEARISH')) {
           strategyName = 'Bear Call Credit Spread'; type = 'CE';
           sellStrike = Math.ceil(ltp / step) * step;
           if (sellStrike <= ltp) sellStrike += step;
           buyStrike = sellStrike + step;
-          credit = Math.round(step * 0.35);
+          credit = legCredit(ltp, sellStrike, buyStrike, 'CE', dte, iv);
         } else {
           const sellPut = Math.floor((ltp * 0.98) / step) * step;
           const buyPut = sellPut - step;
           const sellCall = Math.ceil((ltp * 1.02) / step) * step;
           const buyCall = sellCall + step;
-          credit = Math.round(step * 0.40);
+          credit = legCredit(ltp, sellPut, buyPut, 'PE', dte, iv) + legCredit(ltp, sellCall, buyCall, 'CE', dte, iv);
+          const condorPlan = executionPlan(sym, step * 2, credit);
           return `
             <div class="trade-legs-container">
               <div class="trade-legs-title"><span>Recommended Options Legs (Iron Condor)</span><span class="pill">Step: ${step} pts</span></div>
@@ -412,10 +481,13 @@
                   <div class="leg-sub">Max Risk Capped Hedge Wings</div>
                 </div>
               </div>
-              <div class="gate-item"><span>Est. Net Premium Credit</span><strong>₹${credit} / lot</strong></div>
+              <div class="gate-item"><span>Est. Net Premium Credit</span><strong>${curSym}${credit.toFixed(1)} / lot</strong></div>
+              <div class="gate-item"><span>Size from Capital × Risk</span><strong>${condorPlan.lots} lot(s) × ${condorPlan.lotSize}</strong></div>
+              <div class="gate-item"><span>Statutory Cost Gate</span><span class="tag ${condorPlan.pass ? 'pass' : 'fail'}">${condorPlan.pass ? 'PASSED' : 'FAILED'} · E_net ${condorPlan.net >= 0 ? '+' : ''}${curSym}${Math.round(condorPlan.net)}</span></div>
             </div>`;
         }
 
+        const plan = executionPlan(sym, step, credit);
         return `
           <div class="trade-legs-container">
             <div class="trade-legs-title"><span>Recommended Options Legs (${strategyName})</span><span class="pill">Step: ${step} pts</span></div>
@@ -431,7 +503,9 @@
                 <div class="leg-sub">Defensive Max-Risk Hedging Wing</div>
               </div>
             </div>
-            <div class="gate-item"><span>Est. Net Credit / Unit</span><strong>₹${credit} (Breakeven: ₹${type === 'PE' ? sellStrike - credit : sellStrike + credit})</strong></div>
+            <div class="gate-item"><span>Est. Net Credit / Unit</span><strong>${curSym}${credit.toFixed(1)} (Breakeven: ${curSym}${type === 'PE' ? (sellStrike - credit).toFixed(1) : (sellStrike + credit).toFixed(1)})</strong></div>
+            <div class="gate-item"><span>Size from Capital × Risk</span><strong>${plan.lots} lot(s) × ${plan.lotSize}</strong></div>
+            <div class="gate-item"><span>Statutory Cost Gate</span><span class="tag ${plan.pass ? 'pass' : 'fail'}">${plan.pass ? 'PASSED' : 'FAILED'} · E_net ${plan.net >= 0 ? '+' : ''}${curSym}${Math.round(plan.net)}</span></div>
           </div>`;
       }
 
@@ -511,7 +585,15 @@
       const proxyUrl = getProxyBaseUrl();
       if (hostEl) hostEl.innerText = /trycloudflare|ngrok/.test(proxyUrl) ? 'Remote HTTPS' : 'Local';
 
-      const legsHTML = generateUniversalLegs(STATE.symbol, feed.ltp, STATE.panic ? 'WAIT (PANIC LOCKED)' : 'ADVISORY BULLISH', STATE.group);
+      const hasPrice = Number(feed.ltp) > 0;
+      const cur = feed.currency || '₹';
+      const pct = Number(feed.pChange) || 0;
+      const verdictText = STATE.panic ? 'WAIT (PANIC LOCKED)'
+        : (!hasPrice ? 'WAIT (NO FEED)'
+        : (pct > 0.35 ? 'ADVISORY BULLISH' : (pct < -0.35 ? 'ADVISORY BEARISH' : 'ADVISORY NEUTRAL')));
+      const legsHTML = hasPrice
+        ? generateUniversalLegs(STATE.symbol, feed.ltp, verdictText, STATE.group)
+        : '<div class="trade-legs-container"><div class="leg-box neutral-leg"><div class="leg-header"><span>NO LIVE FEED</span><span>EXECUTION LOCKED</span></div><div class="leg-strike">WAIT</div><div class="leg-sub">An unverified price is never converted into a trade suggestion.</div></div></div>';
 
       // Render Dedicated MCX Desk Layout
       if (STATE.group === 'mcx') {
@@ -530,8 +612,8 @@
             <div class="card">
               <div class="card-head"><div><div class="card-title">MCX Commodity Margin &amp; Risk Audit</div><div class="card-sub">Contract Lot: ${lotSize}</div></div></div>
               <div class="verdict-banner ${STATE.panic ? 'wait' : 'buy'}">
-                <span>VERDICT: ${STATE.panic ? 'WAIT (PANIC LOCKED)' : 'BULLISH CARRY SETUP'}</span>
-                <span>LTP: ₹${feed.ltp}</span>
+                <span>VERDICT: ${verdictText}</span>
+                <span>LTP: ${cur}${feed.ltp}</span>
               </div>
               <div class="kv-grid">
                 <div class="kv"><span>Notional Contract</span><strong>₹${notionalValue}</strong></div>
@@ -583,7 +665,7 @@
             <div class="card-head"><div><div class="card-title">Sec 115BBH VDA Tax Ledger</div><div class="card-sub">30% flat + 4% cess = 31.2% | No loss set-off | 1% TDS u/s 194S</div></div><span class="tag info">31.2%</span></div>
             <div class="kv-grid">
               <div class="kv"><span>Reference asset</span><strong>${STATE.symbol}</strong></div>
-              <div class="kv"><span>Mark price</span><strong>₹${feed.ltp}</strong></div>
+              <div class="kv"><span>Mark price</span><strong>${cur}${feed.ltp}</strong></div>
               <div class="kv"><span>Taxable at</span><strong>31.2% flat</strong></div>
               <div class="kv"><span>Set-off allowed</span><strong>NO</strong></div>
               <div class="kv"><span>TDS on sale</span><strong>1.0%</strong></div>
@@ -595,22 +677,24 @@
         `;
       } else {
         // Render Standard Options / Multi-Regime Engine View
-        const bsm = calculateBSM(feed.ltp, feed.ltp + 100, 7, 0.18, 'CALL');
+        const dte = currentDte();
+        const bsm = calculateBSM(feed.ltp, feed.ltp + 100, dte, 0.18, 'CALL');
+        const bsmNext = calculateBSM(feed.ltp, feed.ltp + 100, Math.max(1, dte - 1), 0.18, 'CALL');
+        const thetaPerDay = bsmNext.price - bsm.price;
         mount.innerHTML = `
           <div class="split-2">
             <div class="card">
               <div class="card-head"><div><div class="card-title">${STATE.symbol} Real-Time Chart &amp; Technicals</div><div class="card-sub">Dual EMA (20/50) + Volume + RSI(14) Sub-Pane</div></div></div>
               <canvas id="inst-chart"></canvas>
             </div>
-            <div class="card">
-              <div class="card-head"><div><div class="card-title">BSM Options Greeks &amp; Theta Engine</div><div class="card-sub">7 DTE Call/Put Skew Model</div></div></div>
+            <div class="card">                <div class="card-head"><div><div class="card-title">BSM Options Greeks &amp; Theta Engine</div><div class="card-sub">${dte} DTE Call/Put Skew Model</div></div></div>
               <div class="verdict-banner ${STATE.panic ? 'wait' : 'buy'}">
-                <span>VERDICT: ${STATE.panic ? 'WAIT (PANIC LOCKED)' : 'ADVISORY BULLISH'}</span>
-                <span>LTP: ₹${feed.ltp}</span>
+                <span>VERDICT: ${verdictText}</span>
+                <span>LTP: ${cur}${feed.ltp}</span>
               </div>
               <div class="kv-grid">
                 <div class="kv"><span>BSM Delta (Δ)</span><strong>${bsm.delta.toFixed(3)}</strong></div>
-                <div class="kv"><span>Theta Burn (Θ)</span><strong>-₹14.2/day</strong></div>
+                <div class="kv"><span>Theta Burn (Θ)</span><strong>${cur}${thetaPerDay.toFixed(2)}/day</strong></div>
                 <div class="kv"><span>POP % (CDF)</span><strong>${(bsm.pop * 100).toFixed(1)}%</strong></div>
               </div>
               <div class="gate-item"><span>Statutory Cost Gate</span><span class="tag ${STATE.panic ? 'fail' : 'pass'}">${STATE.panic ? 'LOCKED (PANIC)' : 'PASSED (E_net > ₹0)'}</span></div>
@@ -666,7 +750,13 @@
       ctx.strokeStyle = 'rgba(100, 116, 139, 0.4)';
       ctx.beginPath(); ctx.moveTo(0, h - 50); ctx.lineTo(w, h - 50); ctx.stroke();
       ctx.fillStyle = '#64748b'; ctx.font = '10px JetBrains Mono';
-      ctx.fillText('RSI (14): 58.4 | Overbought: 70 | Oversold: 30', 20, h - 28);
+      let gains = 0, losses = 0;
+      for (let i = 1; i < bars.length; i++) {
+        const diff = bars[i].close - bars[i - 1].close;
+        if (diff >= 0) gains += diff; else losses -= diff;
+      }
+      const rsi = losses === 0 ? 100 : 100 - 100 / (1 + gains / losses);
+      ctx.fillText(`RSI (14): ${rsi.toFixed(1)} | Overbought: 70 | Oversold: 30`, 20, h - 28);
       ctx.fillText(`${STATE.symbol} · last ${spot}`, 20, h - 12);
     }
 
