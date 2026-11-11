@@ -328,7 +328,7 @@
             if (Number(mData.ltp) > 0) {
               const st = String(mData.state || 'SNAPSHOT').toUpperCase();
               const liveM = st.indexOf('REAL-TIME') === 0;
-              return { provider: 'Local Python Proxy (' + (liveM ? 'MCX Direct' : 'MCX Snapshot') + ')', state: st, ltp: Number(mData.ltp), volume: mData.volume, pChange: Number(mData.pChange) || 0, upper: mData.upper_circuit, lower: mData.lower_circuit, currency: '₹' };
+              return { provider: 'Local Python Proxy (' + (liveM ? 'MCX Direct' : 'MCX Snapshot') + ')', state: st, ltp: Number(mData.ltp), volume: mData.volume, pChange: Number(mData.pChange) || 0, upper: mData.upper_circuit, lower: mData.lower_circuit, expiry: mData.expiry || '', currency: '₹' };
             }
           }
         } catch (_) {}
@@ -518,7 +518,7 @@
         const target = Math.round(ltp * 1.012);
         return `
           <div class="trade-legs-container">
-            <div class="trade-legs-title"><span>MCX Commodity Direct Trade Plan</span><span class="pill">LTP ₹${ltp}</span></div>
+            <div class="trade-legs-title"><span>MCX Commodity Direct Trade Plan</span><span class="pill">LTP ₹${ltp}${STATE.expiry ? ' · ' + STATE.expiry : ''}</span></div>
             <div class="leg-grid">
               <div class="leg-box buy-leg">
                 <div class="leg-header"><span>🟢 BUY ENTRY TRIGGER</span><span>LIMIT ORDER</span></div>
@@ -605,20 +605,24 @@
         const notionalValue = (feed.ltp * units).toLocaleString('en-IN');
         const upper = feed.upper || Math.round(feed.ltp * 1.04);
         const lower = feed.lower || Math.round(feed.ltp * 0.96);
+        // Which contract this price belongs to — a bare LTP is ambiguous across expiries.
+        const expiry = feed.expiry ? String(feed.expiry) : '—';
+        STATE.expiry = expiry;
 
         mount.innerHTML = `
           <div class="split-2">
             <div class="card">
-              <div class="card-head"><div><div class="card-title">MCX ${STATE.symbol} Real-Time Futures Chart</div><div class="card-sub">Circuit Limits: Lower ₹${lower} | Upper ₹${upper}</div></div></div>
+              <div class="card-head"><div><div class="card-title">MCX ${STATE.symbol} Real-Time Futures Chart</div><div class="card-sub">Contract Expiry: ${expiry} | Circuit Limits: Lower ₹${lower} | Upper ₹${upper}</div></div></div>
               <canvas id="inst-chart"></canvas>
             </div>
             <div class="card">
-              <div class="card-head"><div><div class="card-title">MCX Commodity Margin &amp; Risk Audit</div><div class="card-sub">Contract Lot: ${lotSize}</div></div></div>
+              <div class="card-head"><div><div class="card-title">MCX Commodity Margin &amp; Risk Audit</div><div class="card-sub">Contract Lot: ${lotSize} | Expiry: ${expiry}</div></div></div>
               <div class="verdict-banner ${STATE.panic ? 'wait' : 'buy'}">
                 <span>VERDICT: ${verdictText}</span>
                 <span>LTP: ${cur}${feed.ltp}</span>
               </div>
               <div class="kv-grid">
+                <div class="kv"><span>Contract Expiry</span><strong>${expiry}</strong></div>
                 <div class="kv"><span>Notional Contract</span><strong>₹${notionalValue}</strong></div>
                 <div class="kv"><span>SPAN + Exposure</span><strong>~12.5% Margin</strong></div>
                 <div class="kv"><span>Upper Circuit (4%)</span><strong>₹${upper}</strong></div>
