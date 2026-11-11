@@ -1,6 +1,0 @@
-/* ── LearningFundClear canonical app shell (shared CSS) ──────────────────
- * Consumed by: index.html, performance.html, scanner.html, setups.html, gex.html
- * Defines ONE header, ONE userbar, ONE nav, ONE logout contract, ONE page width
- * /spacing/touch-target scale. Light is the production default; .theme-dark is
- * the only intentional override (no hard-coded legacy dark palettes).
- * ─────────────────────────────────────────────────────────────────────────── */
