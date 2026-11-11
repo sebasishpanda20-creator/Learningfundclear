@@ -21,6 +21,7 @@ Run:
 from __future__ import annotations
 
 import json
+import time
 from typing import Any, Optional
 
 import requests
@@ -94,26 +95,37 @@ def _pick(row: dict[str, Any], *names: str) -> Any:
     return None
 
 
+# Yahoo throttles bursts (429), which silently pushed every desk onto the constant
+# fallback. A short TTL cache plus one retry keeps the burst rate down.
+_PRICE_CACHE: dict[str, tuple[float, float]] = {}
+CACHE_TTL_SECONDS = 20.0
+
+
 def _last_price(ticker_symbol: str) -> Optional[float]:
-    """Best-effort last price from yfinance, tolerant of API shape changes."""
+    """Last price from yfinance: cache -> history() with retry -> last known good."""
     if not HAS_YFINANCE:
         return None
-    try:
-        ticker = yf.Ticker(ticker_symbol)
-        info = getattr(ticker, "fast_info", None)
-        if info is not None:
-            price = info.get("last_price") if hasattr(info, "get") else getattr(info, "last_price", None)
-            price = _num(price)
-            if price > 0:
-                return price
-        hist = ticker.history(period="1d", interval="1m")
-        if hist is not None and not hist.empty:
-            price = _num(hist["Close"].iloc[-1])
-            if price > 0:
-                return price
-    except Exception:
-        return None
-    return None
+
+    now = time.time()
+    cached = _PRICE_CACHE.get(ticker_symbol)
+    if cached and (now - cached[1]) < CACHE_TTL_SECONDS:
+        return cached[0]
+
+    for attempt in range(2):
+        try:
+            ticker = yf.Ticker(ticker_symbol)
+            hist = ticker.history(period="1d", interval="1m")
+            if hist is not None and not hist.empty:
+                price = _num(hist["Close"].iloc[-1])
+                if price > 0:
+                    _PRICE_CACHE[ticker_symbol] = (price, time.time())
+                    return price
+        except Exception:
+            pass
+        time.sleep(0.6)
+
+    # Serve the previous tick rather than a constant when Yahoo is throttling.
+    return cached[0] if cached else None
 
 
 def _prev_close(ticker_symbol: str) -> Optional[float]:
