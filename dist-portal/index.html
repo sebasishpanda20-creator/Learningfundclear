@@ -274,6 +274,26 @@
       risk_tax: [{ s: 'BTCUSD', n: 'Bitcoin VDA', e: 'CRYPTO' }, { s: 'NIFTY', n: 'NIFTY Futures', e: 'NSE' }, { s: 'CRUDEOIL', n: 'Crude Oil Futures', e: 'MCX' }]
     };
 
+    // Pull Delta's real catalog once per session so RWA tokens appear in the crypto
+    // autosuggest instead of only the four hardcoded perps.
+    let deltaCatalogLoaded = false;
+    async function loadDeltaCatalog() {
+      if (deltaCatalogLoaded) return;
+      deltaCatalogLoaded = true;
+      try {
+        const res = await fetch(`${getProxyBaseUrl()}/api/v1/delta/products/categorized`, { signal: AbortSignal.timeout(6000) });
+        if (!res.ok) return;
+        const body = await res.json();
+        const tokens = ((body.categories || {})['RWA Tokens']) || [];
+        const seen = new Set(catalogByDesk.crypto.map(x => x.s));
+        tokens.forEach(t => {
+          if (!t || !t.id || seen.has(t.id)) return;
+          catalogByDesk.crypto.push({ s: t.id, n: 'RWA Token', e: 'DELTA' });
+          seen.add(t.id);
+        });
+      } catch (_) {}
+    }
+
     function setupAutoSuggest() {
       const input = document.getElementById('inp-symbol');
       const popup = document.getElementById('suggest-popup');
@@ -856,6 +876,7 @@
       const crumb = document.getElementById('breadcrumb');
       if (crumb && cur) crumb.innerText = `${cur.label} / ${(cur.subtabs.find(s => s.id === STATE.subtab) || cur.subtabs[0]).label}`;
 
+      if (STATE.group === 'crypto') loadDeltaCatalog();
       setupAutoSuggest();
       renderWorkspace();
     }
