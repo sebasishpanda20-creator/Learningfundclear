@@ -299,7 +299,9 @@
       // 1. Try MCX endpoint if active desk is MCX
       if (STATE.group === 'mcx') {
         try {
-          const mcxRes = await fetch(`${proxyBase}/api/v1/mcx/live/${sym}`, { signal: AbortSignal.timeout(1200) });
+          // Cold MCX calls parse a ~2.8 MB market-watch payload (~1.5 s), so this
+          // budget must exceed that or every first load falls back to SNAPSHOT.
+          const mcxRes = await fetch(`${proxyBase}/api/v1/mcx/live/${sym}`, { signal: AbortSignal.timeout(6000) });
           if (mcxRes.ok) {
             const mData = await mcxRes.json();
             if (Number(mData.ltp) > 0) {
@@ -315,7 +317,7 @@
 
       // 2. Try NSE endpoint for TradFi / Daily Income
       try {
-        const res = await fetch(`${proxyBase}/api/v1/nse/live/${sym}`, { signal: AbortSignal.timeout(1200) });
+        const res = await fetch(`${proxyBase}/api/v1/nse/live/${sym}`, { signal: AbortSignal.timeout(4000) });
         if (res.ok) {
           const d = await res.json();
           if (Number(d.ltp) > 0) {
