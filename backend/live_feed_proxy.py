@@ -21,7 +21,10 @@ Run:
 from __future__ import annotations
 
 import json
+import os
+import threading
 import time
+from contextlib import asynccontextmanager
 from typing import Any, Optional
 
 import requests
@@ -47,7 +50,16 @@ except Exception:
     HAS_YFINANCE = False
 
 
-app = FastAPI(title="LearningFundClear Local Data Proxy v5.1")
+@asynccontextmanager
+async def lifespan(_app: FastAPI):
+    _start_refresher()
+    try:
+        yield
+    finally:
+        _stop_refresher()
+
+
+app = FastAPI(title="LearningFundClear Local Data Proxy v5.2", lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,
@@ -96,36 +108,99 @@ def _pick(row: dict[str, Any], *names: str) -> Any:
 
 
 # Yahoo throttles bursts (429), which silently pushed every desk onto the constant
-# fallback. A short TTL cache plus one retry keeps the burst rate down.
+# fallback. A scheduler refreshes a fixed watchlist in the background so a throttle
+# window degrades to slightly stale ticks instead of constant prices.
 _PRICE_CACHE: dict[str, tuple[float, float]] = {}
-CACHE_TTL_SECONDS = 20.0
+CACHE_TTL_SECONDS = 45.0
+
+WATCHLIST = [
+    "^NSEI", "^NSEBANK",
+    "RELIANCE.NS", "TCS.NS", "INFY.NS", "HDFCBANK.NS",
+    "CL=F", "GC=F", "SI=F", "NG=F", "HG=F",
+]
+
+BASE_REFRESH_SECONDS = float(os.environ.get("PRICE_REFRESH_SECONDS", "30"))
+MAX_REFRESH_SECONDS = max(BASE_REFRESH_SECONDS * 10, 300.0)
+
+_refresh_state: dict[str, Any] = {
+    "last_run": None,
+    "last_success": None,
+    "throttled": False,
+    "interval": BASE_REFRESH_SECONDS,
+}
+_stop_event = threading.Event()
+_refresh_thread: Optional[threading.Thread] = None
+
+
+def _fetch_price(ticker_symbol: str) -> Optional[float]:
+    """One yfinance read; a success refreshes the cache entry."""
+    if not HAS_YFINANCE:
+        return None
+    try:
+        hist = yf.Ticker(ticker_symbol).history(period="1d", interval="1m")
+        if hist is not None and not hist.empty:
+            price = _num(hist["Close"].iloc[-1])
+            if price > 0:
+                _PRICE_CACHE[ticker_symbol] = (price, time.time())
+                return price
+    except Exception:
+        pass
+    return None
 
 
 def _last_price(ticker_symbol: str) -> Optional[float]:
-    """Last price from yfinance: cache -> history() with retry -> last known good."""
-    if not HAS_YFINANCE:
-        return None
-
+    """Fresh cache -> live fetch -> last known good tick (never a bare constant)."""
     now = time.time()
     cached = _PRICE_CACHE.get(ticker_symbol)
     if cached and (now - cached[1]) < CACHE_TTL_SECONDS:
         return cached[0]
-
-    for attempt in range(2):
-        try:
-            ticker = yf.Ticker(ticker_symbol)
-            hist = ticker.history(period="1d", interval="1m")
-            if hist is not None and not hist.empty:
-                price = _num(hist["Close"].iloc[-1])
-                if price > 0:
-                    _PRICE_CACHE[ticker_symbol] = (price, time.time())
-                    return price
-        except Exception:
-            pass
-        time.sleep(0.6)
-
-    # Serve the previous tick rather than a constant when Yahoo is throttling.
+    price = _fetch_price(ticker_symbol)
+    if price:
+        return price
     return cached[0] if cached else None
+
+
+def _refresh_once(stagger_seconds: float = 0.5) -> int:
+    """Refresh the watchlist once, spacing calls to stay under Yahoo's burst limit."""
+    succeeded = 0
+    for ticker_symbol in WATCHLIST:
+        if _stop_event.is_set():
+            break
+        if _fetch_price(ticker_symbol):
+            succeeded += 1
+        _stop_event.wait(stagger_seconds)
+    return succeeded
+
+
+def _refresher_loop() -> None:
+    delay = BASE_REFRESH_SECONDS
+    while not _stop_event.is_set():
+        succeeded = _refresh_once()
+        _refresh_state["last_run"] = time.time()
+        if succeeded:
+            _refresh_state["last_success"] = time.time()
+            _refresh_state["throttled"] = False
+            delay = BASE_REFRESH_SECONDS
+        else:
+            _refresh_state["throttled"] = True
+            delay = min(max(delay * 2, BASE_REFRESH_SECONDS * 2), MAX_REFRESH_SECONDS)
+        _refresh_state["interval"] = delay
+        _stop_event.wait(delay)
+
+
+def _start_refresher() -> None:
+    global _refresh_thread
+    if _refresh_thread and _refresh_thread.is_alive():
+        return
+    _stop_event.clear()
+    _refresh_thread = threading.Thread(target=_refresher_loop, name="price-refresher", daemon=True)
+    _refresh_thread.start()
+
+
+def _stop_refresher() -> None:
+    _stop_event.set()
+    if _refresh_thread:
+        _refresh_thread.join(timeout=3)
 
 
 def _prev_close(ticker_symbol: str) -> Optional[float]:
@@ -337,13 +412,35 @@ def get_nse_live_quote(symbol: str) -> JSONResponse:
 # ---------------------------------------------------------------------------
 @app.get("/api/v1/health")
 def health() -> dict[str, Any]:
+    last_success = _refresh_state["last_success"]
     return {
         "status": "ONLINE",
-        "version": "5.1",
+        "version": "5.2",
         "proxy": "Quant Core Local Proxy",
         "nsemine": HAS_NSEMINE,
         "yfinance": HAS_YFINANCE,
+        "refresher": {
+            "running": bool(_refresh_thread and _refresh_thread.is_alive()),
+            "watchlist": len(WATCHLIST),
+            "cached": len(_PRICE_CACHE),
+            "interval_seconds": round(_refresh_state["interval"], 1),
+            "throttled": _refresh_state["throttled"],
+            "last_success_age_s": round(time.time() - last_success, 1) if last_success else None,
+        },
     }
+
+
+@app.get("/api/v1/prices")
+def cached_prices() -> JSONResponse:
+    now = time.time()
+    return JSONResponse({
+        "count": len(_PRICE_CACHE),
+        "tickers": {
+            ticker_symbol: {"price": round(price, 2), "age_seconds": round(now - ts, 1)}
+            for ticker_symbol, (price, ts) in sorted(_PRICE_CACHE.items())
+        },
+        "state": "CACHE",
+    })
 
 
 @app.get("/api/v1/delta/products/categorized")
