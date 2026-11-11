@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+# LearningFundClear - institutional quant portal (static single-file app, v4.0)

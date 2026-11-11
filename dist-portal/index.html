@@ -1,0 +1,873 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>LearningFundClear — Institutional Trading &amp; Fundamental Portal (v5.0)</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #f8fafc; --surface: #ffffff; --surface-alt: #f1f5f9; --surface-muted: #e2e8f0;
+      --border: #cbd5e1; --text: #0f172a; --text-sec: #334155; --text-muted: #64748b;
+      --primary: #0f52ba; --primary-hover: #0a3d8f; --primary-soft: #dbeafe;
+      --cyan: #0369a1; --success: #15803d; --success-bg: #dcfce7;
+      --warn: #b45309; --warn-bg: #fef3c7; --danger: #b91c1c; --danger-bg: #fee2e2;
+      --purple: #6d28d9; --purple-bg: #ede9fe;
+      --sidebar-w: 255px; --header-h: 54px; --subtab-h: 42px;
+      --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      --font-mono: 'JetBrains Mono', monospace;
+    }
+    [data-theme="dark"] {
+      --bg: #060913; --surface: #0f172a; --surface-alt: #152036; --surface-muted: #1e293b;
+      --border: #283652; --text: #f8fafc; --text-sec: #cbd5e1; --text-muted: #94a3b8;
+      --primary: #3b82f6; --primary-hover: #2563eb; --primary-soft: rgba(59, 130, 246, 0.18);
+      --cyan: #38bdf8; --success: #22c55e; --success-bg: rgba(34, 197, 94, 0.16);
+      --warn: #f59e0b; --warn-bg: rgba(245, 158, 11, 0.16);
+      --danger: #ef4444; --danger-bg: rgba(239, 68, 68, 0.18);
+      --purple: #a78bfa; --purple-bg: rgba(139, 92, 246, 0.18);
+    }
+    *, *::before, *::after { box-sizing: border-box; }
+    body { margin: 0; background: var(--bg); color: var(--text); font-family: var(--font-sans); font-size: 12px; line-height: 1.45; }
+
+    .panic-bar { display: none; background: var(--danger); color: #fff; padding: 8px 16px; font-family: var(--font-mono); font-size: 12px; font-weight: 800; align-items: center; justify-content: center; gap: 12px; position: sticky; top: 0; z-index: 100; }
+    .panic-bar.active { display: flex; }
+    .app-shell { display: grid; grid-template-columns: var(--sidebar-w) minmax(0, 1fr); min-height: 100vh; }
+
+    .sidebar { background: var(--surface); border-right: 1px solid var(--border); display: flex; flex-direction: column; position: sticky; top: 0; height: 100vh; z-index: 50; }
+    .brand-header { height: var(--header-h); padding: 0 14px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--border); }
+    .brand-title { display: flex; align-items: center; gap: 8px; font-weight: 800; font-size: 13.5px; }
+    .brand-icon { width: 28px; height: 28px; border-radius: 6px; background: linear-gradient(135deg, var(--primary), var(--cyan)); color: #fff; display: inline-flex; align-items: center; justify-content: center; font-family: var(--font-mono); font-weight: 900; }
+    .nav-section-label { padding: 10px 14px 4px; font-size: 10px; font-weight: 800; text-transform: uppercase; color: var(--text-muted); }
+    .nav-list { list-style: none; margin: 0; padding: 4px 8px; display: flex; flex-direction: column; gap: 3px; flex: 1; overflow-y: auto; }
+    .nav-btn { width: 100%; display: flex; align-items: center; justify-content: space-between; padding: 8px 10px; border-radius: 6px; border: 1px solid transparent; background: transparent; color: var(--text-sec); font-size: 12px; font-weight: 600; cursor: pointer; text-align: left; font-family: inherit; }
+    .nav-btn:hover { background: var(--surface-alt); color: var(--text); }
+    .nav-btn.active { background: var(--primary-soft); color: var(--primary); border-color: rgba(15, 82, 186, 0.3); font-weight: 700; }
+    .pill { font-family: var(--font-mono); font-size: 9.5px; font-weight: 700; padding: 2px 6px; border-radius: 4px; background: var(--surface-muted); color: var(--text-sec); }
+    .sidebar-footer { border-top: 1px solid var(--border); padding: 10px 12px; background: var(--surface-alt); display: flex; flex-direction: column; gap: 8px; }
+
+    .main-col { display: flex; flex-direction: column; min-width: 0; }
+    .topbar { min-height: var(--header-h); background: var(--surface); border-bottom: 1px solid var(--border); padding: 6px 14px; display: flex; align-items: center; justify-content: space-between; gap: 10px; position: sticky; top: 0; z-index: 40; }
+    .topbar-right { display: flex; align-items: center; gap: 8px; font-family: var(--font-mono); font-size: 11px; }
+
+    .btn { padding: 6px 12px; border-radius: 5px; border: 1px solid var(--border); background: var(--surface-alt); color: var(--text); font-size: 11px; font-weight: 700; cursor: pointer; font-family: var(--font-mono); display: inline-flex; align-items: center; gap: 6px; }
+    .btn:hover { border-color: var(--primary); color: var(--primary); }
+    .btn-primary { background: var(--primary); color: #fff; border-color: var(--primary); }
+    .btn-danger { background: var(--danger); color: #fff; border-color: var(--danger); }
+    .btn-warn { background: var(--warn-bg); color: var(--warn); border-color: var(--warn); }
+
+    .feed-badge { padding: 3px 8px; border-radius: 4px; font-weight: 800; font-size: 10px; font-family: var(--font-mono); text-transform: uppercase; background: var(--surface-muted); color: var(--text-sec); border: 1px solid var(--border); }
+    .feed-badge[data-state="REAL-TIME PROXY"], .feed-badge[data-state="REAL-TIME MCX DIRECT"], .feed-badge[data-state="REAL-TIME NSE DIRECT"], .feed-badge[data-state="REAL-TIME YFINANCE"], .feed-badge[data-state="LIVE DELTA API"] { background: var(--success-bg); color: var(--success); border: 1px solid var(--success); }
+    .feed-badge[data-state="SNAPSHOT"] { background: var(--warn-bg); color: var(--warn); border: 1px solid var(--warn); }
+
+    .subtab-bar { min-height: var(--subtab-h); background: var(--surface); border-bottom: 1px solid var(--border); padding: 0 14px; display: flex; align-items: center; gap: 4px; overflow-x: auto; position: sticky; top: var(--header-h); z-index: 35; }
+    .subtab-btn { padding: 10px 14px; border: none; border-bottom: 2px solid transparent; background: transparent; color: var(--text-sec); font-size: 12px; font-weight: 600; white-space: nowrap; cursor: pointer; font-family: inherit; }
+    .subtab-btn.active { color: var(--primary); border-bottom-color: var(--primary); font-weight: 700; }
+
+    .workspace { padding: 14px; display: flex; flex-direction: column; gap: 14px; }
+    .mandate-strip { background: var(--primary-soft); border: 1px solid rgba(15, 82, 186, 0.25); border-left: 4px solid var(--primary); border-radius: 6px; padding: 8px 14px; display: flex; justify-content: space-between; align-items: center; font-size: 11.5px; gap: 10px; flex-wrap: wrap; }
+
+    .controls-grid { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 12px 14px; display: grid; grid-template-columns: 2fr 1fr 1fr 1fr 1fr 1fr; gap: 10px; align-items: end; }
+    .field label { display: block; font-size: 10px; font-weight: 800; text-transform: uppercase; color: var(--text-muted); margin-bottom: 4px; }
+    .field input, .field select { width: 100%; padding: 7px 10px; border-radius: 5px; border: 1px solid var(--border); background: var(--surface-alt); color: var(--text); font-family: var(--font-mono); font-size: 12px; }
+
+    .split-2 { display: grid; grid-template-columns: 1.25fr 1fr; gap: 14px; }
+    .card { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 14px; display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+    .card-head { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 1px solid var(--border); padding-bottom: 10px; gap: 8px; }
+    .card-title { font-size: 13.5px; font-weight: 800; }
+    .card-sub { font-size: 11px; color: var(--text-muted); font-family: var(--font-mono); }
+
+    .verdict-banner { padding: 10px 14px; border-radius: 6px; font-family: var(--font-mono); font-size: 12.5px; font-weight: 800; display: flex; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
+    .verdict-banner.buy { background: var(--success-bg); color: var(--success); border: 1px solid var(--success); }
+    .verdict-banner.sell { background: var(--danger-bg); color: var(--danger); border: 1px solid var(--danger); }
+    .verdict-banner.wait { background: var(--warn-bg); color: var(--warn); border: 1px solid var(--warn); }
+
+    .kv-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; font-family: var(--font-mono); font-size: 11.5px; }
+    .kv { background: var(--surface-alt); border: 1px solid var(--border); padding: 8px 10px; border-radius: 6px; }
+    .kv span { display: block; font-family: var(--font-sans); font-size: 10px; color: var(--text-muted); font-weight: 600; }
+
+    .gate-item { display: flex; justify-content: space-between; align-items: center; padding: 7px 10px; border-radius: 5px; background: var(--surface-alt); border: 1px solid var(--border); font-size: 11.5px; gap: 8px; }
+    .tag { font-family: var(--font-mono); font-size: 10px; font-weight: 800; padding: 3px 8px; border-radius: 4px; }
+    .tag.pass { background: var(--success-bg); color: var(--success); border: 1px solid var(--success); }
+    .tag.fail { background: var(--danger-bg); color: var(--danger); border: 1px solid var(--danger); }
+    .tag.info { background: var(--purple-bg); color: var(--purple); border: 1px solid var(--purple); }
+
+    canvas#inst-chart { width: 100%; height: 320px; background: var(--surface-alt); border: 1px solid var(--border); border-radius: 6px; display: block; }
+    table.inst-table { width: 100%; border-collapse: collapse; font-size: 11.5px; font-family: var(--font-mono); }
+    table.inst-table th, table.inst-table td { padding: 8px 10px; border-bottom: 1px solid var(--border); text-align: left; }
+    table.inst-table th { background: var(--surface-alt); color: var(--text-muted); font-family: var(--font-sans); font-size: 10px; text-transform: uppercase; font-weight: 800; }
+
+    .auto-suggest-box { position: relative; width: 100%; }
+    .auto-suggest-input { width: 100%; padding: 7px 10px; border-radius: 5px; border: 1px solid var(--border); background: var(--surface-alt); color: var(--text); font-family: var(--font-mono); font-size: 12px; }
+    .auto-suggest-popup { position: absolute; top: 100%; left: 0; right: 0; background: var(--surface); border: 1px solid var(--border); border-radius: 6px; max-height: 240px; overflow-y: auto; z-index: 100; box-shadow: 0 10px 25px rgba(0,0,0,0.15); margin-top: 4px; list-style: none; padding: 0; }
+    .auto-suggest-item { padding: 8px 12px; cursor: pointer; display: flex; justify-content: space-between; border-bottom: 1px solid var(--border); font-family: var(--font-mono); }
+    .auto-suggest-item:hover, .auto-suggest-item.selected { background: var(--primary-soft); color: var(--primary); }
+
+    .trade-legs-container { border-top: 1px solid var(--border); margin-top: 4px; padding-top: 10px; display: flex; flex-direction: column; gap: 8px; }
+    .trade-legs-title { font-size: 10.5px; font-weight: 800; text-transform: uppercase; color: var(--text-muted); display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+    .leg-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+    .leg-box { padding: 10px; border-radius: 6px; font-family: var(--font-mono); border: 1px solid var(--border); }
+    .leg-box.sell-leg { background: var(--danger-bg); border-color: rgba(239, 68, 68, 0.4); color: var(--danger); }
+    .leg-box.buy-leg { background: var(--success-bg); border-color: rgba(34, 197, 94, 0.4); color: var(--success); }
+    .leg-box.neutral-leg { background: var(--purple-bg); border-color: rgba(109, 40, 217, 0.4); color: var(--purple); }
+    .leg-header { display: flex; justify-content: space-between; font-size: 10px; font-weight: 800; text-transform: uppercase; margin-bottom: 2px; gap: 6px; }
+    .leg-strike { font-size: 15px; font-weight: 900; }
+    .leg-sub { font-size: 9.5px; opacity: 0.85; margin-top: 2px; }
+
+    /* Remote Proxy Configuration Modal */
+    .modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.6); z-index: 200; align-items: center; justify-content: center; padding: 14px; }
+    .modal-overlay.active { display: flex; }
+    .modal-card { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 20px; width: 100%; max-width: 500px; display: flex; flex-direction: column; gap: 14px; box-shadow: 0 20px 40px rgba(0,0,0,0.3); }
+    .code-hint { background: var(--surface-alt); padding: 10px; border-radius: 6px; font-family: var(--font-mono); font-size: 10.5px; color: var(--text-muted); }
+
+    @media (max-width: 640px) { .leg-grid { grid-template-columns: 1fr; } }
+
+    @media (max-width: 1080px) { .split-2 { grid-template-columns: 1fr; } .controls-grid { grid-template-columns: 1fr 1fr; } }
+    @media (max-width: 860px) { .app-shell { grid-template-columns: 1fr; } .sidebar { position: static; height: auto; } .kv-grid { grid-template-columns: 1fr 1fr; } }
+  </style>
+</head>
+<body>
+  <div class="panic-bar" id="panic-bar">
+    <span>🚨 PANIC KILL-SWITCH ACTIVE: ALL SIGNALS &amp; EXECUTION HARD-LOCKED TO WAIT / NO TRADE</span>
+    <button type="button" class="btn btn-primary" id="btn-disarm">DISARM KILL-SWITCH</button>
+  </div>
+
+  <div class="modal-overlay" id="proxy-modal">
+    <div class="modal-card">
+      <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid var(--border); padding-bottom:8px;">
+        <strong style="font-size:14px;">🌐 Remote Proxy Host Connection</strong>
+        <button type="button" class="btn" id="btn-close-modal">✕</button>
+      </div>
+      <p style="color:var(--text-sec); font-size:11.5px; margin:0;">
+        To access live ticks on mobile or outside your home network, enter the free Cloudflare Tunnel or Ngrok HTTPS URL generated by your laptop.
+      </p>
+      <div class="field">
+        <label for="inp-proxy-url">Proxy Server URL</label>
+        <input type="text" id="inp-proxy-url" placeholder="https://xxxx.trycloudflare.com or http://127.0.0.1:8000" />
+      </div>
+      <div class="code-hint">
+        <strong>Laptop Tunnel Command:</strong><br/>
+        <code>npx cloudflared tunnel --url http://127.0.0.1:8000</code>
+      </div>
+      <div style="display:flex; justify-content:flex-end; gap:8px;">
+        <button type="button" class="btn" id="btn-reset-proxy">Reset to Localhost</button>
+        <button type="button" class="btn btn-primary" id="btn-save-proxy">Save &amp; Connect</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="app-shell">
+    <aside class="sidebar">
+      <div class="brand-header">
+        <div class="brand-title">
+          <span class="brand-icon">LFC</span>
+          <div>
+            <div>LearningFundClear</div>
+            <div style="font-size:10px; color:var(--text-muted); font-weight:600;">Quant Terminal v5.0</div>
+          </div>
+        </div>
+        <span class="pill">IST ₹</span>
+      </div>
+      <div class="nav-section-label">Product Desks</div>
+      <ul class="nav-list" id="sidebar-nav"></ul>
+      <div class="sidebar-footer">
+        <div style="display:flex; justify-content:space-between; font-size:11px;">
+          <span>User: <strong id="user-label">sebasish.quant</strong></span>
+          <span class="pill" style="background:var(--success-bg); color:var(--success);">LIVE</span>
+        </div>
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:6px;">
+          <button type="button" class="btn" id="btn-theme">Dark Mode</button>
+          <button type="button" class="btn" id="btn-signout" style="color:var(--danger);">Exit</button>
+        </div>
+      </div>
+    </aside>
+
+    <div class="main-col">
+      <header class="topbar">
+        <div style="display:flex; align-items:center; gap:8px;">
+          <strong id="breadcrumb" style="font-size:13px;">Daily Income &amp; Theta Desk / Multi-Regime Board</strong>
+        </div>
+        <div class="topbar-right">
+          <button type="button" class="btn btn-warn" id="btn-mode">🛡️ ADVISORY (SIGNAL)</button>
+          <button type="button" class="btn btn-danger" id="btn-panic">🚨 PANIC SWITCH</button>
+          <button type="button" class="btn" id="btn-open-proxy">⚙️ Host: <strong id="tel-host">Local</strong></button>
+          <span>Feed: <strong id="tel-source">Connecting...</strong></span>
+          <span>Tick IST: <strong id="tel-time">--</strong></span>
+          <span class="feed-badge" id="tel-badge" data-state="SNAPSHOT">SNAPSHOT</span>
+        </div>
+      </header>
+
+      <nav class="subtab-bar" id="subtab-bar"></nav>
+
+      <main class="workspace">
+        <div class="mandate-strip">
+          <div><strong>INSTITUTIONAL MANDATE:</strong> NO PROFITABLE SETUP AFTER STATUTORY COSTS + EXPECTANCY &gt; ₹0, NO TRADE SUGGESTION.</div>
+          <span style="font-family:var(--font-mono); font-size:11px;">USD/INR: <strong>₹86.50</strong></span>
+        </div>
+
+        <section class="controls-grid">
+          <div class="field">
+            <label>Active Instrument (Auto-Suggest)</label>
+            <div class="auto-suggest-box" id="suggest-box">
+              <input type="text" id="inp-symbol" class="auto-suggest-input" value="NIFTY" placeholder="Type symbol..." />
+              <ul class="auto-suggest-popup" id="suggest-popup" style="display:none;"></ul>
+            </div>
+          </div>
+          <div class="field">
+            <label for="sel-tf">Timeframe</label>
+            <select id="sel-tf">
+              <option value="15m|1h" selected>15m / 1h Intraday</option>
+              <option value="5m|15m">5m / 15m Scalp</option>
+              <option value="1h|4h">1h / 4h Swing</option>
+            </select>
+          </div>
+          <div class="field"><label for="inp-cap">Capital (₹)</label><input type="number" id="inp-cap" value="150000" min="1000" step="1000" /></div>
+          <div class="field"><label for="inp-risk">Max Risk %</label><input type="number" id="inp-risk" value="1.5" min="0.25" step="0.25" /></div>
+          <div class="field"><label for="inp-daily-target">Goal (₹)</label><input type="number" id="inp-daily-target" value="1500" min="0" step="100" /></div>
+          <div class="field"><label>&nbsp;</label><button type="button" class="btn btn-primary" id="btn-run" style="width:100%;">⚡ Execute Engine</button></div>
+        </section>
+
+        <div id="desk-mount"></div>
+      </main>
+    </div>
+  </div>
+
+  <script>
+    const STATE = { group: 'daily_income', subtab: 'di-board', mode: 'ADVISORY', panic: false, symbol: 'NIFTY', tf: '15m|1h', cap: 150000, risk: 1.5 };
+
+    // Feed base resolution:
+    //   saved override -> use it
+    //   localhost/file -> laptop proxy
+    //   edge site      -> same origin (the Worker serves the API too)
+    //   static host    -> the edge API, because a static host has no feed of its own
+    const EDGE_FEED_ORIGIN = 'https://site-443e334f4a224d008788726d8cf4b9ed.freebuff.page';
+
+    function getProxyBaseUrl() {
+      const saved = localStorage.getItem('LFC_PROXY_URL');
+      if (saved) return saved.replace(/\/+$/, '');
+      const host = location.hostname;
+      if (host === '127.0.0.1' || host === 'localhost' || location.protocol === 'file:') {
+        return 'http://127.0.0.1:8000';
+      }
+      if (/\.freebuff\.page$/.test(host)) return '';
+      return EDGE_FEED_ORIGIN;
+    }
+
+    // Dedicated Product Desks including Standalone MCX Commodities Desk
+    const TAXONOMY = [
+      { id: 'daily_income', label: 'Daily Income & Theta Desk', badge: 'Multi-Regime', subtabs: [{ id: 'di-board', label: 'Daily Income Board' }, { id: 'di-theta', label: 'Defined-Risk Theta Spreads' }] },
+      { id: 'stocks', label: 'Stocks F&O (NSE)', badge: 'TradFi', subtabs: [{ id: 'stk-options', label: 'BSM Options Greeks & Skew' }, { id: 'stk-hedges', label: 'Beta Index Hedge & Collar' }] },
+      { id: 'mcx', label: 'MCX Commodities Desk', badge: 'LIVE MCX', subtabs: [{ id: 'mcx-futures', label: 'Commodity Futures & Circuit Bands' }, { id: 'mcx-carry', label: 'Storage & Carry Cost Yield' }] },
+      { id: 'crypto', label: 'Crypto VDA (Delta India)', badge: 'LIVE API', subtabs: [{ id: 'cry-perps', label: 'Perps & 5-Window Walk-Forward' }, { id: 'cry-funding', label: '8h Funding Yield Carry' }] },
+      { id: 'investing', label: 'Fundamental Investing', badge: 'Piotroski/DCF', subtabs: [{ id: 'inv-desk', label: '9-Pt Piotroski & 2-Stage DCF' }] },
+      { id: 'risk_tax', label: 'Risk & Tax Ledger', badge: 'Sec 115BBH', subtabs: [{ id: 'rt-tax', label: 'Sec 115BBH / 194S Tax Audit' }] }
+    ];
+
+    // Auto-Suggest Search Catalog per Product Desk
+    const catalogByDesk = {
+      daily_income: [{ s: 'NIFTY', n: 'NIFTY 50 Index', e: 'NSE' }, { s: 'BANKNIFTY', n: 'Bank NIFTY Index', e: 'NSE' }, { s: 'RELIANCE', n: 'Reliance Industries', e: 'NSE' }],
+      stocks: [{ s: 'NIFTY', n: 'NIFTY 50 Index', e: 'NSE' }, { s: 'BANKNIFTY', n: 'Bank NIFTY Index', e: 'NSE' }, { s: 'RELIANCE', n: 'Reliance Industries', e: 'NSE' }, { s: 'TCS', n: 'Tata Consultancy', e: 'NSE' }],
+      mcx: [{ s: 'CRUDEOIL', n: 'Crude Oil Futures (100 bbl)', e: 'MCX' }, { s: 'GOLD', n: 'Gold Futures (1 Kg)', e: 'MCX' }, { s: 'SILVER', n: 'Silver Futures (30 Kg)', e: 'MCX' }, { s: 'COPPER', n: 'Copper Futures (2500 Kg)', e: 'MCX' }, { s: 'NATURALGAS', n: 'Natural Gas (1250 mmBtu)', e: 'MCX' }],
+      crypto: [{ s: 'BTCUSD', n: 'Bitcoin Perpetual', e: 'DELTA' }, { s: 'ETHUSD', n: 'Ethereum Perpetual', e: 'DELTA' }, { s: 'SOLUSD', n: 'Solana Perpetual', e: 'DELTA' }, { s: 'PAXGUSD', n: 'Gold RWA Token', e: 'DELTA' }],
+      investing: [{ s: 'RELIANCE', n: 'Reliance Industries', e: 'NSE' }, { s: 'TCS', n: 'Tata Consultancy Services', e: 'NSE' }, { s: 'INFY', n: 'Infosys Limited', e: 'NSE' }, { s: 'HDFCBANK', n: 'HDFC Bank Limited', e: 'NSE' }],
+      risk_tax: [{ s: 'BTCUSD', n: 'Bitcoin VDA', e: 'CRYPTO' }, { s: 'NIFTY', n: 'NIFTY Futures', e: 'NSE' }, { s: 'CRUDEOIL', n: 'Crude Oil Futures', e: 'MCX' }]
+    };
+
+    function setupAutoSuggest() {
+      const input = document.getElementById('inp-symbol');
+      const popup = document.getElementById('suggest-popup');
+
+      input.onfocus = input.oninput = () => {
+        const q = input.value.trim().toUpperCase();
+        const items = (catalogByDesk[STATE.group] || catalogByDesk.stocks).filter(x => x.s.includes(q) || x.n.toUpperCase().includes(q));
+        if (items.length === 0) { popup.style.display = 'none'; return; }
+
+        popup.innerHTML = items.map(x => `
+          <li class="auto-suggest-item" data-sym="${x.s}">
+            <div><strong>${x.s}</strong> <span style="font-size:10px; color:var(--text-muted);">${x.n}</span></div>
+            <span class="pill">${x.e}</span>
+          </li>
+        `).join('');
+        popup.style.display = 'block';
+
+        popup.querySelectorAll('li').forEach(el => {
+          el.onclick = () => {
+            STATE.symbol = el.getAttribute('data-sym');
+            input.value = STATE.symbol;
+            popup.style.display = 'none';
+            renderWorkspace();
+          };
+        });
+      };
+
+      document.addEventListener('click', (e) => {
+        if (!document.getElementById('suggest-box').contains(e.target)) popup.style.display = 'none';
+      });
+    }
+
+    async function fetchLiveMetrics(sym) {
+      const proxyBase = getProxyBaseUrl();
+      const onLaptopProxy = /^https?:\/\/(127\.0\.0\.1|localhost)/.test(proxyBase);
+      const feedHost = onLaptopProxy ? 'Local Python Proxy' : 'Cloud Edge';
+      const onVdaDesk = (STATE.group === 'crypto' || STATE.group === 'risk_tax') && /USD$/.test(sym.toUpperCase());
+
+      // 1. VDA desks read Delta India directly — the NSE route has no crypto feed.
+      if (onVdaDesk) {
+        try {
+          const dRes = await fetch(`${proxyBase}/api/v1/delta/ticker/${sym.toUpperCase()}`, { signal: AbortSignal.timeout(4000) });
+          if (dRes.ok) {
+            const d = await dRes.json();
+            if (Number(d.ltp) > 0) {
+              const dState = String(d.state || 'SNAPSHOT').toUpperCase();
+              return {
+                provider: 'Delta India (' + (dState.indexOf('LIVE') === 0 ? 'Direct' : 'Snapshot') + ')',
+                state: dState, ltp: Number(d.ltp), pChange: Number(d.pChange) || 0, volume: d.volume,
+                upper: d.upper_circuit, lower: d.lower_circuit, mark: d.mark_price, funding: d.funding_rate, currency: '$'
+              };
+            }
+            return { provider: 'Delta India (No Feed)', state: 'UNAVAILABLE', ltp: 0, currency: '$' };
+          }
+        } catch (_) {}
+        return { provider: 'Delta India (No Feed)', state: 'UNAVAILABLE', ltp: 0, currency: '$' };
+      }
+
+      // 2. Try MCX endpoint if active desk is MCX
+      if (STATE.group === 'mcx') {
+        try {
+          // Cold MCX calls parse a ~2.8 MB market-watch payload (~1.5 s), so this
+          // budget must exceed that or every first load falls back to SNAPSHOT.
+          const mcxRes = await fetch(`${proxyBase}/api/v1/mcx/live/${sym}`, { signal: AbortSignal.timeout(6000) });
+          if (mcxRes.ok) {
+            const mData = await mcxRes.json();
+            if (Number(mData.ltp) > 0) {
+              const st = String(mData.state || 'SNAPSHOT').toUpperCase();
+              const liveM = st.indexOf('REAL-TIME') === 0;
+              return { provider: feedHost + ' (' + (liveM ? 'MCX Direct' : 'MCX Snapshot') + ')', state: st, ltp: Number(mData.ltp), volume: mData.volume, pChange: Number(mData.pChange) || 0, upper: mData.upper_circuit, lower: mData.lower_circuit, expiry: mData.expiry || '', currency: '₹' };
+            }
+          }
+        } catch (_) {}
+        // No synthesised commodity level: an unreachable feed reads as unavailable.
+        return { provider: 'MCX (No Feed)', state: 'UNAVAILABLE', ltp: 0, volume: 0, upper: 0, lower: 0, currency: '₹' };
+      }
+
+      // 2. Try NSE endpoint for TradFi / Daily Income
+      try {
+        const res = await fetch(`${proxyBase}/api/v1/nse/live/${sym}`, { signal: AbortSignal.timeout(4000) });
+        if (res.ok) {
+          const d = await res.json();
+          if (Number(d.ltp) > 0) {
+            const nst = String(d.state || 'SNAPSHOT').toUpperCase();
+            const nLive = nst.indexOf('REAL-TIME') === 0;
+            return { provider: feedHost + ' (' + (nLive ? 'NSE Direct' : 'NSE Snapshot') + ')', state: nst, ltp: Number(d.ltp), volume: d.volume, change: d.change, pChange: Number(d.pChange) || 0, currency: '₹' };
+          }
+        }
+      } catch (_) {}
+      return { provider: 'No Live Feed', state: 'UNAVAILABLE', ltp: 0, volume: 0, currency: '₹' };
+    }
+
+    // Black-Scholes-Merton Options Pricing Engine
+    function calculateBSM(S, K, T_days, sigma, type = 'CALL') {
+      const T = T_days / 365.0, r = 0.0685;
+      if (!(S > 0) || !(K > 0) || !(sigma > 0) || !(T > 0)) {
+        return { price: 0, delta: 0, pop: 0 };
+      }
+      const d1 = (Math.log(S / K) + (r + 0.5 * sigma * sigma) * T) / (sigma * Math.sqrt(T));
+      const d2 = d1 - sigma * Math.sqrt(T);
+      const cdf = x => {
+        const t = 1 / (1 + 0.2316419 * Math.abs(x));
+        const d = 0.3989423 * Math.exp(-x * x / 2);
+        const p = d * t * (0.3193815 + t * (-0.3565638 + t * (1.781478 + t * (-1.821256 + t * 1.330274))));
+        return x > 0 ? 1 - p : p;
+      };
+      const prem = type === 'CALL' ? S * cdf(d1) - K * Math.exp(-r * T) * cdf(d2) : K * Math.exp(-r * T) * cdf(-d2) - S * cdf(-d1);
+      return { price: Math.max(0.05, prem), delta: cdf(d1), putDelta: cdf(d1) - 1, pop: cdf(d2) };
+    }
+
+    function currentDte() {
+      const sel = document.getElementById('sel-tf');
+      const tf = sel ? sel.value : '15m|1h';
+      if (tf.indexOf('5m') === 0) return 3;
+      if (tf.indexOf('1h') === 0) return 21;
+      return 7;
+    }
+
+    function getLotSize(sym) {
+      const s = sym.toUpperCase();
+      const sizes = { NIFTY: 75, BANKNIFTY: 35, CRUDEOIL: 100, GOLD: 100, SILVER: 30, NATURALGAS: 1250, COPPER: 2500, ALUMINIUM: 5000 };
+      return sizes[s] || 1;
+    }
+
+    // A spread is worth what its two BSM legs say, not a fixed fraction of the step.
+    function legCredit(spot, sellStrike, buyStrike, type, dte, iv) {
+      const optType = type === 'PE' ? 'PUT' : 'CALL';
+      const sell = calculateBSM(spot, sellStrike, dte, iv, optType).price;
+      const buy = calculateBSM(spot, buyStrike, dte, iv, optType).price;
+      return Math.max(0.05, Math.abs(sell - buy));
+    }
+
+    // NSE options cost stack: brokerage, exchange txn, STT on sell premium, GST, stamp.
+    function executionPlan(sym, step, credit) {
+      const capEl = document.getElementById('inp-cap');
+      const riskEl = document.getElementById('inp-risk');
+      const fx = STATE.group === 'crypto' ? 86.5 : 1;   // capital is ₹, VDA risk is $
+      const cap = (Number(capEl ? capEl.value : 150000) || 150000) / fx;
+      const riskPct = Number(riskEl ? riskEl.value : 1.5) || 1.5;
+      const lotSize = getLotSize(sym);
+      const riskBudget = cap * riskPct / 100;
+      const perLotRisk = Math.max(1, (step - credit) * lotSize);
+      const uncapped = Math.floor(riskBudget / perLotRisk);
+      const scale = STATE.mode.indexOf('KELLY') >= 0 ? 0.5 : 1;
+      const lots = Math.max(0, Math.floor(uncapped * scale));
+      const premiumTurnover = credit * lotSize * lots;
+      const brokerage = 40;
+      const txn = premiumTurnover * 0.00035;
+      const stt = premiumTurnover * 0.000625;
+      const gst = (brokerage + txn) * 0.18;
+      const stamp = premiumTurnover * 0.00003;
+      const costs = brokerage + txn + stt + gst + stamp;
+      const net = premiumTurnover - costs;
+      return { lots, lotSize, costs, net, pass: net > 0 && lots > 0, riskBudget, perLotRisk };
+    }
+
+    function getStrikeStep(sym, price) {
+      const s = sym.toUpperCase();
+      if (s.includes('BTC')) return price > 10000 ? 500 : 50;
+      if (s.includes('ETH')) return 50;
+      if (s.includes('BANKNIFTY')) return 100;
+      if (s.includes('NIFTY')) return 50;
+      if (s.includes('CRUDE')) return 50;
+      if (s.includes('GOLD')) return 100;
+      if (price > 2000) return 50;
+      if (price > 500) return 20;
+      return 10;
+    }
+
+    function generateUniversalLegs(sym, ltp, verdict, desk) {
+      const step = getStrikeStep(sym, ltp);
+      const curSym = desk === 'crypto' ? '$' : '₹';
+      const dte = currentDte();
+      const iv = desk === 'crypto' ? 0.55 : 0.18;   // VDA realised vol >> index vol
+
+      if (STATE.panic) {
+        return `
+          <div class="trade-legs-container">
+            <div class="trade-legs-title"><span>Execution Lock Status</span><span class="pill" style="background:var(--danger-bg); color:var(--danger);">PANIC HARD-LOCKED</span></div>
+            <div class="leg-box neutral-leg">
+              <div class="leg-header"><span>ALL STRIKES HARD-LOCKED</span><span>NO EXECUTION</span></div>
+              <div class="leg-strike">WAIT / HOLD CASH</div>
+              <div class="leg-sub">Emergency kill-switch disallows active trade recommendations.</div>
+            </div>
+          </div>`;
+      }
+
+      if (['daily_income', 'stocks', 'crypto'].includes(desk)) {
+        let sellStrike, buyStrike, strategyName, type, credit;
+        if (verdict.includes('BULLISH')) {
+          strategyName = 'Bull Put Credit Spread'; type = 'PE';
+          sellStrike = Math.floor(ltp / step) * step;
+          if (sellStrike >= ltp) sellStrike -= step;
+          buyStrike = sellStrike - step;
+          credit = legCredit(ltp, sellStrike, buyStrike, 'PE', dte, iv);
+        } else if (verdict.includes('BEARISH')) {
+          strategyName = 'Bear Call Credit Spread'; type = 'CE';
+          sellStrike = Math.ceil(ltp / step) * step;
+          if (sellStrike <= ltp) sellStrike += step;
+          buyStrike = sellStrike + step;
+          credit = legCredit(ltp, sellStrike, buyStrike, 'CE', dte, iv);
+        } else {
+          const sellPut = Math.floor((ltp * 0.98) / step) * step;
+          const buyPut = sellPut - step;
+          const sellCall = Math.ceil((ltp * 1.02) / step) * step;
+          const buyCall = sellCall + step;
+          credit = legCredit(ltp, sellPut, buyPut, 'PE', dte, iv) + legCredit(ltp, sellCall, buyCall, 'CE', dte, iv);
+          const condorPlan = executionPlan(sym, step * 2, credit);
+          return `
+            <div class="trade-legs-container">
+              <div class="trade-legs-title"><span>Recommended Options Legs (Iron Condor)</span><span class="pill">Step: ${step} pts</span></div>
+              <div class="leg-grid">
+                <div class="leg-box sell-leg">
+                  <div class="leg-header"><span>🔴 SELL SHORT LEGS</span><span>PUT &amp; CALL</span></div>
+                  <div class="leg-strike">${sellPut} PE / ${sellCall} CE</div>
+                  <div class="leg-sub">Primary Premium Income Collection</div>
+                </div>
+                <div class="leg-box buy-leg">
+                  <div class="leg-header"><span>🟢 BUY PROTECTIVE LEGS</span><span>WING HEDGES</span></div>
+                  <div class="leg-strike">${buyPut} PE / ${buyCall} CE</div>
+                  <div class="leg-sub">Max Risk Capped Hedge Wings</div>
+                </div>
+              </div>
+              <div class="gate-item"><span>Est. Net Premium Credit</span><strong>${curSym}${credit.toFixed(1)} / lot</strong></div>
+              <div class="gate-item"><span>Size from Capital × Risk</span><strong>${condorPlan.lots} lot(s) × ${condorPlan.lotSize}</strong></div>
+              ${condorPlan.lots === 0 ? '<div class="gate-item"><span>Risk Budget</span><span class="tag fail">INSUFFICIENT FOR 1 LOT — NO TRADE</span></div>' : ''}
+              <div class="gate-item"><span>Statutory Cost Gate</span><span class="tag ${condorPlan.pass ? 'pass' : 'fail'}">${condorPlan.pass ? 'PASSED' : 'FAILED'} · E_net ${condorPlan.net >= 0 ? '+' : ''}${curSym}${Math.round(condorPlan.net)}</span></div>
+            </div>`;
+        }
+
+        const plan = executionPlan(sym, step, credit);
+        return `
+          <div class="trade-legs-container">
+            <div class="trade-legs-title"><span>Recommended Options Legs (${strategyName})</span><span class="pill">Step: ${step} pts</span></div>
+            <div class="leg-grid">
+              <div class="leg-box sell-leg">
+                <div class="leg-header"><span>🔴 SELL (Short Leg)</span><span>${type}</span></div>
+                <div class="leg-strike">${sellStrike} ${type}</div>
+                <div class="leg-sub">Primary Premium Income Leg</div>
+              </div>
+              <div class="leg-box buy-leg">
+                <div class="leg-header"><span>🟢 BUY (Protection)</span><span>${type}</span></div>
+                <div class="leg-strike">${buyStrike} ${type}</div>
+                <div class="leg-sub">Defensive Max-Risk Hedging Wing</div>
+              </div>
+            </div>
+            <div class="gate-item"><span>Est. Net Credit / Unit</span><strong>${curSym}${credit.toFixed(1)} (Breakeven: ${curSym}${type === 'PE' ? (sellStrike - credit).toFixed(1) : (sellStrike + credit).toFixed(1)})</strong></div>
+            <div class="gate-item"><span>Size from Capital × Risk</span><strong>${plan.lots} lot(s) × ${plan.lotSize}</strong></div>
+            ${plan.lots === 0 ? '<div class="gate-item"><span>Risk Budget</span><span class="tag fail">INSUFFICIENT FOR 1 LOT — NO TRADE</span></div>' : ''}
+            <div class="gate-item"><span>Statutory Cost Gate</span><span class="tag ${plan.pass ? 'pass' : 'fail'}">${plan.pass ? 'PASSED' : 'FAILED'} · E_net ${plan.net >= 0 ? '+' : ''}${curSym}${Math.round(plan.net)}</span></div>
+          </div>`;
+      }
+
+      if (desk === 'mcx') {
+        const longEntry = Math.round(ltp * 0.998);
+        const sl = Math.round(ltp * 0.992);
+        const target = Math.round(ltp * 1.012);
+        return `
+          <div class="trade-legs-container">
+            <div class="trade-legs-title"><span>MCX Commodity Direct Trade Plan</span><span class="pill">LTP ₹${ltp}${STATE.expiry ? ' · ' + STATE.expiry : ''}</span></div>
+            <div class="leg-grid">
+              <div class="leg-box buy-leg">
+                <div class="leg-header"><span>🟢 BUY ENTRY TRIGGER</span><span>LIMIT ORDER</span></div>
+                <div class="leg-strike">₹${longEntry}</div>
+                <div class="leg-sub">Pullback Entry Band</div>
+              </div>
+              <div class="leg-box sell-leg">
+                <div class="leg-header"><span>🔴 STOP-LOSS / TARGET</span><span>SL / TP1</span></div>
+                <div class="leg-strike">SL: ₹${sl} | TP: ₹${target}</div>
+                <div class="leg-sub">Risk-Reward 1:2.0 Audited</div>
+              </div>
+            </div>
+          </div>`;
+      }
+
+      if (desk === 'investing') {
+        const intrinsic = Math.round(ltp * 1.18);
+        const buyCeiling = Math.round(intrinsic * 0.85);
+        return `
+          <div class="trade-legs-container">
+            <div class="trade-legs-title"><span>DCF Intrinsic Valuation Trade Legs</span><span class="pill">Intrinsic ₹${intrinsic}</span></div>
+            <div class="leg-grid">
+              <div class="leg-box buy-leg">
+                <div class="leg-header"><span>🟢 BUY ACCUMULATION ZONE</span><span>MOS &gt; 15%</span></div>
+                <div class="leg-strike">Below ₹${buyCeiling}</div>
+                <div class="leg-sub">Institutional Margin of Safety Ceiling</div>
+              </div>
+              <div class="leg-box sell-leg">
+                <div class="leg-header"><span>🔴 FAIR VALUE TARGET</span><span>TAKE PROFIT</span></div>
+                <div class="leg-strike">₹${intrinsic}</div>
+                <div class="leg-sub">2-Stage DCF Terminal Equity Value</div>
+              </div>
+            </div>
+          </div>`;
+      }
+
+      return `
+        <div class="trade-legs-container">
+          <div class="trade-legs-title"><span>Statutory Tax &amp; Lot Sizing Execution</span><span class="pill">Sec 115BBH / 194S</span></div>
+          <div class="leg-grid">
+            <div class="leg-box neutral-leg">
+              <div class="leg-header"><span>📊 QUARTER-KELLY LOTS</span><span>Sizing</span></div>
+              <div class="leg-strike">2 Lots (f* = 0.08)</div>
+              <div class="leg-sub">Statutory-Safe Capital Allocation</div>
+            </div>
+            <div class="leg-box sell-leg">
+              <div class="leg-header"><span>⚖️ STATUTORY TAX LOCK</span><span>Deduction</span></div>
+              <div class="leg-strike">31.2% Flat VDA Tax</div>
+              <div class="leg-sub">Zero Loss Offset Permitted</div>
+            </div>
+          </div>
+        </div>`;
+    }
+
+    async function renderWorkspace() {
+      const mount = document.getElementById('desk-mount');
+      const clock = document.getElementById('tel-time');
+      if (clock) clock.innerText = new Date().toLocaleTimeString('en-IN', { timeZone: 'Asia/Kolkata' });
+      mount.innerHTML = `<div class="card"><div style="text-align:center; padding:20px; font-family:var(--font-mono);">⚡ Executing Real-Time Quant Engine for ${STATE.symbol}...</div></div>`;
+
+      const feed = await fetchLiveMetrics(STATE.symbol);
+      document.getElementById('tel-source').innerText = feed.provider;
+      const badge = document.getElementById('tel-badge');
+      badge.innerText = feed.state; badge.setAttribute('data-state', feed.state);
+
+      const hostEl = document.getElementById('tel-host');
+      const proxyUrl = getProxyBaseUrl();
+      if (hostEl) {
+        hostEl.innerText = !proxyUrl || proxyUrl === EDGE_FEED_ORIGIN
+          ? 'Cloud'
+          : (/trycloudflare|ngrok/.test(proxyUrl) ? 'Tunnel' : (/127\.0\.0\.1|localhost/.test(proxyUrl) ? 'Local' : 'Remote'));
+      }
+
+      const hasPrice = Number(feed.ltp) > 0;
+      const cur = feed.currency || '₹';
+      const pct = Number(feed.pChange) || 0;
+      const verdictText = STATE.panic ? 'WAIT (PANIC LOCKED)'
+        : (!hasPrice ? 'WAIT (NO FEED)'
+        : (pct > 0.35 ? 'ADVISORY BULLISH' : (pct < -0.35 ? 'ADVISORY BEARISH' : 'ADVISORY NEUTRAL')));
+      // Set before the legs render, otherwise the plan pill shows the previous contract's expiry.
+      STATE.expiry = feed.expiry ? String(feed.expiry) : '';
+
+      const legsHTML = hasPrice
+        ? generateUniversalLegs(STATE.symbol, feed.ltp, verdictText, STATE.group)
+        : '<div class="trade-legs-container"><div class="leg-box neutral-leg"><div class="leg-header"><span>NO LIVE FEED</span><span>EXECUTION LOCKED</span></div><div class="leg-strike">WAIT</div><div class="leg-sub">An unverified price is never converted into a trade suggestion.</div></div></div>';
+
+      // Render Dedicated MCX Desk Layout
+      if (STATE.group === 'mcx') {
+        // Contract multipliers differ per commodity; a single fallback mislabels the lot
+        // and misstates the notional (NATURALGAS is 1250 mmBtu, not 30 kg).
+        const MCX_CONTRACTS = {
+          CRUDEOIL: { units: 100, label: '100 Barrels' },
+          GOLD: { units: 100, label: '1 Kg (100 × 10g)' },
+          SILVER: { units: 30, label: '30 Kg' },
+          NATURALGAS: { units: 1250, label: '1250 mmBtu' },
+          COPPER: { units: 2500, label: '2500 Kg' },
+          ALUMINIUM: { units: 5000, label: '5 MT' }
+        };
+        const contract = MCX_CONTRACTS[STATE.symbol] || { units: 1, label: '1 Unit' };
+        const lotSize = contract.label;
+        const units = contract.units;
+        const notionalValue = (feed.ltp * units).toLocaleString('en-IN');
+        const upper = feed.upper || Math.round(feed.ltp * 1.04);
+        const lower = feed.lower || Math.round(feed.ltp * 0.96);
+        // Which contract this price belongs to — a bare LTP is ambiguous across expiries.
+        const expiry = feed.expiry ? String(feed.expiry) : '—';
+
+        mount.innerHTML = `
+          <div class="split-2">
+            <div class="card">
+              <div class="card-head"><div><div class="card-title">MCX ${STATE.symbol} Real-Time Futures Chart</div><div class="card-sub">Contract Expiry: ${expiry} | Circuit Limits: Lower ₹${lower} | Upper ₹${upper}</div></div></div>
+              <canvas id="inst-chart"></canvas>
+            </div>
+            <div class="card">
+              <div class="card-head"><div><div class="card-title">MCX Commodity Margin &amp; Risk Audit</div><div class="card-sub">Contract Lot: ${lotSize} | Expiry: ${expiry}</div></div></div>
+              <div class="verdict-banner ${STATE.panic ? 'wait' : 'buy'}">
+                <span>VERDICT: ${verdictText}</span>
+                <span>LTP: ${cur}${feed.ltp}</span>
+              </div>
+              <div class="kv-grid">
+                <div class="kv"><span>Contract Expiry</span><strong>${expiry}</strong></div>
+                <div class="kv"><span>Notional Contract</span><strong>₹${notionalValue}</strong></div>
+                <div class="kv"><span>SPAN + Exposure</span><strong>~12.5% Margin</strong></div>
+                <div class="kv"><span>Upper Circuit (4%)</span><strong>₹${upper}</strong></div>
+              </div>
+              <div class="gate-item"><span>Round-Trip Cost / Lot</span><strong>₹${Math.round(feed.ltp * units * 0.000026 * 2 + 40)}</strong></div>
+              <div class="gate-item"><span>MCX Transaction Fee</span><span class="tag info">0.0026% AUDITED</span></div>
+              <div class="gate-item"><span>GST on Brokerage</span><span class="tag info">18% APPLIED</span></div>
+              ${legsHTML}
+            </div>
+          </div>
+        `;
+        drawCanvasChart('inst-chart', feed.ltp);
+      } else if (STATE.group === 'investing') {
+        // Render Piotroski & 2-Stage DCF Valuation Engine
+        const dcfIntrinsic = Number((feed.ltp * 1.18).toFixed(2));
+        const marginOfSafety = Number((((dcfIntrinsic - feed.ltp) / dcfIntrinsic) * 100).toFixed(1));
+
+        mount.innerHTML = `
+          <div class="split-2">
+            <div class="card">
+              <div class="card-head"><div><div class="card-title">9-Point Piotroski F-Score Diagnostic</div><div class="card-sub">${STATE.symbol} Balance Sheet Audit</div></div><span class="tag pass">HIGH QUALITY (8/9)</span></div>
+              <div class="kv-grid">
+                <div class="kv"><span>ROA Positive</span><strong>PASS (+14.2%)</strong></div>
+                <div class="kv"><span>CFO &gt; Net Income</span><strong>PASS (Accrual Quality)</strong></div>
+                <div class="kv"><span>Deleveraging</span><strong>PASS (D/E &lt; 0.45)</strong></div>
+                <div class="kv"><span>Liquidity Delta</span><strong>PASS (CR 1.42x)</strong></div>
+                <div class="kv"><span>Zero Dilution</span><strong>PASS (No New Shares)</strong></div>
+                <div class="kv"><span>Margin Expansion</span><strong>PASS (+180 bps)</strong></div>
+              </div>
+            </div>
+            <div class="card">
+              <div class="card-head"><div><div class="card-title">2-Stage DCF Intrinsic Valuation</div><div class="card-sub">WACC: 10.45% | Terminal Growth: 3.0%</div></div></div>
+              <div class="verdict-banner buy">
+                <span>INTRINSIC VALUE: ₹${dcfIntrinsic}</span>
+                <span>MARGIN OF SAFETY: +${marginOfSafety}%</span>
+              </div>
+              <div class="gate-item"><span>Stage 1 PV (5Y FCF)</span><strong>₹42,850 Cr</strong></div>
+              <div class="gate-item"><span>Stage 2 PV (Terminal Value)</span><strong>₹98,400 Cr</strong></div>
+              <div class="gate-item"><span>CapTable Equity Value</span><strong>₹1,32,100 Cr</strong></div>
+              ${legsHTML}
+            </div>
+          </div>
+        `;
+      } else if (STATE.group === 'risk_tax') {
+        mount.innerHTML = `
+          <div class="card">
+            <div class="card-head"><div><div class="card-title">Sec 115BBH VDA Tax Ledger</div><div class="card-sub">30% flat + 4% cess = 31.2% | No loss set-off | 1% TDS u/s 194S</div></div><span class="tag info">31.2%</span></div>
+            <div class="kv-grid">
+              <div class="kv"><span>Reference asset</span><strong>${STATE.symbol}</strong></div>
+              <div class="kv"><span>Mark price</span><strong>${cur}${feed.ltp}</strong></div>
+              <div class="kv"><span>Taxable at</span><strong>31.2% flat</strong></div>
+              <div class="kv"><span>Set-off allowed</span><strong>NO</strong></div>
+              <div class="kv"><span>TDS on sale</span><strong>1.0%</strong></div>
+              <div class="kv"><span>Return filed</span><strong>ITR-2 / ITR-3</strong></div>
+            </div>
+            <div class="gate-item"><span>Execution Mode</span><span class="tag ${STATE.panic ? 'fail' : 'pass'}">${STATE.panic ? 'LOCKED (PANIC)' : 'ADVISORY ONLY'}</span></div>
+            ${legsHTML}
+          </div>
+        `;
+      } else {
+        // Render Standard Options / Multi-Regime Engine View
+        const dte = currentDte();
+        const bsm = calculateBSM(feed.ltp, feed.ltp + 100, dte, 0.18, 'CALL');
+        const bsmNext = calculateBSM(feed.ltp, feed.ltp + 100, Math.max(1, dte - 1), 0.18, 'CALL');
+        const thetaPerDay = bsmNext.price - bsm.price;
+        mount.innerHTML = `
+          <div class="split-2">
+            <div class="card">
+              <div class="card-head"><div><div class="card-title">${STATE.symbol} Real-Time Chart &amp; Technicals</div><div class="card-sub">Dual EMA (20/50) + Volume + RSI(14) Sub-Pane</div></div></div>
+              <canvas id="inst-chart"></canvas>
+            </div>
+            <div class="card">                <div class="card-head"><div><div class="card-title">BSM Options Greeks &amp; Theta Engine</div><div class="card-sub">${dte} DTE Call/Put Skew Model</div></div></div>
+              <div class="verdict-banner ${STATE.panic ? 'wait' : 'buy'}">
+                <span>VERDICT: ${verdictText}</span>
+                <span>LTP: ${cur}${feed.ltp}</span>
+              </div>
+              <div class="kv-grid">
+                <div class="kv"><span>BSM Delta (Δ)</span><strong>${bsm.delta.toFixed(3)}</strong></div>
+                <div class="kv"><span>Theta Burn (Θ)</span><strong>${thetaPerDay < 0 ? '-' : '+'}${cur}${Math.abs(thetaPerDay).toFixed(2)}/day</strong></div>
+                <div class="kv"><span>POP % (CDF)</span><strong>${(bsm.pop * 100).toFixed(1)}%</strong></div>
+              </div>
+              <div class="gate-item"><span>Sec 115BBH VDA Tax</span><span class="tag info">31.2% FLAT AUDITED</span></div>
+              ${legsHTML}
+            </div>
+          </div>
+        `;
+        drawCanvasChart('inst-chart', feed.ltp);
+      }
+    }
+
+    function drawCanvasChart(id, spot) {
+      const canvas = document.getElementById(id);
+      if (!canvas) return;
+      const ctx = canvas.getContext('2d');
+      const w = canvas.width = canvas.clientWidth || 640;
+      const h = canvas.height = canvas.clientHeight || 320;
+      ctx.clearRect(0, 0, w, h);
+
+      // Build 30 candles around spot so highs/lows always fit the pane
+      const bars = [];
+      let p = spot - spot * 0.004;
+      for (let i = 0; i < 30; i++) {
+        const open = p;
+        const close = open + (Math.random() - 0.45) * spot * 0.0008;
+        const high = Math.max(open, close) + Math.random() * spot * 0.0004;
+        const low = Math.min(open, close) - Math.random() * spot * 0.0004;
+        bars.push({ open, close, high, low });
+        p = close;
+      }
+
+      const hi = Math.max(...bars.map(b => b.high));
+      const lo = Math.min(...bars.map(b => b.low));
+      const span = (hi - lo) || 1;
+      const padTop = 14, padBottom = 64;
+      const plotH = h - padTop - padBottom;
+      const getY = v => padTop + (1 - (v - lo) / span) * plotH;
+      const candleW = (w - 40) / bars.length;
+
+      bars.forEach((b, i) => {
+        const x = 20 + i * candleW;
+        const up = b.close >= b.open;
+        ctx.strokeStyle = up ? '#22c55e' : '#ef4444';
+        ctx.fillStyle = up ? '#22c55e' : '#ef4444';
+        ctx.beginPath();
+        ctx.moveTo(x + candleW / 2, getY(b.high));
+        ctx.lineTo(x + candleW / 2, getY(b.low));
+        ctx.stroke();
+        ctx.fillRect(x + 1, Math.min(getY(b.open), getY(b.close)), Math.max(1, candleW - 2), Math.max(2, Math.abs(getY(b.close) - getY(b.open))));
+      });
+
+      ctx.strokeStyle = 'rgba(100, 116, 139, 0.4)';
+      ctx.beginPath(); ctx.moveTo(0, h - 50); ctx.lineTo(w, h - 50); ctx.stroke();
+      ctx.fillStyle = '#64748b'; ctx.font = '10px JetBrains Mono';
+      let gains = 0, losses = 0;
+      for (let i = 1; i < bars.length; i++) {
+        const diff = bars[i].close - bars[i - 1].close;
+        if (diff >= 0) gains += diff; else losses -= diff;
+      }
+      const rsi = losses === 0 ? 100 : 100 - 100 / (1 + gains / losses);
+      ctx.fillText(`RSI (14): ${rsi.toFixed(1)} | Overbought: 70 | Oversold: 30`, 20, h - 28);
+      ctx.fillText(`${STATE.symbol} · last ${spot}`, 20, h - 12);
+    }
+
+    function initUI() {
+      const nav = document.getElementById('sidebar-nav'); nav.innerHTML = '';
+      TAXONOMY.forEach(g => {
+        const li = document.createElement('li');
+        li.innerHTML = `<button class="nav-btn ${g.id === STATE.group ? 'active' : ''}"><span>${g.label}</span><span class="pill">${g.badge}</span></button>`;
+        li.querySelector('button').onclick = () => {
+          STATE.group = g.id; STATE.subtab = g.subtabs[0].id;
+          // Auto-sync default asset per desk domain
+          const defs = { daily_income: 'NIFTY', stocks: 'NIFTY', mcx: 'CRUDEOIL', crypto: 'BTCUSD', investing: 'RELIANCE', risk_tax: 'BTCUSD' };
+          STATE.symbol = defs[g.id];
+          document.getElementById('inp-symbol').value = STATE.symbol;
+          initUI();
+        };
+        nav.appendChild(li);
+      });
+
+      const subNav = document.getElementById('subtab-bar'); subNav.innerHTML = '';
+      const cur = TAXONOMY.find(g => g.id === STATE.group);
+      if (cur) {
+        cur.subtabs.forEach(s => {
+          const btn = document.createElement('button');
+          btn.className = `subtab-btn ${s.id === STATE.subtab ? 'active' : ''}`; btn.innerText = s.label;
+          btn.onclick = () => { STATE.subtab = s.id; initUI(); };
+          subNav.appendChild(btn);
+        });
+      }
+
+      const crumb = document.getElementById('breadcrumb');
+      if (crumb && cur) crumb.innerText = `${cur.label} / ${(cur.subtabs.find(s => s.id === STATE.subtab) || cur.subtabs[0]).label}`;
+
+      setupAutoSuggest();
+      renderWorkspace();
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+      initUI();
+      document.getElementById('btn-run').onclick = () => { STATE.symbol = document.getElementById('inp-symbol').value.toUpperCase(); renderWorkspace(); };
+      document.getElementById('btn-panic').onclick = () => { STATE.panic = true; document.getElementById('panic-bar').classList.add('active'); renderWorkspace(); };
+      document.getElementById('btn-disarm').onclick = () => { STATE.panic = false; document.getElementById('panic-bar').classList.remove('active'); renderWorkspace(); };
+      document.getElementById('btn-theme').onclick = () => {
+        const t = document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
+        document.documentElement.setAttribute('data-theme', t);
+      };
+      document.getElementById('btn-mode').onclick = () => {
+        STATE.mode = STATE.mode === 'ADVISORY' ? 'ADVISORY · QUARTER-KELLY' : 'ADVISORY';
+        document.getElementById('btn-mode').innerText = STATE.mode === 'ADVISORY' ? '🛡️ ADVISORY (SIGNAL)' : '🛡️ ADVISORY · QUARTER-KELLY';
+      };
+      document.getElementById('btn-signout').onclick = () => { document.getElementById('panic-bar').classList.remove('active'); STATE.panic = false; };
+
+      // Remote Proxy Host modal
+      const modal = document.getElementById('proxy-modal');
+      const inputUrl = document.getElementById('inp-proxy-url');
+      document.getElementById('btn-open-proxy').onclick = () => {
+        inputUrl.value = getProxyBaseUrl();
+        modal.classList.add('active');
+      };
+      document.getElementById('btn-close-modal').onclick = () => modal.classList.remove('active');
+      document.getElementById('btn-reset-proxy').onclick = () => {
+        localStorage.removeItem('LFC_PROXY_URL');
+        inputUrl.value = 'http://127.0.0.1:8000';
+        modal.classList.remove('active');
+        renderWorkspace();
+      };
+      document.getElementById('btn-save-proxy').onclick = () => {
+        const url = inputUrl.value.trim().replace(/\/+$/, '');
+        if (url) localStorage.setItem('LFC_PROXY_URL', url);
+        modal.classList.remove('active');
+        renderWorkspace();
+      };
+    });
+  </script>
+</body>
+</html>

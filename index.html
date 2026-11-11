@@ -236,13 +236,22 @@
   <script>
     const STATE = { group: 'daily_income', subtab: 'di-board', mode: 'ADVISORY', panic: false, symbol: 'NIFTY', tf: '15m|1h', cap: 150000, risk: 1.5 };
 
-    // Hosted deployments talk to their own origin; localhost keeps the laptop proxy.
+    // Feed base resolution:
+    //   saved override -> use it
+    //   localhost/file -> laptop proxy
+    //   edge site      -> same origin (the Worker serves the API too)
+    //   static host    -> the edge API, because a static host has no feed of its own
+    const EDGE_FEED_ORIGIN = 'https://site-443e334f4a224d008788726d8cf4b9ed.freebuff.page';
+
     function getProxyBaseUrl() {
       const saved = localStorage.getItem('LFC_PROXY_URL');
       if (saved) return saved.replace(/\/+$/, '');
       const host = location.hostname;
-      const isLocal = host === '127.0.0.1' || host === 'localhost' || location.protocol === 'file:';
-      return isLocal ? 'http://127.0.0.1:8000' : '';
+      if (host === '127.0.0.1' || host === 'localhost' || location.protocol === 'file:') {
+        return 'http://127.0.0.1:8000';
+      }
+      if (/\.freebuff\.page$/.test(host)) return '';
+      return EDGE_FEED_ORIGIN;
     }
 
     // Dedicated Product Desks including Standalone MCX Commodities Desk
@@ -299,7 +308,8 @@
 
     async function fetchLiveMetrics(sym) {
       const proxyBase = getProxyBaseUrl();
-      const feedHost = proxyBase ? 'Local Python Proxy' : 'Cloud Edge';
+      const onLaptopProxy = /^https?:\/\/(127\.0\.0\.1|localhost)/.test(proxyBase);
+      const feedHost = onLaptopProxy ? 'Local Python Proxy' : 'Cloud Edge';
       const onVdaDesk = (STATE.group === 'crypto' || STATE.group === 'risk_tax') && /USD$/.test(sym.toUpperCase());
 
       // 1. VDA desks read Delta India directly — the NSE route has no crypto feed.
@@ -591,7 +601,11 @@
 
       const hostEl = document.getElementById('tel-host');
       const proxyUrl = getProxyBaseUrl();
-      if (hostEl) hostEl.innerText = !proxyUrl ? 'Cloud' : (/trycloudflare|ngrok/.test(proxyUrl) ? 'Tunnel' : 'Local');
+      if (hostEl) {
+        hostEl.innerText = !proxyUrl || proxyUrl === EDGE_FEED_ORIGIN
+          ? 'Cloud'
+          : (/trycloudflare|ngrok/.test(proxyUrl) ? 'Tunnel' : (/127\.0\.0\.1|localhost/.test(proxyUrl) ? 'Local' : 'Remote'));
+      }
 
       const hasPrice = Number(feed.ltp) > 0;
       const cur = feed.currency || '₹';
