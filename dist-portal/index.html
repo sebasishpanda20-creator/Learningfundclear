@@ -482,6 +482,10 @@
           const buyCall = sellCall + step;
           credit = legCredit(ltp, sellPut, buyPut, 'PE', dte, iv) + legCredit(ltp, sellCall, buyCall, 'CE', dte, iv);
           const condorPlan = executionPlan(sym, step * 2, credit);
+          const condorMaxProfit = credit * condorPlan.lotSize * condorPlan.lots;
+          const condorMaxLoss = (step * 2 - credit) * condorPlan.lotSize * condorPlan.lots;
+          const condorTp = curSym + (credit * 0.5).toFixed(1);
+          const condorSl = curSym + (credit * 2).toFixed(1);
           return `
             <div class="trade-legs-container">
               <div class="trade-legs-title"><span>Recommended Options Legs (Iron Condor)</span><span class="pill">Step: ${step} pts</span></div>
@@ -501,10 +505,17 @@
               <div class="gate-item"><span>Size from Capital × Risk</span><strong>${condorPlan.lots} lot(s) × ${condorPlan.lotSize}</strong></div>
               ${condorPlan.lots === 0 ? '<div class="gate-item"><span>Risk Budget</span><span class="tag fail">INSUFFICIENT FOR 1 LOT — NO TRADE</span></div>' : ''}
               <div class="gate-item"><span>Statutory Cost Gate</span><span class="tag ${condorPlan.pass ? 'pass' : 'fail'}">${condorPlan.pass ? 'PASSED' : 'FAILED'} · E_net ${condorPlan.net >= 0 ? '+' : ''}${curSym}${Math.round(condorPlan.net)}</span></div>
+              <div class="gate-item"><span>Max Profit (both wings expire OTM)</span><strong>+${curSym}${Math.round(condorMaxProfit)}</strong></div>
+              <div class="gate-item"><span>Max Loss (either wing breached)</span><strong>−${curSym}${Math.round(condorMaxLoss)}</strong></div>
+              <div class="gate-item"><span>Exit Plan</span><strong>Buy back at ${condorTp} (50% captured) · cut if premium ≥ ${condorSl} · close ${Math.max(1, dte - 2)} DTE</strong></div>
             </div>`;
         }
 
         const plan = executionPlan(sym, step, credit);
+        const maxProfit = credit * plan.lotSize * plan.lots;
+        const maxLoss = (step - credit) * plan.lotSize * plan.lots;
+        const tpPremium = credit * 0.5;
+        const slPremium = credit * 2;
         return `
           <div class="trade-legs-container">
             <div class="trade-legs-title"><span>Recommended Options Legs (${strategyName})</span><span class="pill">Step: ${step} pts</span></div>
@@ -524,6 +535,9 @@
             <div class="gate-item"><span>Size from Capital × Risk</span><strong>${plan.lots} lot(s) × ${plan.lotSize}</strong></div>
             ${plan.lots === 0 ? '<div class="gate-item"><span>Risk Budget</span><span class="tag fail">INSUFFICIENT FOR 1 LOT — NO TRADE</span></div>' : ''}
             <div class="gate-item"><span>Statutory Cost Gate</span><span class="tag ${plan.pass ? 'pass' : 'fail'}">${plan.pass ? 'PASSED' : 'FAILED'} · E_net ${plan.net >= 0 ? '+' : ''}${curSym}${Math.round(plan.net)}</span></div>
+            <div class="gate-item"><span>Max Profit (full credit decay)</span><strong>+${curSym}${Math.round(maxProfit)}</strong></div>
+            <div class="gate-item"><span>Max Loss (short strike breached)</span><strong>−${curSym}${Math.round(maxLoss)}</strong></div>
+            <div class="gate-item"><span>Exit Plan</span><strong>Buy back at ${curSym}${tpPremium.toFixed(1)} (50% captured) · cut if premium ≥ ${curSym}${slPremium.toFixed(1)} · close ${Math.max(1, dte - 2)} DTE</strong></div>
           </div>`;
       }
 
@@ -531,6 +545,9 @@
         const longEntry = Math.round(ltp * 0.998);
         const sl = Math.round(ltp * 0.992);
         const target = Math.round(ltp * 1.012);
+        const mcxUnits = { CRUDEOIL: 100, GOLD: 100, SILVER: 30, NATURALGAS: 1250, COPPER: 2500, ALUMINIUM: 5000 }[sym.toUpperCase()] || 1;
+        const mcxProfit = Math.round((target - longEntry) * mcxUnits);
+        const mcxLoss = Math.round((longEntry - sl) * mcxUnits);
         return `
           <div class="trade-legs-container">
             <div class="trade-legs-title"><span>MCX Commodity Direct Trade Plan</span><span class="pill">LTP ₹${ltp}${STATE.expiry ? ' · ' + STATE.expiry : ''}</span></div>
@@ -543,15 +560,21 @@
               <div class="leg-box sell-leg">
                 <div class="leg-header"><span>🔴 STOP-LOSS / TARGET</span><span>SL / TP1</span></div>
                 <div class="leg-strike">SL: ₹${sl} | TP: ₹${target}</div>
-                <div class="leg-sub">Risk-Reward 1:2.0 Audited</div>
+                <div class="leg-sub">Risk-Reward ${(mcxProfit / Math.max(1, mcxLoss)).toFixed(1)}:1 Audited</div>
               </div>
             </div>
+            <div class="gate-item"><span>Max Profit / Lot (TP1 hit)</span><strong>+₹${mcxProfit.toLocaleString('en-IN')}</strong></div>
+            <div class="gate-item"><span>Max Loss / Lot (SL hit)</span><strong>−₹${mcxLoss.toLocaleString('en-IN')}</strong></div>
+            <div class="gate-item"><span>Exit Plan</span><strong>TP1 ₹${target} · trail after TP1 · SL ₹${sl} hard · square off before ${STATE.expiry || 'expiry'}</strong></div>
           </div>`;
       }
 
       if (desk === 'investing') {
         const intrinsic = Math.round(ltp * 1.18);
         const buyCeiling = Math.round(intrinsic * 0.85);
+        const invStop = Math.round(buyCeiling * 0.92);
+        const invReward = intrinsic - buyCeiling;
+        const invRisk = buyCeiling - invStop;
         return `
           <div class="trade-legs-container">
             <div class="trade-legs-title"><span>DCF Intrinsic Valuation Trade Legs</span><span class="pill">Intrinsic ₹${intrinsic}</span></div>
@@ -567,6 +590,9 @@
                 <div class="leg-sub">2-Stage DCF Terminal Equity Value</div>
               </div>
             </div>
+            <div class="gate-item"><span>Max Profit / Share (to intrinsic)</span><strong>+₹${invReward}</strong></div>
+            <div class="gate-item"><span>Max Loss / Share (8% stop)</span><strong>−₹${invRisk}</strong></div>
+            <div class="gate-item"><span>Exit Plan</span><strong>Buy ≤ ₹${buyCeiling} · hard stop ₹${invStop} · exit at ₹${intrinsic} or if thesis breaks</strong></div>
           </div>`;
       }
 
