@@ -637,9 +637,12 @@ async function main() {
 
   // ── GTF-Pro: migration-phase dry-run/shadow (guarded) ────────────────
   let gtfSignals = [];
-  const gtfFailures = [];
   if (GTF_PRO_ENABLED) {
-    gtfSignals = scanGtfPro(symbols);
+    const gtfRun = await scanGtfPro(symbols);
+    gtfSignals = gtfRun.signals;
+    if (gtfRun.failures.length) {
+      console.log("GTF-Pro unavailable:", gtfRun.failures.slice(0, 8).join(" · "));
+    }
     if (DRY_RUN || GTF_PRO.shadowMode) {
       for (const s of gtfSignals) {
         if (GTF_PRO.shadowMode) {
@@ -654,9 +657,6 @@ async function main() {
     } else {
       console.log("GTF-Pro: production promotion blocked — set GTF_PRO=true only after migration validation");
     }
-    if (gtfFailures.length) {
-      console.log("GTF-Pro unavailable:", gtfFailures.slice(0, 8).join(" · "));
-    }
   } else {
     console.log("GTF-Pro: engine loaded but disabled (set GTF_PRO=true to enable)");
   }
@@ -664,7 +664,7 @@ async function main() {
   const allSignals = [...legacySignals, ...gtfSignals];
   const ctx = {
     symbols: symbols.length, symbolList: symbols, timeframes, tasks: tasks.length,
-    signals: allSignals, failures: legacyFailures.concat(gtfFailures), dryRun,
+    signals: allSignals, failures: legacyFailures, dryRun,
   };
   if (DRY_RUN) {
     allSignals.forEach((s) => { s.outcome = "found"; });
@@ -677,52 +677,77 @@ async function main() {
   if (!allSignals.length && legacyFailures.length === tasks.length) process.exit(1);
 }
 // ── GTF-Pro: migration-phase dry-run/shadow (guarded) ────────────────
-function scanGtfPro(symbols) {
-  const results = [];
+// TRUE engine path: fetch intraday bars → shared session-anchored aggregation
+// (GTF.stack.stackBars) → real DBR/RBR/RBD/DBD detection (GTF.zone.buildGtfZones)
+// → shadow records ONLY.  This scanner's source is yfinance, which is never
+// production-fresh: the data freshness hard gate blocks READY/TRIGGERED, so
+// every row stays FAR for review.  No production posting from here.
+async function scanGtfPro(symbols) {
+  const signals = [];
+  const failures = [];
   for (const sym of symbols) {
     try {
-      const computeZones = global.LfcScanner ? global.LfcScanner.computeZones : null;
-      if (!computeZones) continue;
-      const res = computeZones([]);
-      if (!res || (!res.demandZones.length && !res.supplyZones.length)) continue;
-      const { zonesToGtf } = require('./engine/zone');
-      const gtfZones = zonesToGtf(res, sym, '75m');
-      for (const zone of gtfZones) {
-        results.push({
-          type: 'gtf-pro',
-          signalStatus: 'FAR',
-          strategyVersion: '1.0.0',
+      const raw = await getBars(sym, { id: "15m", label: "15m", interval: "15m", range: "10d", minBars: 100 });
+      if (!raw || raw.length < 100) {
+        failures.push(`${sym} 15m — only ${raw ? raw.length : 0} bars`);
+        continue;
+      }
+      const bars = GTF.stack.stackBars(raw, "75m");
+      if (!bars || bars.length < 5) continue;
+      const zones = GTF.zone.buildGtfZones(bars, sym, "75m");
+      if (!zones.length) continue;
+      const demand = zones.filter((z) => z.action === "D");
+      const supply = zones.filter((z) => z.action === "S");
+      // Data freshness gate: yfinance is never production-fresh → blocked.
+      const dataFresh = GTF.gates.freshnessOf("yfinance", { ts: Date.now() }, null, 3600000, true);
+      const productionFresh = GTF.gates.isProductionFresh(dataFresh.mode);
+      for (const zone of zones) {
+        const isDemand = zone.action === "D";
+        const rr = GTF.pipeline.isQualified(
+          { demand, supply },
+          isDemand ? zone.top : zone.bottom,
+          isDemand
+        );
+        signals.push({
+          type: "gtf-pro",
+          signalStatus: "FAR",
+          strategyVersion: "1.0.0",
           symbol: sym,
-          direction: zone.action === 'D' ? 'LONG' : 'SHORT',
+          direction: isDemand ? "LONG" : "SHORT",
           zoneId: zone.id,
-          tfId: '75m',
-          tf: '75m',
-          price: (zone.bottom + zone.top) / 2,
-          zoneBottom: zone.bottom,
-          zoneTop: zone.top,
-          actionType: zone.action,
+          tfId: "75m",
+          tf: "75m",
+          pattern: zone.pattern || null,
+          baseCount: zone.baseCount || 1,
+          price: Number(((zone.bottom + zone.top) / 2).toFixed(2)),
+          zoneBottom: Number(zone.bottom.toFixed(2)),
+          zoneTop: Number(zone.top.toFixed(2)),
+          opposingRR: rr && Number.isFinite(rr.rr) ? Number(rr.rr.toFixed(2)) : 0,
+          twoRQualified: !!(rr && rr.qualified),
           gtfScore: 0,
           contextScore: 0,
           portalScore: 0,
           gtfTag: null,
           contextTag: null,
           portalTag: null,
-          source: 'live',
-          freshness: 'production-fresh',
-          barDate: zone.created || new Date().toISOString().slice(0, 10),
-          trend: 'SIDEWAYS',
+          source: "yfinance",
+          freshness: dataFresh.mode,
+          dataGate: productionFresh ? "open" : "blocked",
+          barDate: zone.created || null,
+          trend: "SIDEWAYS",
           confluence: 0,
           tag: null,
-          details: 'GTF-Pro 75m ' + sym + ' ' + (zone.action === 'D' ? 'LONG' : 'SHORT') + ' · zone ' + zone.bottom + '-' + zone.top + ' · awaiting shadow review',
-          rejectReason: null,
-          state: 'FAR'
+          details: `GTF-Pro 75m shadow ${zone.pattern || zone.action} ${sym} · zone ${zone.bottom.toFixed(2)}-${zone.top.toFixed(2)} · ${zone.baseCount || 1} base · shadow-only (data gate ${productionFresh ? "open" : "blocked"})`,
+          rejectReason: productionFresh ? null : "stale-data",
+          state: "FAR",
         });
       }
     } catch (e) {
       // A scan failure is isolated to this symbol; keep the rest.
+      failures.push(`${sym} — ${e.message}`);
     }
   }
-  return results;
+  return { signals, failures };
 }
 
 main().catch((e) => {

@@ -1,115 +1,148 @@
 "use strict";
 
-// ── GTF-Pro qualification gates ──────────────────────────────────────────────
-// These are INTERNAL research/backtest guards per the spec. They are NOT
-// user scanner controls: the browser UI never exposes them, and the nightly
-// cron never reads them from a user-facing slider. They live in config only.
+// ── GTF-Pro qualification gates (internal; never user-exposed UI controls) ─
+//
+// Opposing-zone 2R calculation:
+//   riskPoints  = abs(entry - stop)
+//   Long :
+//     roomPoints = nearestSupplyProximal - entry
+//   Short:
+//     roomPoints = entry - nearestDemandProximal
+//   availableRR = roomPoints / riskPoints
+//   Require: availableRR >= 2
+//   Reject overlapping/incorrectly placed opposing zones.
+//   Do NOT compare raw price gaps directly to 2.
+//
+// Formation-candle exclusion: retest bars are counted after the confirmed
+// departure/zone-creation timestamp or bar index, NOT a fixed 2-calendar-day
+// delay (NSE hourly is intraday; fixed days are invalid for same-day 75m/15m/5m).
 
-// Opposing-zone hard filter ---------------------------------------------------
-// A pending signal is only qualified when an OPPOSING zone has room for at
-// least 2R (2× the risk distance) between it and the candidate zone.
-// Prerequisite: both zones must have survived (not invalidated).
 const OPPOSE_RR = 2.0;
 
-// Distance from a zone's entry/price to the opposite zone's edge (in price
-// points), used to judge whether the opposing zone has enough room to be a
-// valid 2R candidate. A negative value means the zones overlap (no room).
-function opposingRoom(firstZone, secondZone, entryPrice, isDemand) {
-  // entryPrice is the last close that formed the candidate. The opposing zone
-  // must be able to absorb 2R on the candidate's side.
+// One-sided room: given a candidate zone and its opposing zone, compute
+// roomPoints and riskPoints for a long (demand candidate) or short (supply
+// candidate).  Room uses the OPPOSING zone's PROXIMAL edge (the conservative,
+// nearest edge):
+//   Long : roomPoints = supplyProximal (supply.bottom) - entry
+//   Short: roomPoints = entry - demandProximal (demand.top)
+// riskPoints = abs(entry - candidate stop edge)  (long: demand bottom / distal;
+// short: supply top / distal).
+function opposingRoomPoints(firstZone, secondZone, entryPrice, isDemand) {
+  // candEdge is the stop edge of the candidate zone.
   const candEdge = isDemand ? firstZone.bottom : firstZone.top;
-  const oppEdge = isDemand ? secondZone.top : secondZone.bottom;
-  const direction = isDemand ? -1 : 1; // demand pulls down, supply pushes up
-  const gap = (oppEdge - candEdge) * direction;
-  const risk = Math.abs(entryPrice - candEdge);
-  return { gap: Number(gap.toFixed(2)), room: gap >= 0 ? OPPOSE_RR * risk : -Infinity };
+  const riskPoints = Math.abs(entryPrice - candEdge);
+  if (riskPoints <= 0) return { riskPoints, roomPoints: 0, rr: 0 };
+
+  // The opposing zone's PROXIMAL edge on the candidate's side.
+  const oppProximal = isDemand ? secondZone.bottom : secondZone.top;
+  const roomPoints = isDemand
+    ? Math.max(0, oppProximal - entryPrice)  // long: room up to supply proximal
+    : Math.max(0, entryPrice - oppProximal); // short: room down to demand proximal
+
+  const rr = roomPoints / riskPoints;
+  return { riskPoints, roomPoints, rr: rr };
 }
 
-// A signal is qualified only if BOTH a demand and a supply zone exist and
-// at least one opposing pair has >= 2R of room. Store the qualifying room so
-// the backtest can compare it against the raw signal.
+// Opposing-zone qualification with real 2R:
+//   riskPoints  = abs(entry - candidate proximal edge)   (long: demand bottom;
+//               short: supply top — the stop edge)
+//   Long : roomPoints = nearestSupplyProximal - entry
+//   Short: roomPoints = entry - nearestDemandProximal
+//   availableRR = roomPoints / riskPoints;  require availableRR >= minRR (2)
+// Rejects: overlapping zones, opposing zone on the wrong side of the candidate,
+// non-positive risk, and non-positive room.  Never compares raw point gaps to 2.
 function opposing2RQualified(zones, price, isDemand, opts) {
   opts = opts || {};
-  const minRoom = Number.isFinite(opts.minRoom) ? opts.minRoom : OPPOSE_RR;
-  if (!zones.demand.length || !zones.supply.length) return false;
-  // Greedy: the nearest demand to the price and the nearest supply to the price
-  // is the most likely to have room. O(n*m) is fine for <=20 zones.
-  const demand = zones.demand.slice().sort((a, b) => Math.abs(price - (a.bottom + a.top) / 2) - Math.abs(price - (b.bottom + b.top) / 2));
-  const supply = zones.supply.slice().sort((a, b) => Math.abs(price - (a.bottom + a.top) / 2) - Math.abs(price - (b.bottom + b.top) / 2));
-  for (const d of demand) {
-    for (const s of supply) {
-      const r = opposingRoom(d, s, price, true);
-      if (r.gap >= minRoom) return true;
+  const minRR = Number.isFinite(opts.minRR) ? opts.minRR : OPPOSE_RR;
+  const entryZones = isDemand ? (zones.demand || []) : (zones.supply || []);
+  const oppZones = isDemand ? (zones.supply || []) : (zones.demand || []);
+  if (!entryZones.length || !oppZones.length || !(price > 0)) {
+    return { qualified: false, room: 0, rr: 0, riskPoints: 0, reason: "no-zones" };
+  }
+
+  let best = null;
+  for (const cz of entryZones) {
+    const riskPoints = Math.abs(price - (isDemand ? cz.bottom : cz.top));
+    if (!(riskPoints > 0)) continue; // invalid risk (entry on the stop edge)
+    for (const oz of oppZones) {
+      // Opposing zone must sit FULLY beyond the candidate on the trade side.
+      // Long: supply bottom above the demand top.  Short: demand top below the
+      // supply bottom.  Anything else is overlap or wrong-side → rejected.
+      if (isDemand && !(oz.bottom > cz.top)) continue;
+      if (!isDemand && !(oz.top < cz.bottom)) continue;
+      const roomPoints = isDemand ? oz.bottom - price : price - oz.top;
+      if (!(roomPoints > 0)) continue; // no structural room on this side
+      const rr = roomPoints / riskPoints;
+      if (!best || rr > best.rr) {
+        best = {
+          qualified: rr >= minRR,
+          room: roomPoints,
+          rr,
+          riskPoints,
+          entryZone: cz.id || null,
+          opposingZone: oz.id || null,
+        };
+      }
     }
   }
-  for (const s of supply) {
-    for (const d of demand) {
-      const r = opposingRoom(d, s, price, false);
-      if (r.gap >= minRoom) return true;
-    }
-  }
-  return false;
+  return best || { qualified: false, room: 0, rr: 0, riskPoints: 0, reason: "no-valid-pair" };
 }
 
-// Formation-candle exclusion --------------------------------------------------
-// A retest bar must be at least FORMATION_MARGIN days after the bar that
-// formed the zone. GTF-Pro never scores a bar that is still forming the zone;
-// that bar is part of the setup, not the retest.
-const FORMATION_MARGIN = 2; // days
-
-function isRetest(bar, zone) {
-  if (!zone) return false;
-  const tz = new Date(zone.created || bar.date).getTime();
+// Formation-candle exclusion: retest counted after the confirmed departure/bar
+// index, not a fixed calendar-day delay.
+function isRetest(bar, zone, barIndex, zoneIndex) {
+  if (!bar || !zone) return false;
   const tb = new Date(bar.date).getTime();
-  const diff = (tb - tz) / 86400000;
-  return diff >= FORMATION_MARGIN;
+  const tz = new Date(zone.created || bar.date).getTime();
+  if (tb <= tz) return false;
+  // If barIndex/zoneIndex are passed, compare those (LTF bar-index retest as well).
+  if (Number.isFinite(barIndex) && Number.isFinite(zoneIndex)) {
+    const di = barIndex - zoneIndex;
+    return di >= 0;
+  }
+  return true; // no fixed margin; retest counted after confirmed departure
 }
 
-// ── Data freshness gating (hard rule) ───────────────────────────────────────
-// READY and TRIGGERED require PRODUCTION-FRESH data for the session.
-// Freshness is a session-level flag plus a per-bars source marker:
-//   fresh = (source === "live") && (sessionCurrentDate === sessionCurrentDate)
-// where sessionCurrentDate is the server's date at scan start.
-//
-// Stale / offline / sample / cached data MUST NOT produce READY or TRIGGERED.
-// When freshness cannot be determined (no live source), the signal state is
-// FROZEN or STALE and never advances to READY/TRIGGERED.
-const FRESHNESS_PROXY = "live"; // current session's source marker
+// ── Data freshness gate (hard rule) ─────────────────────────────────────────
+// READY/TRIGGERED require PRODUCTION-FRESH.
+//   - source type (live/market data, never yfinance auto = production)
+//   - newest bar timestamp
+//   - expected exchange/session clock
+//   - maximum acceptable age
+//   - whether the relevant timeframe candle is confirmed
+// Stale/cached/offline/sample data MUST NOT produce READY/TRIGGERED.
+function freshnessOf(source, latestBar, expectedSession, maxAgeMs, isConfirmed) {
+  if (!source) return { mode: "unknown", reason: "no-source" };
+  if (source === "live" || source === "market") {
+    if (!isConfirmed) return { mode: "stale", reason: "candle-not-confirmed" };
+    if (latestBar && latestBar.ts) {
+      const age = Date.now() - latestBar.ts;
+      if (age > maxAgeMs) return { mode: "stale", reason: "bar-stale" };
+      return { mode: "production-fresh", reason: "ok" };
+    }
+    return { mode: "production-fresh", reason: "ok" };
+  }
+  if (source === "yfinance") return { mode: "stale", reason: "yfinance-not-production" };
+  if (source === "cache" || source === "sample" || source === "offline") {
+    return { mode: "stale", reason: "offline-sample" };
+  }
+  return { mode: "unknown", reason: "unknown-source" };
+}
 
 function isProductionFresh(freshness) {
-  return freshness === "production-fresh" || freshness === "live";
+  return freshness === true || freshness === "production-fresh" || freshness === "live";
 }
 
-function freshnessOf(source) {
-  if (!source) return "unknown";
-  if (source === "live" || source === "yfinance") return "production-fresh";
-  if (source === "cache" || source === "sample" || source === "offline") return "stale";
-  return "unknown";
-}
-
-// Session-level freshness check: returns false if the session's live source
-// is not available, so no READY/TRIGGERED can be produced at all.
-function productionFreshForSession(freshness) {
-  return isProductionFresh(freshness);
-}
-
-// ── Config flag for ambiguous rules (spec: config flag + safe default + TODO) ─
-// Every ambiguous rule has a config flag. The safe default is documented and
-// the TODO is tracked in the engine module where the rule lives.
-function resolveAmbiguous(flag, safeDefault) {
-  if (flag === undefined || flag === null) return safeDefault;
-  if (typeof flag !== "boolean") return safeDefault; // fail-open to the documented default
-  return flag;
+function isRetestStrict(bar, zone) {
+  return isRetest(bar, zone);
 }
 
 module.exports = {
   OPPOSE_RR,
-  opposingRoom,
+  opposingRoomPoints,
   opposing2RQualified,
-  FORMATION_MARGIN,
   isRetest,
+  isRetestStrict,
   freshnessOf,
   isProductionFresh,
-  productionFreshForSession,
-  resolveAmbiguous,
 };

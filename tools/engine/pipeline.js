@@ -4,13 +4,18 @@
 // One-pass signal builder.  Takes the Legacy pivot result (scanner-logic.js)
 // PLUS the GTF bar set for the same symbol/tf, and emits a GTF-Pro signal
 // ONLY when:
-//   1. production-fresh data (needs a live source this session — hard gate),
-//   2. a qualifying demand OR supply zone exists (2R opposing room),
-//   3. the signal bar is CLOSED inside the zone (confirmed closed),
-//   4. no formation candle is being counted as a retest,
-//   5. the signal is a meaningful state transition (pending first-ever hit).
-// Secondary evidence (PnF/RS/BOS/CHoCH/FVG) is tagged but NOT folded into
-// the GTF score — scores stay 0-7 / 0-6 / 0-13 pure.
+//   1. production-fresh data (hard gate: source type, bar ts, session clock,
+//      max age, confirmed candle) — never yfinance auto-fresh
+//   2. a qualifying demand OR supply zone exists (real 2R opposing room)
+//   3. the signal bar is CLOSED inside the zone (confirmed closed)
+//   4. no formation candle is being counted as a retest
+//   5. the signal is a meaningful state transition (pending first-ever hit)
+//
+// GTF scoring: freshness = ZONE freshness (0 / 1.5 / 2), departure =
+// exciting-departure rule, time-at-base (1-3/4-5/5+).  Freshness is NEVER
+// added as a point; data freshness is a separate eligibility gate only.
+// Secondary evidence (PnF/RS/BOS/CHoCH/FVG) is tagged but NOT folded into the
+// GTF score — scores stay 0-7 / 0-6 / 0-13 pure.
 
 const life = require("./lifecycle");
 const sc = require("./scoring");
@@ -18,132 +23,115 @@ const g = require("./gates");
 
 // ── GTF score components (pure math, no side effects) ──────────────────────
 function gtfComponents(freshness, departure, timeAtBase) {
-  // freshness 0-3, departure 0-2, timeAtBase 0-2
-  const f = Math.max(0, Math.min(7, Math.round(Number(freshness) || 0)));
-  const d = Math.max(0, Math.min(2, Math.round(Number(departure) || 0)));
-  const t = Math.max(0, Math.min(2, Math.round(Number(timeAtBase) || 0)));
+  const f = Math.max(0, Math.min(sc.GTF_MAX, Number(freshness) || 0));
+  const d = Math.max(0, Math.min(2, Number(departure) || 0));
+  const t = Math.max(0, Math.min(2, Number(timeAtBase) || 0));
   return { freshness: f, departure: d, timeAtBase: t, raw: f + d + t };
 }
 
 function gtfScore(freshness, departure, timeAtBase) {
   const c = gtfComponents(freshness, departure, timeAtBase);
-  return Math.min(7, c.raw);
+  return Math.min(sc.GTF_MAX, c.raw);
 }
 
 function contextScore(conditions) {
-  const n = (conditions || []).filter(Boolean).length;
-  return Math.min(6, n);
+  // Only strict boolean true = a confirmed condition.  Tagged secondary
+  // evidence (strings) never counts.
+  return Math.min(sc.CONTEXT_MAX, (conditions || []).filter((c) => c === true).length);
 }
 
 function portalScore(gtf, context) {
-  return Math.min(13, gtf + context);
+  return Math.min(sc.PORTAL_MAX, gtf + context);
 }
 
-// ── 2R opposing-zone hard filter ─────────────────────────────────────────────
-// The pipeline delegates to gates.js.  A pending signal is only qualified when
-// an OPPOSING zone has room for at least 2R on the candidate side.
+// ── 2R opposing-zone hard filter (engine/gates.js) ─────────────────────────
 function isQualified(zones, price, isDemand) {
   return g.opposing2RQualified(zones, price, isDemand);
 }
 
 // ── Confirmed-closed candle rule ─────────────────────────────────────────────
-// A stored/historical signal requires the signal bar to be CLOSED inside the
-// zone: last.close <= top && last.close >= bottom.  A mere touch (low <= top
-// && high >= bottom) is not enough for stored signals.
 function isClosedInside(bar, zone) {
   if (!bar || !zone) return false;
   return bar.close <= zone.top && bar.close >= zone.bottom;
 }
 
-// ── Formation-candle exclusion ───────────────────────────────────────────────
-// Retest bars must be >= FORMATION_MARGIN days after the forming bar.
-function isRetest(barDate, zoneCreated) {
-  if (!barDate || !zoneCreated) return false;
-  const tb = new Date(barDate).getTime();
-  const tz = new Date(zoneCreated).getTime();
-  return (tb - tz) / 86400000 >= g.FORMATION_MARGIN;
-}
-
-// ── Data freshness gate (hard rule) ─────────────────────────────────────────
-// READY/TRIGGERED require PRODUCTION-FRESH data for the session.  When the
-// live source is not available, the pipeline must NOT advance the state to
-// READY or TRIGGERED.  The pipeline exposes a gate function; the runner calls
-// it with the per-bar source marker.
+// ── Data freshness hard gate ─────────────────────────────────────────────────
 function productionFreshForSession(freshness) {
   return g.isProductionFresh(freshness);
 }
 
-function freshnessOf(source) {
-  return g.freshnessOf(source);
-}
-
-// Weak gate: the scan driver itself decides whether the session is fresh and
-// passes the flag per scan.  `freshSession` true means the scanner's data
-// source is the live Yahoo feed; false (offline/cache/sample) blocks ALL
-// READY/TRIGGERED.
+// Session-level gate: stale/offline/sample/yfinance data blocks ALL READY/TRIGGERED.
 function gateReady(freshSession, zone) {
   if (!freshSession) return { eligible: false, reason: "stale-data" };
   if (!zone) return { eligible: false, reason: "no-zone" };
   return { eligible: true, reason: "ok" };
 }
 
-// ── Ambiguous-rule config flags (spec: config flag + safe default + TODO) ─
-// Every ambiguous rule is a config flag with a documented safe default.
-// resolveAmbiguous() returns the safe default when the flag is missing/undefined.
-function resolveAmbiguous(flag, safeDefault) {
-  if (flag === undefined || flag === null) return safeDefault;
-  if (typeof flag !== "boolean") return safeDefault;
-  return flag;
+// Retest helper: compare bar vs zone-formation bar index.
+function isRetest(bar, zone) {
+  if (!bar || !zone) return false;
+  const tb = new Date(bar.date).getTime();
+  const tz = new Date(zone.created || bar.date).getTime();
+  if (tb <= tz) return false;
+  return true;
 }
-
-// ── GTF-Pro signal builder ───────────────────────────────────────────────────
-// `ctx` carries the pipeline's inputs:
-//   zone      : GTF-Pro Zone
-//   bar       : last bar of the GTF set (close confirmed inside zone)
-//   pivotRes  : legacy computeZones result (for dep/context artifacts)
-//   freshness : "production-fresh" | "stale" | "unknown"
-//   freshSession: boolean session-level gate
-//   symbol, action, tf
-// Returns a signal record or null.
+// ── GTF-Pro signal builder ───────────────────────────────────────────────
+// ctx:
+//   symbol, action, tf {id,label}, zone (candidate Zone record),
+//   zones {demand:[...], supply:[...]} for the 2R gate,
+//   bar (CLOSED candle attempting entry), pivotRes (legacy context, tagged only),
+//   freshSession (boolean — data-freshness hard-gate outcome),
+//   dataFreshness (string — gate detail, stored, NEVER scored),
+//   departure (0|1|2 from the exciting-departure rule),
+//   timeAtBase (0|1|2 from the base-count rule),
+//   contextConditions (array of confirmed booleans → Context 0-6).
 function buildGtfSignal(ctx) {
   const {
-    symbol, action, tf, zone, bar, pivotRes, freshness, freshSession,
+    symbol, action, tf, zone, zones, bar, pivotRes, freshSession,
+    dataFreshness, departure, timeAtBase, contextConditions,
   } = ctx;
 
-  // 1. Freshness hard gate
-  if (!productionFreshForSession(freshSession)) {
-    return null; // stale/offline/sample: never a READY/TRIGGERED
-  }
-  const freshMark = freshnessOf(freshness);
+  // 1. Data freshness — SEPARATE hard eligibility gate.  Stale / cache /
+  //    sample / yfinance data never produces READY/TRIGGERED and never adds
+  //    points to the GTF score.
+  if (!productionFreshForSession(freshSession)) return null;
 
-  // 2. Zone existence + 2R qualifying
-  if (!zone) return null;
-  const price = bar && bar.close ? bar.close : 0;
-  if (!isQualified({ demand: zone.demand || [], supply: zone.supply || [] }, price, zone.action === "D")) {
-    return null; // opposing room < 2R: rejected, not just demoted
-  }
+  // 2. Zone existence + real 2R opposing-room qualification.
+  if (!zone || !bar) return null;
+  const price = Number(bar.close);
+  if (!(price > 0)) return null;
+  const bothLists = zones || (zone.action === "D"
+    ? { demand: [zone], supply: [] }
+    : { demand: [], supply: [zone] });
+  const qual = isQualified(bothLists, price, zone.action === "D");
+  if (!qual || !qual.qualified) return null;
 
-  // 3. Confirmed-closed candle
+  // 3. Closed-candle anti-repaint: the entry bar must CLOSE inside the zone.
   if (!isClosedInside(bar, zone)) return null;
 
-  // 4. Formation-candle exclusion (retest must be >= margin days old)
-  if (!isRetest(bar.date, zone.created)) return null;
+  // 4. Retest counted only AFTER the confirmed departure / zone-creation
+  //    timestamp — no fixed calendar-day margin.
+  if (!isRetest(bar, zone)) return null;
 
-  // 5. Build the record
-  const gtf = gtfScore(freshMark === "production-fresh" ? 3 : 0, 1, 2);
-  const context = contextScore([]); // no confirmed context conditions yet
+  // 5. GTF score = ZONE freshness (retest count: 3 / 1.5 / 0, unrounded)
+  //    + departure (exciting rule) + time-at-base.  Data freshness NEVER adds.
+  const zoneFreshness = sc.freshnessOf(Array.isArray(zone.retests) ? zone.retests.length : 0);
+  const dep = Number.isFinite(departure) ? Number(departure) : 0;
+  const tab = Number.isFinite(timeAtBase) ? Number(timeAtBase) : 0;
+  const gtf = gtfScore(zoneFreshness, dep, tab);
+  const context = contextScore(contextConditions || []);
   const portal = portalScore(gtf, context);
-  const reason = readinessReason(freshMark);
 
   return {
     type: "gtf-pro",
-    signalStatus: "READY", // ready-first; pipeline cannot emit TRIGGERED here
+    signalStatus: "READY",
     strategyVersion: "1.0.0",
     symbol,
     action,
-    tfId: tf.id,
-    tf: tf.label,
+    tfId: tf && tf.id,
+    tf: tf && tf.label,
     zoneId: zone.id,
+    pattern: zone.pattern || null,
     price,
     zoneBottom: zone.bottom,
     zoneTop: zone.top,
@@ -154,25 +142,22 @@ function buildGtfSignal(ctx) {
     contextTag: sc.contextTag(context),
     portalTag: sc.portalTag(portal),
     source: ctx.source || "live",
-    freshness: freshMark,
+    freshness: zoneFreshness,
+    dataFreshness: dataFreshness || "production-fresh",
     barDate: bar.date,
     barTS: bar.barTS || null,
-    // legacy fields carried for UI/trend display only (not merged into GTF)
     trend: (pivotRes && pivotRes.trend) || "SIDEWAYS",
-    confluence: 0, // legacy 0-6 not part of GTF
+    confluence: 0,
     tag: null,
-    details: `${tf.label} GTF-Pro ${action} · zone ${zone.bottom}-${zone.top} · GTF ${gtf}/7 · context ${context}/6 · portal ${portal}/13 · ${freshMark} · bar ${bar.date}`,
+    details: `${tf && tf.label} GTF-Pro ${action} · zone ${zone.bottom}-${zone.top} · GTF ${gtf}/7 · context ${context}/6 · portal ${portal}/13 · bar ${bar.date}`,
     rejectReason: null,
     state: life.STATES[0],
   };
 }
 
-// Readiness reason is a pure function of freshness for UI/logging (do not gate
-// on it here; the hard gate is productionFreshForSession above).
-function readinessReason(freshMark) {
-  if (freshMark === "production-fresh") return "production-fresh";
-  if (freshMark === "stale") return "stale-data";
-  return "unknown-source";
+// Re-export helpers the scanner/backtest use.
+function freshnessOf(source, latestBar, expectedSession, maxAgeMs, isConfirmed) {
+  return g.freshnessOf(source, latestBar, expectedSession, maxAgeMs, isConfirmed);
 }
 
 module.exports = {
@@ -184,8 +169,7 @@ module.exports = {
   isClosedInside,
   isRetest,
   productionFreshForSession,
-  freshnessOf,
   gateReady,
-  resolveAmbiguous,
   buildGtfSignal,
+  freshnessOf,
 };

@@ -1,32 +1,60 @@
 "use strict";
 
-// ── GTF-Pro scoring contract (spec C7 / Context / Portal) ───────────────────
-// GTF score       = freshness + departure + time-at-base, max 7 (pure/pure).
-// Context score   = 0–6 (book context from the rulebook: FVG, BOS/CHoCH,
-//                   premium/discount, orderblocks, liquidity, session timing).
-// Portal score    = min(13, GTF + Context).  Never merge into a single
-//                   "accuracy" or % heuristic.
+// ── GTF-Pro scoring contract (corrected spec) ──────────────────────────────
+// GTF score = freshness + departure + time-at-base, max 7 (pure).
+//   - Freshness is ZONE freshness (0, 1.5 exact, 2), NOT market-data freshness.
+//   - departure: exciting departure candles rule (2 or 1), not hardcoded 2.
+//   - timeAtBase: 1-3 base = 2, 4-5 = 1, 5 = 0.
+//   - Data freshness is a SEPARATE hard eligibility gate and NEVER contributes
+//     points to GTF score.  It only gates whether READY/TRIGGERED may be set.
 //
-// The Legacy Pivot engine keeps its own independent 0–6 confluence metric
-// (scanner-logic.js LfcScanner.confluenceScore).  GTF-Pro does NOT touch it:
-// the two scoring systems are kept completely separate.
+// Legacy Pivot (D/W/M daily/weekly/monthly) keeps its own independent scoring
+// in scanner-logic.js (LfcScanner.confluenceScore).  GTF-Pro does NOT touch it.
 
 const GTF_MAX = 7;
 const CONTEXT_MAX = 6;
 const PORTAL_MAX = 13;
 
-// Core GTF components ----------------------------------------------------------
-// freshness    0–3   : how recently the source closed a signal bar, weighted
-//                       by bar count. Live production data = 3; stale/offline
-//                       sample data = 0 or the freshnessOf() value.
-// departure    0–2   : strength of the zone-forming departure candle(s):
-//                       0 = no clear departure, 1 = moderate, 2 = decisive.
-// timeAtBase   0–2   : time-at-base (how long price sat at the zone before
-//                       moving) : 0 = immediate move, 1 = 1–3 bars, 2 = >=3 bars.
+// GTF freshness is "how recently the zone was confirmed", not source freshness.
+// testCount 0 = 3, testCount 1 = 1.5 (NOT rounded), testCount 2 = 0.
+// Returns an exact number (may be 1.5).
+function freshnessOf(testCount) {
+  const n = Number(testCount);
+  if (!Number.isFinite(n)) return 0;
+  if (n <= 0) return 3;
+  if (n === 1) return 1.5;
+  return 0;
+}
+
+// departure: strongest exciting departure candle count
+//   2 exciting departure candles = 2
+//   1 exciting = 1
+//   else = 0
+function departureOf(excitingCount) {
+  const n = Number(excitingCount);
+  if (!Number.isFinite(n)) return 0;
+  if (n >= 2) return 2;
+  if (n === 1) return 1;
+  return 0;
+}
+
+// timeAtBase: how long price sat at the base before moving
+//   1-3 base = 2
+//   4-5 = 1
+//   >5 = 0
+//   negative / non-finite = 0
+function timeAtBaseOf(baseCount) {
+  const n = Number(baseCount);
+  if (!Number.isFinite(n) || n < 1) return 0;
+  if (n <= 3) return 2;
+  if (n <= 5) return 1;
+  return 0;
+}
+
 function gtfComponents(freshness, departure, timeAtBase) {
-  const f = Math.max(0, Math.min(GTF_MAX, Math.round(Number(freshness) || 0)));
-  const d = Math.max(0, Math.min(2, Math.round(Number(departure) || 0)));
-  const t = Math.max(0, Math.min(2, Math.round(Number(timeAtBase) || 0)));
+  const f = Math.max(0, Math.min(GTF_MAX, Number(freshness) || 0));
+  const d = Math.max(0, Math.min(2, Number(departure) || 0));
+  const t = Math.max(0, Math.min(2, Number(timeAtBase) || 0));
   return { freshness: f, departure: d, timeAtBase: t, raw: f + d + t };
 }
 
@@ -35,36 +63,31 @@ function gtfScore(freshness, departure, timeAtBase) {
   return Math.min(GTF_MAX, c.raw);
 }
 
-// Context 0–6 ------------------------------------------------------------------
-// Count confirmed context conditions; the max is capped at 6 so a single bar
-// cannot score more than the context scale allows.
+// Context 0-6 (pure component separation) ---------------------------------
+// Each CONFIRMED condition (strict boolean true) contributes exactly +1.
+// SMC/FVG/BOS/CHoCH/PnF/RS are kept as secondary evidence (tagged strings)
+// but MUST NOT silently contribute to GTF or Context scoring.
 function contextScore(conditions) {
-  // conditions: array of confirmed context markers (each true/false).
-  const n = (conditions || []).filter(Boolean).length;
+  const n = (conditions || []).filter((c) => c === true).length;
   return Math.min(CONTEXT_MAX, n);
 }
 
-// Portal 0–13 ------------------------------------------------------------------
-// Portal = min(13, GTF + Context).  Do NOT merge into one accuracy/%
-// heuristic and do NOT label either as a probability.
+// Portal 0-13 = min(13, GTF + Context).  Never merged into a single % heuristic.
 function portalScore(gtf, context) {
   return Math.min(PORTAL_MAX, gtf + context);
 }
 
-// ── Tagging / labelling (pure scoring, no probability wording) ──────────────
 function gtfTag(score) {
   if (score >= 6) return "A";
   if (score >= 4) return "B";
   if (score >= 2) return "C";
   return "D";
 }
-
 function contextTag(score) {
   if (score >= 4) return "A";
   if (score >= 2) return "B";
   return "C";
 }
-
 function portalTag(score) {
   if (score >= 10) return "A";
   if (score >= 7) return "B";
@@ -75,6 +98,9 @@ module.exports = {
   GTF_MAX,
   CONTEXT_MAX,
   PORTAL_MAX,
+  freshnessOf,
+  departureOf,
+  timeAtBaseOf,
   gtfComponents,
   gtfScore,
   contextScore,

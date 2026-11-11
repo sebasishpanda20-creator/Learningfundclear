@@ -7,17 +7,12 @@
 //
 // Exports (all CommonJS):
 //   - candle.js      : nseSessionDay, istDayFromUtc, makeCandle, findRetests
-//   - zone.js        : Zone, INTRADAILY, SWING, anchorToSession, groupBySessionDay, zonesToGtf
-//   - stack.js       : INTRADAILY, SWING, resolveStack, anchorToSession, groupBySessionDay, stackBars
-//   - pipeline.js    : gtfScore, contextScore, portalScore, isQualified, isClosedInside,
-//                      isRetest, productionFreshForSession, freshnessOf, gateReady,
-//                      resolveAmbiguous, buildGtfSignal
-//   - state.js       : STATE, TRANSITIONS, canTransition, advance, transition, labelOf
-//   - gates.js       : OPPOSE_RR, opposingRoom, opposing2RQualified, FORMATION_MARGIN,
-//                      isRetest, freshnessOf, isProductionFresh, productionFreshForSession,
-//                      resolveAmbiguous
-//   - scoring.js     : GTF_MAX, CONTEXT_MAX, PORTAL_MAX, gtfComponents, gtfScore,
-//                      contextScore, portalScore, gtfTag, contextTag, portalTag
+//   - zone.js        : Zone, isBaseCandle, isExcitingCandle, candleType, detectReverseStructure, findStructurePoints, buildGtfZones, anchorToSession, groupBySessionDay, stackBars, resolveStack, STACK_TIMEFRAMES, nseHour
+//   - stack.js       : INTRADAILY, SWING, resolveStack, anchorToSession, groupBySessionDay, stackBars, nseHour
+//   - pipeline.js    : gtfComponents, gtfScore, contextScore, portalScore, isQualified, isClosedInside, isRetest, productionFreshForSession, gateReady, resolveAmbiguous, buildGtfSignal, freshnessOf
+//   - lifecycle.js   : STATES, TRANSITIONS, canTransition, advance, transition, labelOf, isTerminal, isSignalState
+//   - gates.js       : OPPOSE_RR, opposingRoomPoints, opposing2RQualified, isRetest, freshnessOf, isProductionFresh, productionFreshForSession, resolveAmbiguous
+//   - scoring.js     : GTF_MAX, CONTEXT_MAX, PORTAL_MAX, freshnessOf, departureOf, timeAtBaseOf, gtfComponents, gtfScore, contextScore, portalScore, gtfTag, contextTag, portalTag
 
 const candle = require("./engine/candle");
 const zone = require("./engine/zone");

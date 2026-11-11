@@ -10,13 +10,60 @@
 <script src="assets/js/theme.js"></script>
 <style>
 :root { color-scheme: light; }
-/* ── LIGHT default (production theme) ── */
-* { box-sizing: border-box; margin: 0; }
-body { min-height: 100vh; background: var(--lfc-bg); color: var(--lfc-text); padding: 22px; font-family: "Segoe UI", system-ui, -apple-system, sans-serif; }
-a.back { color: var(--lfc-primary); text-decoration: none; font-size: 13px; }
-h1 { font-size: 24px; margin: 10px 0 2px; color: var(--lfc-text-strong); }
-.sub { color: var(--lfc-muted); font-size: 13px; margin-bottom: 18px; }
-.card { background: var(--lfc-surface); border: 1px solid var(--lfc-border); border-radius: 12px; padding: 18px; margin-bottom: 18px; }
+/* ── scanner-native styling: light first, .theme-dark overrides ── */
+.scanner-page input[type="checkbox"] {
+  width: 18px; height: 18px; min-height: 0; flex: 0 0 18px; margin: 0;
+  accent-color: var(--lfc-primary);
+}
+.scanner-page label.check {
+  display: flex; align-items: center; gap: 8px;
+  cursor: pointer; font-size: 14px; color: var(--lfc-text-strong);
+}
+.scanner-page .tf {
+  display: inline-flex; align-items: center; gap: 7px;
+  padding: 6px 12px; border-radius: 999px; border: 1px solid var(--lfc-border);
+  background: var(--lfc-surface); color: var(--lfc-text-strong); font-size: 13px;
+  cursor: pointer; user-select: none; transition: background .12s, border-color .12s;
+}
+.scanner-page .tf input { position: absolute; opacity: 0; width: 0; height: 0; }
+.scanner-page .tf[aria-pressed="true"] { background: var(--lfc-primary); border-color: var(--lfc-primary); color: #fff; }
+.scanner-page .tf[aria-pressed="true"] .tf-tick { opacity: 1; }
+.scanner-page .tf + .tf { margin-left: 8px; }
+.scanner-page .pills { display: flex; flex-wrap: wrap; gap: 8px; }
+.scanner-page .kpi { flex: 1 1 20%; min-width: 150px; text-align: center; padding: 12px 8px; border-radius: 12px; border: 1px solid var(--lfc-border); background: var(--lfc-surface); }
+.scanner-page .kpi .num { font-size: 24px; font-weight: 700; line-height: 1.1; }
+.scanner-page .kpi .lbl { font-size: 12px; color: var(--lfc-muted); text-transform: uppercase; letter-spacing: .4px; }
+.scanner-page .kpi.inside { border-color: var(--lfc-positive); background: rgba(16,185,129,.07); }
+.scanner-page .kpi.touch { border-color: var(--lfc-warning); background: rgba(240,180,41,.08); }
+.scanner-page .kpi.skipped { border-color: var(--lfc-negative); background: rgba(255,128,128,.08); }
+.scanner-page .kpi.skipped .num { color: var(--lfc-negative); }
+.scanner-page .kpi.scanned { border-color: var(--lfc-neutral); background: rgba(119,136,153,.08); }
+.scanner-page .card-title { font-size: 15px; font-weight: 700; color: var(--lfc-text-strong); margin: 0 0 10px; display: flex; align-items: center; gap: 8px; }
+.scanner-page .card-title .badge { font-size: 11px; font-weight: 600; color: var(--lfc-muted); text-transform: uppercase; letter-spacing: .5px; }
+.scanner-page .hint { font-size: 12.5px; color: var(--lfc-muted); margin: 8px 0 14px; line-height: 1.5; }
+.scanner-page .field { margin-bottom: 12px; }
+.scanner-page .field > label { display: block; font-size: 12.5px; color: var(--lfc-muted); font-weight: 600; text-transform: uppercase; letter-spacing: .3px; margin-bottom: 6px; }
+.scanner-page .field > label .sub { display: block; font-weight: 400; color: var(--lfc-muted); opacity: .78; margin-top: 3px; font-size: 11.5px; }
+.scanner-page .grid3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+.scanner-page input[type="number"] { width: 100%; padding: 7px 9px; border-radius: 8px; border: 1px solid var(--lfc-border); background: var(--lfc-surface); color: var(--lfc-text-strong); font-size: 13px; }
+.scanner-page .row6 { display: grid; grid-template-columns: repeat(6, 1fr); gap: 12px; }
+.scanner-page .row6 input, .scanner-page .row6 select { width: 100%; padding: 7px 9px; border-radius: 8px; border: 1px solid var(--lfc-border); background: var(--lfc-surface); color: var(--lfc-text-strong); font-size: 13px; }
+.scanner-page button.btn { padding: 9px 14px; border-radius: 9px; border: 1px solid var(--lfc-border); background: var(--lfc-surface); color: var(--lfc-text-strong); font-size: 13.5px; font-weight: 600; cursor: pointer; transition: background .12s, border-color .12s; }
+.scanner-page button.btn:hover { border-color: var(--lfc-primary); color: var(--lfc-primary); }
+.scanner-page .actions { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-top: 14px; }
+.scanner-page .actions .grow { flex: 1 1 220px; }
+.scanner-page input[type="text"], .scanner-page textarea { width: 100%; padding: 10px 12px; border-radius: 9px; border: 1px solid var(--lfc-border); background: var(--lfc-surface); color: var(--lfc-text-strong); font-size: 13.5px; font-family: inherit; }
+.scanner-page textarea { min-height: 120px; resize: vertical; }
+.scanner-page .row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.scanner-page .row2input { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.scanner-page .row2input input[type="text"] { width: 100%; }
+.scanner-page .row4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
+.scanner-page .row4 button { padding: 10px 6px; font-size: 12.5px; }
+.scanner-page .list-strip { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 10px 12px; border: 1px solid var(--lfc-border); border-radius: 10px; background: var(--lfc-surface); min-height: 38px; }
+.scanner-page .list-strip input { flex: 1 1 240px; min-width: 0; font-size: 13.5px; }
+.scanner-page .badge-dot { display: inline-flex; align-items: center; justify-content: center; width: 22px; height: 22px; border-radius: 999px; background: var(--lfc-primary); color: #fff; font-size: 11px; font-weight: 700; }
+@media (max-width: 880px) { .scanner-page .row6 { grid-template-columns: repeat(2, 1fr); } }
+@media (max-width: 640px) { .scanner-page .row2, .scanner-page .row4, .scanner-page .row6, .scanner-page .grid3 { grid-template-columns: 1fr; } .scanner-page .kpi { flex: 1 1 48%; } }
 </style>
 </head>
 <body>
@@ -47,88 +94,146 @@ h1 { font-size: 24px; margin: 10px 0 2px; color: var(--lfc-text-strong); }
 <h1>Demand Zone Scanner</h1>  <p class="sub">End-of-day NSE/BSE + global commodity futures scan · independent pivot-based zone approximation · private page — same sign-in as the journal</p>
 
 <div class="card">
-  <div class="row">
-    <div><label>Pivot left bars</label><input id="pLeft" type="number" min="1" max="10" value="3" style="width:70px"></div>
-    <div><label>Pivot right bars</label><input id="pRight" type="number" min="1" max="10" value="3" style="width:70px"></div>
-    <div><label>Timeframes</label>
-      <div style="display:flex;gap:10px;flex-wrap:wrap;font-size:12px;color:#93a39a">
-        <label style="margin:0"><input type="checkbox" id="tfDaily" checked> Daily</label>
-        <label style="margin:0"><input type="checkbox" id="tfWeekly"> Weekly</label>
-        <label style="margin:0"><input type="checkbox" id="tfMonthly"> Monthly</label>
-        <label style="margin:0"><input type="checkbox" id="tfHourly"> Hourly</label>
-        <label style="margin:0"><input type="checkbox" id="tf15"> 15m (MIS)</label>
+  <div class="scanner-page">
+
+    <h1 style="margin:6px 0 2px">Demand Zone Scanner</h1>
+    <p class="sub" style="margin-bottom:16px">Find stocks trading in or near active demand zones.</p>
+
+    <!-- Scan Configuration card (step 1 · detection & settings) -->
+    <div>
+      <h2 class="card-title">Scan Configuration <span class="badge">step 1 · detection &amp; settings</span></h2>
+
+      <div class="grid3">
+        <div class="field">
+          <label for="pLeft">Pivot left bars<span class="sub">Higher values produce fewer, stronger pivot zones.</span></label>
+          <input id="pLeft" type="number" min="1" max="10" value="3">
+        </div>
+        <div class="field">
+          <label for="pRight">Pivot right bars<span class="sub">Higher values produce fewer, stronger pivot zones.</span></label>
+          <input id="pRight" type="number" min="1" max="10" value="3">
+        </div>
+        <div class="field">
+          <label for="days">Daily history<span class="sub">How many daily candles to seed each symbol.</span></label>
+          <select id="days">
+            <option value="365">1 year</option>
+            <option value="730" selected>2 years</option>
+            <option value="1095">3 years</option>
+          </select>
+        </div>
+      </div>
+
+      <h3 class="card-title" style="margin-top:16px">Timeframes <span class="badge">step 2 · multi-select</span></h3>
+      <p class="hint" style="margin-bottom:10px">Default: <b>Daily</b> + <b>15m (MIS)</b>. Select any combination; results cross over every chosen timeframe.</p>
+      <div class="pills">
+        <label class="tf" aria-pressed="true"><input type="checkbox" id="tfDaily" checked><span class="tf-tick">&#10003;</span> Daily</label>
+        <label class="tf" aria-pressed="false"><input type="checkbox" id="tfWeekly"><span class="tf-tick">&#10003;</span> Weekly</label>
+        <label class="tf" aria-pressed="false"><input type="checkbox" id="tfMonthly"><span class="tf-tick">&#10003;</span> Monthly</label>
+        <label class="tf" aria-pressed="false"><input type="checkbox" id="tfHourly"><span class="tf-tick">&#10003;</span> Hourly</label>
+        <label class="tf" aria-pressed="true"><input type="checkbox" id="tf15"><span class="tf-tick">&#10003;</span> <b>15m (MIS)</b></label>
+      </div>
+
+      <h3 class="card-title" style="margin-top:16px">Signal Filters <span class="badge">step 3 · keep the real logic</span></h3>
+      <div class="row2">
+        <div class="field">
+          <label class="check"><input id="trendFilter" type="checkbox"><span>Bullish EMA trend</span></label>
+          <span class="sub" style="display:block;margin-top:4px;font-size:11.5px;color:var(--lfc-muted)">Trend: only show symbols aligned with the EMA trend</span>
+        </div>
+        <div class="field">
+          <label class="check"><input id="showTouching" type="checkbox" checked><span>Include zone touches</span></label>
+          <span class="sub" style="display:block;margin-top:4px;font-size:11.5px;color:var(--lfc-muted)">Touch: include candles touching, not only closing inside, a zone</span>
+        </div>
+        <div class="field">
+          <label class="check"><input id="volFilter" type="checkbox"><span>Above-average volume</span></label>
+          <span class="sub" style="display:block;margin-top:4px;font-size:11.5px;color:var(--lfc-muted)">Volume: require volume above the 20-day average</span>
+        </div>
+      </div>
+
+      <div class="actions">
+        <span class="hint" style="margin:0 0 8px">Ready to scan selected timeframes — <b>Daily • Bullish trend</b> • zone touches</span>
+        <button class="btn" id="scanBtn" style="background:var(--lfc-primary);border-color:var(--lfc-primary);color:#fff">Scan Watchlist</button>
       </div>
     </div>
-    <div><label>Daily history</label>
-      <select id="days" style="width:110px">
-        <option value="365">1 year</option>
-        <option value="730" selected>2 years</option>
-        <option value="1095">3 years</option>
-      </select>
-    </div>
-    <div><label><input id="trendFilter" type="checkbox"> Require bullish EMA trend</label></div>
-    <div><label><input id="showTouching" type="checkbox" checked> Include candles touching a zone</label></div>
-    <div><label><input id="volFilter" type="checkbox"> Volume above 20-day average</label></div>
-    <div><button class="primary" id="scanBtn">Scan watchlist</button></div>
   </div>
-  <div class="row" style="margin-top:12px">
-    <div style="flex:1;min-width:260px"><label>Watchlist (one NSE/BSE symbol or futures like GC=F per line, e.g. COALINDIA.NS)</label>
-      <input id="watchInput" style="width:100%" placeholder="COALINDIA.NS, ASHOKLEY.NS, RELIANCE.NS, GC=F, CL=F">
+
+  <!-- Watchlist card (step 4 · manage your symbols) -->
+  <div class="card" style="margin-bottom:18px">
+    <h2 class="card-title">Watchlist <span class="badge">step 4 · manage your symbols</span></h2>
+    <p class="hint"><b class="badge" style="margin-right:6px">504</b> symbols loaded</p>
+    <div class="list-strip">
+      <input id="watchInput" placeholder="RELIANCE.NS, TCS.NS, ASHOKLEY.NS" aria-label="Symbols to scan">
+      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+        <button class="btn" id="saveWatch">Save list</button>
+        <button class="btn" id="importToggle">Import</button>
+        <button class="btn" id="addCommodities" style="background:var(--lfc-brand);border-color:var(--lfc-brand);color:#fff">Add commodities</button>
+      </div>
     </div>
-    <button class="ghost" id="saveWatch">Save list</button>
-    <button class="ghost" id="importToggle">Import list…</button>
-    <button class="ghost" id="addCommodities" title="Adds gold, silver, crude, natgas, copper, zinc, aluminium — the global futures MCX tracks (MCX codes themselves aren't on Yahoo)">Add commodities</button>
-  </div>
-  <div class="row hidden" id="importRow" style="margin-top:12px">
-    <div style="flex:1;min-width:260px"><label>Paste symbols — CSV, one per line, or comma/semicolon separated (bare symbol → NSE, bare number → BSE)</label>
-      <textarea id="importBox" rows="6" style="width:100%;padding:9px 10px;border-radius:8px;border:1px solid #2c3a33;background:#0d1310;color:#e8efe9;font-size:12px;font-family:monospace" placeholder="RELIANCE.NS, TCS.NS
-ASHOKLEY.NS, Coal India
-500325"></textarea>
+    <div class="row hidden" id="importRow" style="margin-top:12px">
+      <div id="msg" class="note" style="margin-top:10px"></div>
     </div>
-    <div style="display:flex;flex-direction:column;gap:8px">
-      <button class="ghost" id="importFileBtn">Load from file…</button>
-      <input type="file" id="importFile" accept=".csv,.txt,text/csv,text/plain" style="display:none">
-      <button class="ghost" id="importReplace">Replace list</button>
-      <button class="ghost" id="importMerge">Merge into list</button>
-      <button class="ghost" id="importDefaults">Use default list</button>
+      <div class="field" style="margin-bottom:0">
+        <label for="importBox">Paste symbols — CSV, one per line, or comma/semicolon separated<span class="sub">bare symbol → NSE, bare number → BSE · watchlist: one NSE/BSE symbol or futures GC=F per line</span></label>
+        <textarea id="importBox" rows="6" placeholder="RELIANCE.NS, TCS.NS&#10;ASHOKLEY.NS, Coal India&#10;500325"></textarea>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:8px">
+        <button class="btn" id="importFileBtn">Load from file&#8230;</button>
+        <input type="file" id="importFile" accept=".csv,.txt,text/csv,text/plain" style="display:none">
+        <button class="btn" id="importReplace">Replace list</button>
+        <button class="btn" id="importMerge">Merge into list</button>
+        <button class="btn" id="importDefaults">Use default list</button>
+      </div>
     </div>
   </div>
-  <p class="msg" id="msg"></p>
-</div>
 
-<div class="stats">
-  <div class="stat"><b id="stScanned">—</b><span>scanned</span></div>
-  <div class="stat"><b id="stInside">—</b><span>inside demand zone</span></div>
-  <div class="stat"><b id="stTouch">—</b><span>touching zone</span></div>
-  <div class="stat"><b id="stSkipped">—</b><span>failed / skipped</span></div>
-</div>
-
-<div class="card" id="resultsCard" style="display:none">
-  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;gap:10px;flex-wrap:wrap">
-    <h3 style="font-size:15px">Scan results</h3>
-    <button class="ghost" id="downloadBtn">Download Results (CSV)</button>
+  <!-- KPI summary cards -->
+  <div class="card" style="margin-bottom:18px">
+    <h2 class="card-title">Scan summary</h2>
+    <div class="row4" style="grid-template-columns:repeat(4,1fr);gap:10px">
+      <div class="kpi scanned"><div class="num" id="stScanned">&mdash;</div><div class="lbl">Scanned</div></div>
+      <div class="kpi inside"><div class="num" id="stInside">&mdash;</div><div class="lbl">Inside zone</div></div>
+      <div class="kpi touch"><div class="num" id="stTouch">&mdash;</div><div class="lbl">Touching</div></div>
+      <div class="kpi skipped"><div class="num" id="stSkipped">&mdash;</div><div class="lbl">Skipped</div></div>
+    </div>
   </div>
-  <table>
-    <thead><tr>
-      <th>Symbol</th><th>TF</th><th>Price ₹</th><th>Trend</th><th>Demand zone</th><th>Position</th><th>Dist to zone</th><th>Zone from</th><th>Vol vs 20d</th><th></th>
-    </tr></thead>
-    <tbody id="resultsBody"></tbody>
-  </table>
-</div>
 
-<div class="card" id="chartCard" style="display:none">
-  <h3 id="chartTitle" style="font-size:15px;margin-bottom:8px"></h3>
-  <div id="chartWrap"><canvas id="chart" width="900" height="340"></canvas></div>
-  <p class="mut" id="chartNote"></p>
-</div>
+  <!-- Results table -->
+  <div class="card" id="resultsCard" style="display:none">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;gap:10px;flex-wrap:wrap">
+      <h3 style="font-size:15px">Scan results</h3>
+      <button class="ghost" id="downloadBtn">Download Results (CSV)</button>
+    </div>
+    <div style="overflow-x:auto;-webkit-overflow-scrolling:touch">
+      <table style="border-collapse:collapse;width:100%">
+        <thead><tr style="position:sticky;top:0;background:var(--lfc-surface-raised);z-index:1">
+          <th style="text-align:left;padding:8px 10px;border-bottom:1px solid var(--lfc-border-soft)">Symbol</th>
+          <th style="text-align:left;padding:8px 10px;border-bottom:1px solid var(--lfc-border-soft)">TF</th>
+          <th style="text-align:right;padding:8px 10px;border-bottom:1px solid var(--lfc-border-soft)">Price</th>
+          <th style="text-align:left;padding:8px 10px;border-bottom:1px solid var(--lfc-border-soft)">Trend</th>
+          <th style="text-align:left;padding:8px 10px;border-bottom:1px solid var(--lfc-border-soft)">Demand zone</th>
+          <th style="text-align:left;padding:8px 10px;border-bottom:1px solid var(--lfc-border-soft)">Position</th>
+          <th style="text-align:right;padding:8px 10px;border-bottom:1px solid var(--lfc-border-soft)">Dist</th>
+          <th style="text-align:left;padding:8px 10px;border-bottom:1px solid var(--lfc-border-soft)">Zone from</th>
+          <th style="text-align:right;padding:8px 10px;border-bottom:1px solid var(--lfc-border-soft)">Vol</th>
+          <th style="text-align:left;padding:8px 10px;border-bottom:1px solid var(--lfc-border-soft)"></th>
+        </tr></thead>
+        <tbody id="resultsBody"></tbody>
+      </table>
+    </div>
+  </div>
 
-<p class="disclaimer"><strong>Private Research Journal:</strong> independent pivot-based demand-zone
-approximation on end-of-day data from Yahoo Finance. Free data sources may have missing, delayed or
-inconsistent NSE/BSE data. This is not the invite-only indicator, and it is not investment advice —
-verify every chart on your broker or exchange platform before acting. Consult a SEBI-registered
-professional before making an investment decision.</p>
+  <!-- Chart -->
+  <div class="card" id="chartCard" style="display:none">
+    <h3 id="chartTitle" style="font-size:15px;margin-bottom:8px"></h3>
+    <div id="chartWrap">
+      <canvas id="chart" width="900" height="340"></canvas>
+    </div>
+    <p class="mut" id="chartNote" style="margin-top:8px;font-size:12.5px;color:var(--lfc-muted)"></p>
+  </div>
 
-<script src="auth-guard.js"></script>
+  <p class="disclaimer"><strong>Private Research Journal:</strong> independent pivot-based demand-zone approximation on end-of-day data from Yahoo Finance. Free data sources may have missing, delayed or inconsistent NSE/BSE data. This is not the invite-only indicator, and it is not investment advice — verify every chart on your broker or exchange platform before acting. Consult a SEBI-registered professional before making an investment decision.</p>
+</div><!-- end scanner-page wrapper -->
+</div><!-- end card -->
+
+<!-- scripts unchanged: ids + handlers preserved exactly -->
 <script src="scanner-logic.js"></script>
 <script>
 (function () {

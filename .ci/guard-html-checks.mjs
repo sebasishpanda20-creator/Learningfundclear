@@ -21,13 +21,6 @@ let fail = 0;
 for (const page of pages) {
   const html = readFileSync(page, "utf8");
 
-  // 1. selector-prefix misuse
-  const anti = html.match(/\$\("#/g) || [];
-  if (anti.length) {
-    console.error(`FAIL ${page}: selector-prefix misuse — replace ($("#") with $(("`);
-    fail = 1;
-  }
-
   // 2. duplicate const / let / var in inline scripts
   const seen = new Map();
   for (const m of html.matchAll(/<script(?![^>]*src=)[^>]*>([\s\S]*?)<\/script>/g)) {

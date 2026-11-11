@@ -2,16 +2,22 @@
 
 // ── GTF-Pro Zone module ───────────────────────────────────────────────────────
 // Zone record shape, LTF stack (Intraday 75m->15m->5m, Swing Weekly->Daily->
-// 125m/75m, NSE 09:15-anchored), and aggregation helpers.  The Legacy Pivot
-// engine (scanner-logic.js LfcScanner.computeZones) keeps its own zones and is
-// NOT imported from this module.
+// 125m/75m, NSE 09:15-anchored), and shared aggregation helpers.  The Legacy
+// Pivot engine (scanner-logic.js LfcScanner.computeZones) keeps its own zones
+// and is NOT imported from this module.
+//
+// GTF-Pro zone detection is built from the LTF CANDLES directly, not from the
+// Legacy pivot result.  DBR/RBR/RBD/DBD are detected from candle shapes:
+//   - base candle body < 50% of range  (B)
+//   - exciting candle body > 50%        (R)
+//   - 1-3 base = strong, 4-5 = weaker,
+//     5+ = zero (noise) — session-aligned
+//   - zone confirmed only after a leg-out closes
+//   - retest counted after the confirmed departure/bar index (no fixed days)
 
 const candle = require("./candle");
 
 // ── Zone record ───────────────────────────────────────────────────────────────
-// A demand or supply zone for a GTF-Pro signal.  `created` is the UTC date of
-// the bar that formed the pivot.  `nseSessionDay` is the 09:15 IST session day
-// the forming bar belongs to.
 function Zone(id, symbol, action, tf, floor, ceiling, created, nseSessionDay) {
   this.id = id;
   this.symbol = symbol;
@@ -25,101 +31,172 @@ function Zone(id, symbol, action, tf, floor, ceiling, created, nseSessionDay) {
   this.score = 0; // computed by pipeline
 }
 
-// ── LTF stacks ───────────────────────────────────────────────────────────────
-// Intraday: 75m location -> 15m trend -> 5m execution.
-const INTRADAILY = [
-  { id: "75m", minBars: 300 }, // location
-  { id: "15m", minBars: 120 }, // trend
-  { id: "5m",  minBars: 60  }, // execution
-];
+// ── candle-shape helpers (GTF DBR/RBR/RBD/DBD) ───────────────────────────────
+// Base candle: body < 50% of range.
+function isBaseCandle(b) {
+  if (!b) return false;
+  const body = b.close - b.open;
+  const range = b.high - b.low || 1e-9;
+  return Math.abs(body) / range < 0.5;
+}
 
-// Swing: Weekly -> Daily -> 125m/75m (higher timeframes for swing, lower for
-// the active zone).  The 125m/75m pair is a swing-aligned pair: 125m is the
-// primary swing execution, 75m is the bias/confirmation slice.
-const SWING = [
-  { id: "W",  minBars: 120 },
-  { id: "D",  minBars: 200 },
-  { id: "125m", minBars: 125 },
-  { id: "75m",  minBars: 75  },
-];
+// Exciting candle: body > 50% of range.
+function isExcitingCandle(b) {
+  if (!b) return false;
+  const body = b.close - b.open;
+  const range = b.high - b.low || 1e-9;
+  return Math.abs(body) / range > 0.5;
+}
 
-// ── NSE 09:15 IST-anchored aggregation ───────────────────────────────────────
-// Use the bar's UTC date but anchor the session day to the 09:15 IST window.
-// `sessionDay` is assigned by nseSessionDay() from the candle module.
+// Identify the type of a candle relative to its immediate neighbourhood:
+//   "base"  : small-range bar, the candidate zone floor
+//   "exciting": large-range bar that moves away from the base
+function candleType(b) {
+  if (!b) return "none";
+  const body = b.close - b.open;
+  const range = b.high - b.low || 1e-9;
+  const bp = Math.abs(body) / range;
+  if (bp < 0.5) return "base";
+  if (bp > 0.5) return "exciting";
+  return "neutral";
+}
+
+// True GTF structure detection from raw candles:
+//   bars[i-1] = exciting leg INTO the base, bars[i..j-1] = consecutive base run,
+//   bars[j]   = exciting leg-OUT whose CLOSE travels beyond the base run.
+//   RBR (Rally-Base-Rally, demand continuation): up-leg in,   leg-out closes above
+//   RBD (Rally-Base-Drop,  supply reversal)   : up-leg in,   leg-out closes below
+//   DBD (Drop-Base-Drop,   supply continuation): down-leg in, leg-out closes below
+//   DBR (Drop-Base-Rally,  demand reversal)   : down-leg in, leg-out closes above
+// Zone confirmation needs the leg-out CLOSE (closed-candle anti-repaint) — a wick
+// through the base never creates or invalidates a zone on its own.
+function detectGtfPattern(bars, i) {
+  if (i < 1 || i >= bars.length - 1) return null;
+  const legIn = bars[i - 1];
+  if (!isExcitingCandle(legIn) || !isBaseCandle(bars[i])) return null;
+  let j = i;
+  while (j < bars.length - 1 && isBaseCandle(bars[j])) j++;
+  if (j === i) return null; // unreachable (guarded above) — keeps callers safe
+  const legOut = bars[j];
+  if (!isExcitingCandle(legOut)) return null;
+  let baseLow = Infinity, baseHigh = -Infinity;
+  for (let k = i; k < j; k++) {
+    if (bars[k].low < baseLow) baseLow = bars[k].low;
+    if (bars[k].high > baseHigh) baseHigh = bars[k].high;
+  }
+  const upLeg = legOut.close > baseHigh;   // leg-out CLOSES above the base run
+  const downLeg = legOut.close < baseLow;  // leg-out CLOSES below the base run
+  if (!upLeg && !downLeg) return null;
+  const prevUp = legIn.close > legIn.open;
+  const type = prevUp ? (upLeg ? "RBR" : "RBD") : (downLeg ? "DBD" : "DBR");
+  return { type, startIndex: i, endIndex: j - 1, legOutIndex: j };
+}
+
+// A base candle is countered by an exciting candle that closes beyond the
+// base's range on the opposite side, with the following bar confirming.
+function detectReverseStructure(bars, i) {
+  const p = detectGtfPattern(bars, i);
+  return p ? p.type : null;
+}
+
+// Collect all GTF structure points from a candle array.  Each point carries the
+// base-run span (startIndex..endIndex) and the leg-out index.  `index` is kept
+// as the first base candle for backwards compatibility.
+function findStructurePoints(bars) {
+  const out = [];
+  for (let i = 1; i < bars.length - 1; i++) {
+    const p = detectGtfPattern(bars, i);
+    if (p) out.push({ type: p.type, index: p.startIndex, startIndex: p.startIndex, endIndex: p.endIndex, legOutIndex: p.legOutIndex, bar: bars[p.startIndex] });
+  }
+  return out;
+}
+
+// Build GTF-Pro zones from raw candles.  A zone is confirmed only after the
+// leg-out candle CLOSES beyond the base run (detectGtfPattern enforces that).
+// Boundaries follow the spec, computed across the WHOLE base run:
+//   Demand (DBR/RBR): top = proximal = MAX(max(open,close)); bottom = distal = MIN(low)
+//   Supply (RBD/DBD): bottom = proximal = MIN(min(open,close)); top = distal = MAX(high)
+//   1-3 base candles = strong, 4-5 = weaker, >5 = noise (zone rejected).
+function buildGtfZones(bars, symbol, tf) {
+  const pts = findStructurePoints(bars);
+  if (!pts.length) return [];
+  const out = [];
+  const sym = symbol || "C";
+  const tfId = tf || "5m";
+
+  for (const p of pts) {
+    if (p.endIndex - p.startIndex + 1 > 5) continue; // >5 base candles → reject
+    const b = p.bar || bars[p.startIndex];
+    if (!b) continue;
+
+    const seg = bars.slice(p.startIndex, p.endIndex + 1);
+    const isDemand = p.type === "DBR" || p.type === "RBR";
+    let bottom, top;
+    if (isDemand) {
+      top = Math.max(...seg.map((c) => Math.max(c.open, c.close)));    // proximal
+      bottom = Math.min(...seg.map((c) => c.low));                     // distal
+    } else {
+      bottom = Math.min(...seg.map((c) => Math.min(c.open, c.close))); // proximal
+      top = Math.max(...seg.map((c) => c.high));                       // distal
+    }
+    if (!(bottom < top)) continue;
+
+    const zone = new Zone(
+      `${sym}_${tfId}_${b.date}_${p.type}`,
+      sym,
+      isDemand ? "D" : "S",
+      tfId,
+      bottom,
+      top,
+      b.date,
+      candle.nseSessionDay(b)
+    );
+    zone.pattern = p.type;
+    zone.baseCount = seg.length;
+    zone.legOutIndex = p.legOutIndex;
+    out.push(zone);
+  }
+  return out;
+}
+
+// ── Shared aggregation delegates (single implementation lives in stack.js) ──
+const stack = require("./stack");
+
 function nseHour(hour) {
-  // 09:15 IST = 03:45 UTC.  Bars before 03:45 UTC on day D belong to the
-  // prior IST day's session (their 09:15 window was the previous local day).
-  return hour < 3; // hour in UTC; session boundary is 03:45 UTC = 09:15 IST
+  return stack.nseHour(hour);
 }
 
-// Session-anchor a bar's date to the IST day of the 09:15 session.
 function anchorToSession(bars) {
-  // Returns [{date, sessionDay, hour}] preserving order (older first).
-  const out = [];
-  for (const b of bars) {
-    const d = new Date(b.date + "T00:00:00Z");
-    const hour = d.getUTCHours();
-    out.push({
-      rawDate: b.date,
-      sessionDay: candle.nseSessionDay(b),
-      hour,
-      bar: b,
-    });
-  }
-  return out;
+  return stack.anchorToSession(bars);
 }
 
-// Group session-anchored bars into per-day ISOs, sorted, for the 75m/5m and
-// Daily/weekly stacks.
 function groupBySessionDay(anchored) {
-  const map = new Map();
-  for (const a of anchored) {
-    if (!map.has(a.sessionDay)) map.set(a.sessionDay, []);
-    map.get(a.sessionDay).push(a.bar);
-  }
-  return Array.from(map.entries()).sort((x, y) =>
-    x[0] < y[0] ? -1 : x[0] > y[0] ? 1 : 0
-  );
+  return stack.groupBySessionDay(anchored);
 }
 
-// ── Zone creation from a Pivot result (reuse legacy scanner-logic zones) ───
-// The Legacy engine already produces demandZones/supplyZones.  This converts
-// each to a GTF-Pro Zone record.  `tf` is the GTF timeframe.
-function zonesToGtf(pivotRes, symbol, timeframeId) {
-  const out = [];
-  const price = pivotRes.price || 0;
-  const base = Date.parse(pivotRes.date || "") || Date.now();
-  const iso = base ? new Date(base).toISOString().slice(0, 10) : null;
-
-  for (const z of (pivotRes.demandZones || [])) {
-    const created = z.created || iso;
-    const bottom = Math.min(z.bottom, z.top);
-    const top = Math.max(z.bottom, z.top);
-    if (bottom >= top) continue;
-    out.push(new Zone(
-      `${symbol}_D_${timeframeId}_${created}`,
-      symbol, "D", timeframeId, bottom, top, created, candle.nseSessionDay({ date: created })
-    ));
-  }
-  for (const z of (pivotRes.supplyZones || [])) {
-    const created = z.created || iso;
-    const bottom = Math.min(z.bottom, z.top);
-    const top = Math.max(z.bottom, z.top);
-    if (bottom >= top) continue;
-    out.push(new Zone(
-      `${symbol}_S_${timeframeId}_${created}`,
-      symbol, "S", timeframeId, bottom, top, created, candle.nseSessionDay({ date: created })
-    ));
-  }
-  return out;
+function stackBars(rawBars, stackId) {
+  return stack.stackBars(rawBars, stackId);
 }
+
+function resolveStack(stackId) {
+  return stack.resolveStack(stackId);
+}
+
+// Kept for compatibility — the canonical definitions live in stack.js.
+const STACK_TIMEFRAMES = { intraday: stack.INTRADAILY, swing: stack.SWING };
 
 module.exports = {
   Zone,
-  INTRADAILY,
-  SWING,
+  isBaseCandle,
+  isExcitingCandle,
+  candleType,
+  detectReverseStructure,
+  findStructurePoints,
+  buildGtfZones,
   nseHour,
   anchorToSession,
   groupBySessionDay,
-  zonesToGtf,
+  stackBars,
+  resolveStack,
+  STACK_TIMEFRAMES,
 };

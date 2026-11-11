@@ -2,17 +2,17 @@
 
 // ── Signal state machine ─────────────────────────────────────────────────────
 // Per-signal lifecycle, persisted in signal_events (supabase/signal-events-migration.sql).
-//
 //   FAR                →  pending, not yet formed
 //   WATCH              →  zone touched once (watchlist entry)
 //   APPROACHING        →  price range approaching zone within 1 bar
 //   AT_ZONE            →  candle range overlaps zone
 //   CONFIRMATION_WAIT  →  touching, awaiting formation-timestamp confirmation
-//   READY              →  formation confirmed, closed candle, production-fresh data, qualifying
+//   READY              →  formation confirmed, closed candle, production-fresh
 //   TRIGGERED          →  entry bar closed, stop/target legible, production-fresh
 //   TARGET_HIT         →  target reached (exit recorded)
 //   SL_HIT             →  stop reached (exit recorded)
-//   INVALIDATED        →  entry invalidated (e.g. zone dies, price closes through, or stale data)
+//   INVALIDATED        →  entry invalidated (zone dies / price closes through /
+//                         stale data / failed 2R qualifier)
 
 const STATES = [
   "FAR", "WATCH", "APPROACHING", "AT_ZONE", "CONFIRMATION_WAIT",
@@ -38,11 +38,6 @@ const TRANSITIONS = {
 function isTerminal(state) {
   return state === "TARGET_HIT" || state === "SL_HIT" || state === "INVALIDATED";
 }
-
-// Guaranteed-entry guard: the FIRST transition into a terminal state must be
-// via the machine.  This is what prevents stale/offline data from producing a
-// READY or TRIGGERED: the state machine only advances with production-fresh
-// markers, and the pipeline enforces that before calling advance().
 
 function canTransition(from, to) {
   return (TRANSITIONS[from] || []).includes(to);

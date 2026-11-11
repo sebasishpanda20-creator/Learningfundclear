@@ -7,24 +7,13 @@
 <title>LearningFundClear · Research Dashboard</title>
 <link rel="stylesheet" href="assets/css/tokens.css">
 <link rel="stylesheet" href="assets/css/app.css">
+<link rel="stylesheet" href="assets/css/portal-shell.css">
 <style>
 /* ── index.html page-native overrides (light token-driven only) ───────────
  * The shared design system (assets/css/tokens.css + app.css) owns layout,
  * surfaces, text, borders, shapes, buttons, tabs, and status roles. Only the
  * Dashboard/Performance page-specific tweaks live here.
  */
-#header { gap: 16px; }
-.nav-btn { font-size: 14px; padding: 10px 15px; }
-.nav-btn[aria-current="page"], .nav-btn.active {
-  background: var(--lfc-primary); border-color: transparent; color: #FFFFFF;
-  box-shadow: var(--lfc-shadow-sm);
-}
-.brand h1 { letter-spacing: 0.18em; }
-main { padding: 24px 18px 44px; }
-
-/* Dashboard / Performance redesign ── light grey page bg, white research card,
- * blue active period/tab, white metric cards with subtle borders, green
- * positive / red negative, dark navy text, compact modern nav. */
 #dashboard h2.card-head, #performance h2.card-head {
   background: var(--lfc-surface); border-bottom: 1px solid var(--lfc-border);
   color: var(--lfc-text-strong);
@@ -122,7 +111,7 @@ main { padding: 24px 18px 44px; }
       <button class="nav-btn" data-nav="gex">GEX</button>
       <button class="nav-btn hidden" id="adminBtn" data-nav="admin">Admin</button>
       <button class="nav-btn" id="themeToggle" data-lfc-theme-toggle style="margin-left:auto;" aria-pressed="false">Dark</button>
-      <button class="nav-btn" id="logoutBtn" style="margin-left:4px;">Logout</button>
+      <button class="nav-btn" id="logoutBtn">Logout</button>
     </div>
   </header>
   <main>
@@ -152,12 +141,12 @@ const params = new URLSearchParams(location.search);
 
 // DOM refs
 const $ = id => document.getElementById(id);
-const pending = $("authPending");
-const shell = $("appShell");
-const loginCard = $("login");
-const loginMsg = $("loginMsg");
-const userDisplay = $("userDisplay");
-const adminBtn = $("adminBtn");
+const pending = $("#authPending");
+const shell = $("#appShell");
+const loginCard = $("#login");
+const loginMsg = $("#loginMsg");
+const userDisplay = $("#userDisplay");
+const adminBtn = $("#adminBtn");
 let isAdmin = false;
 
 // auth-guard.js local-session stamp (convenience flag for the static fund pages)
@@ -216,10 +205,10 @@ async function activeUser(session) {
 })();
 
 // ── Login form ──
-$("loginBtn").onclick = async () => {
-  const u = $("loginUser").value.trim(), p = $("loginPass").value;
+$("#loginBtn").onclick = async () => {
+  const u = $("#loginUser").value.trim(), p = $("#loginPass").value;
   if (!u || !p) { loginMsg.textContent = "Enter username and password."; return; }
-  $("loginBtn").disabled = true;
+  $("#loginBtn").disabled = true;
   loginMsg.textContent = "Signing in…";
   try {
     const { error } = await sb.auth.signInWithPassword({
@@ -227,7 +216,7 @@ $("loginBtn").onclick = async () => {
     });
     if (error) {
       loginMsg.textContent = "Sign-in failed: " + error.message;
-      $("loginBtn").disabled = false;
+      $("#loginBtn").disabled = false;
       return;
     }
     const { data: { session } } = await sb.auth.getSession();
@@ -235,7 +224,7 @@ $("loginBtn").onclick = async () => {
     if (!uRow || !uRow.is_active) {
       await sb.auth.signOut();
       loginMsg.textContent = "This account is not active.";
-      $("loginBtn").disabled = false;
+      $("#loginBtn").disabled = false;
       return;
     }
     stamp(uRow);
@@ -248,7 +237,7 @@ $("loginBtn").onclick = async () => {
     location.replace("index.html");
   } catch (e) {
     loginMsg.textContent = "Sign-in failed: " + e.message;
-    $("loginBtn").disabled = false;
+    $("#loginBtn").disabled = false;
   }
 };
 
@@ -264,7 +253,7 @@ if (logoutBtn) {
       console.error("Logout error:", err);
     } finally {
       // clean login-only state; Back must not restore private page
-      window.location.replace("index.html");
+      window.location.replace("signin.html");
     }
   });
 }
@@ -301,12 +290,7 @@ document.querySelectorAll("[data-nav]").forEach(btn => {
   });
 });
 
-$("loginPass").addEventListener("keydown", e => { if (e.key === "Enter") $("loginBtn").click(); });
-
-
-// ── Legacy run-page bindings (kept, since dashboard is a bare shell now) ──
-// A real production deployment would import the dashboard logic module here.
-// For this fix we keep the shell; data-binding is done via data-nav above.
+$("#loginPass").addEventListener("keydown", e => { if (e.key === "Enter") $("#loginBtn").click(); });
 </script>
 </body>
 </html>
