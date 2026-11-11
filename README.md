@@ -1,50 +1,50 @@
-# LearningFundClear — Quant Terminal v4.0
+# LearningFundClear — Institutional Quant Terminal v5.0 (with MCX Desk)
 
-## Overview
-Single-file institutional trading portal with local Python data proxy. Built for advisory-only signal generation with Quarter-Kelly position sizing. All execution is hard-locked to WAIT / NO TRADE via panic kill-switch.
+Single-file static portal plus a FastAPI data proxy for un-delayed NSE quotes,
+MCX commodity prices, Delta India products and fundamental data.
 
-## File Structure
-```
-Learningfundclear/
-├── index.html                   ← Complete Production Portal (Single-File App)
-├── backend/
-│   └── live_feed_proxy.py       ← Local FastAPI Un-Delayed NSE Scraping Proxy
-├── requirements.txt             ← Python Dependencies (fastapi, uvicorn, nsemine, yfinance)
-└── README.md                    ← Quickstart & Architecture Documentation
-```
+## Desks
 
-## Local Development
+| Desk | Coverage |
+|---|---|
+| Daily Income & Theta | Multi-regime income board, defined-risk theta spreads |
+| Stocks F&O (NSE) | BSM options Greeks & skew, beta index hedge & collar |
+| **MCX Commodities** | Commodity futures with circuit bands, storage & carry yield |
+| Crypto VDA (Delta India) | Perps with 5-window walk-forward, 8h funding carry |
+| Fundamental Investing | 9-point Piotroski F-score, 2-stage DCF |
+| Risk & Tax Ledger | Sec 115BBH VDA tax (31.2%), 1% TDS u/s 194S |
 
-### 1. Start the Python Proxy
-```bash
-cd backend
-pip install -r ../requirements.txt
-uvicorn live_feed_proxy:app --host 0.0.0.0 --port 8000
-```
+## Quickstart Runbook
 
-### 2. Open the Portal
-Open `index.html` in a browser or serve via any static HTTP server.
-The portal will attempt to connect to `http://127.0.0.1:8000/api/v1/nse/live/{symbol}` first for zero-delay NSE data.
-If the local proxy is offline, it falls back seamlessly to deterministic snapshot feeds.
+1. Start the Python local proxy:
 
-### 3. Portal Features
-- **Panic Kill-Switch**: Top-bar strip (`#panic-bar`) hard-locks all signals to WAIT / NO TRADE
-- **Mode Toggle**: Button toggles between `ADVISORY (SIGNAL)` and other modes
-- **Dark Mode**: Switch between light and dark color schemes
-- **Instrument Selection**: NIFTY, BANKNIFTY, RELIANCE, BTCUSD
-- **Timeframe Selection**: 5m/15m, 15m/1h, 1h/4h
-- **Capital & Risk Input**: Capital (₹ INR), Max Risk / Trade (%), Daily Income Goal (₹)
-- **Desk Modules**: Daily Income & Theta Desk, Stocks F&O Desk, Crypto VDA Desk, Fundamental Desk, Risk & Tax Ledger
+   ```bash
+   pip install -r requirements.txt
+   uvicorn backend.live_feed_proxy:app --host 127.0.0.1 --port 8000 --reload
+   ```
 
-## Architecture
-- **Frontend**: `index.html` — single-file HTML/React application with light-first fintech styling & dark mode
-- **Backend**: `backend/live_feed_proxy.py` — FastAPI microservice on port 8000, CORS `allow_origins=["*"]`
-- **Data**: `nsemine` for un-delayed NSE quotes; `yfinance` for fundamental data
-- **Sizing Mode**: Strictly ADVISORY (Signal Generation with Quarter-Kelly sizing)
-- **Mandate**: NO PROFITABLE SETUP AFTER STATUTORY COSTS + EXPECTANCY > ₹0, NO TRADE SUGGESTION
+2. Open `index.html` directly in a browser, or serve it over HTTP.
 
-## Cloudflare Pages Deployment
-- Project Name: `learningfundclear`
-- Framework Preset: `None (Static HTML)`
-- Build Command: (Leave Blank)
-- Build Output Directory: `/`
+The portal probes `http://127.0.0.1:8000` first for every quote and falls back to a
+deterministic snapshot feed when the proxy is offline, so the UI always renders.
+
+## Proxy endpoints
+
+| Method | Path | Returns |
+|---|---|---|
+| GET | `/api/v1/health` | service status and whether nsemine is installed |
+| GET | `/api/v1/nse/live/{symbol}` | `ltp`, `price`, `volume`, `change_pct` |
+| GET/POST | `/api/v1/mcx/live/{commodity}` | `ltp`, OHLC, `upper_circuit`, `lower_circuit` |
+| GET | `/api/v1/delta/products/categorized` | Futures / Options / RWA tokens |
+
+## Safety model
+
+* Panic kill-switch (`#panic-bar`) hard-locks every verdict to WAIT / NO TRADE.
+* Advisory only: the terminal issues signals, never orders.
+* Mandate: no suggestion is issued unless post-cost expectancy is positive.
+
+## Deployment
+
+Published as a static site (Cloudflare Pages project `learningfundclear`); only
+`index.html` and `robots.txt` are served. The Python proxy stays local and is
+never published.
