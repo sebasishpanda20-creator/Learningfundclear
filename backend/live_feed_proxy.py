@@ -1,12 +1,17 @@
-"""LearningFundClear local data proxy v5.0 — NSE, MCX and Delta India feeds.
+"""LearningFundClear local data proxy v5.1 — NSE, MCX and Delta India feeds.
 
-Fixes applied on top of the v5.0 spec:
-  * ``nsemine`` is imported defensively. The spec's ``from nsemine import live, fno``
-    raises ImportError at startup and takes the whole proxy down when the package
-    is absent or exposes a different surface; here the endpoints degrade instead.
-  * nsemine call signatures are probed, so a version bump does not 500 the route.
-  * Private Network Access headers so a public https page can reach loopback.
-  * A 503 with a clear message instead of a fabricated 0.0 quote.
+Data-layer fixes:
+  * MCX: the ASP.NET endpoint rejects POSTs that lack the AJAX header stack and an
+    explicit body. We now send Content-Type, Accept, X-Requested-With, Origin,
+    Referer and ``{"Option": "1"}``, and tolerate the response shape where ``d``
+    comes back as a JSON *string* rather than a list.
+  * MCX fallback chain: direct scrape -> yfinance futures stream (converted to
+    INR) -> labelled constant. Always HTTP 200.
+  * NSE: nsemine -> yfinance (^NSEI / ^NSEBANK / SYMBOL.NS) -> labelled constant.
+    The route never returns 503, so the badge can trust the ``state`` field.
+  * ``state`` is the single source of truth for the UI badge:
+    "REAL-TIME MCX DIRECT" / "REAL-TIME NSE DIRECT" / "REAL-TIME YFINANCE" when a
+    live tick landed, "SNAPSHOT" when a fallback served the number.
 
 Run:
     pip install -r requirements.txt
@@ -15,14 +20,33 @@ Run:
 
 from __future__ import annotations
 
+import json
 from typing import Any, Optional
 
 import requests
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
-app = FastAPI(title="LearningFundClear Local Data Proxy v5.0")
+# Optional dependencies must never take the process down.
+try:
+    import nsemine  # type: ignore
+
+    HAS_NSEMINE = True
+except Exception:  # ImportError or broken install
+    nsemine = None  # type: ignore
+    HAS_NSEMINE = False
+
+try:
+    import yfinance as yf  # type: ignore
+
+    HAS_YFINANCE = True
+except Exception:
+    yf = None  # type: ignore
+    HAS_YFINANCE = False
+
+
+app = FastAPI(title="LearningFundClear Local Data Proxy v5.1")
 
 app.add_middleware(
     CORSMiddleware,
@@ -33,9 +57,13 @@ app.add_middleware(
 
 session = requests.Session()
 session.headers.update({
-    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)",
-    "Referer": "https://www.nseindia.com/",
+    "User-Agent": (
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+        "(KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36"
+    ),
 })
+
+USDINR = 86.50
 
 
 @app.middleware("http")
@@ -47,163 +75,263 @@ async def private_network_access(request, call_next):
 
 
 # ---------------------------------------------------------------------------
-# Optional dependencies: a missing nsemine must not take the process down.
+# helpers
 # ---------------------------------------------------------------------------
-def _nsemine():
-    try:
-        import nsemine  # type: ignore
-        return nsemine
-    except Exception:
-        return None
-
-
-def _nsemine_live():
-    """Return nsemine's live module/object if this release ships one."""
-    ns = _nsemine()
-    if ns is None:
-        return None
-    return getattr(ns, "live", ns)
-
-
 def _num(value: Any, default: float = 0.0) -> float:
     try:
-        out = float(value)
+        out = float(str(value).replace(",", "").strip())
         return out if out == out else default  # reject NaN
     except (TypeError, ValueError):
         return default
 
 
-def _first_quote(payload: Any) -> Optional[dict[str, Any]]:
-    """Normalise whatever nsemine returns into a flat quote dict."""
-    if payload is None:
-        return None
-    if isinstance(payload, (list, tuple)):
-        return _first_quote(payload[0]) if payload else None
-    if isinstance(payload, (int, float)):
-        return {"lastPrice": float(payload)}
-    if not isinstance(payload, dict):
-        try:
-            payload = dict(payload)
-        except Exception:
-            return None
-    return payload
-
-
-def _nse_quote(symbol: str) -> Optional[dict[str, Any]]:
-    live = _nsemine_live()
-    if live is None:
-        return None
-
-    sym = symbol.upper()
-    index_map = {
-        "NIFTY": "NIFTY 50",
-        "BANKNIFTY": "NIFTY BANK",
-        "FINNIFTY": "NIFTY FINANCIAL SERVICES",
-    }
-
-    attempts: list[tuple[str, dict[str, Any]]] = []
-    if sym in index_map:
-        attempts.append(("get_index_live_price", {"index": index_map[sym], "raw": False}))
-    attempts.append(("get_stock_live_quotes", {"stock_symbol": sym, "raw": False}))
-    attempts.append(("get_stock_live_price", {"stock_symbol": sym, "raw": False}))
-
-    for name, kwargs in attempts:
-        fn = getattr(live, name, None)
-        if not callable(fn):
-            continue
-        try:
-            raw = fn(**kwargs)
-        except Exception:
-            try:
-                raw = fn(sym)
-            except Exception:
-                continue
-        quote = _first_quote(raw)
-        if quote and _num(quote.get("lastPrice")) > 0:
-            return quote
+def _pick(row: dict[str, Any], *names: str) -> Any:
+    """Case-insensitive dict lookup for market-watch row keys."""
+    lowered = {str(k).lower(): v for k, v in row.items()}
+    for name in names:
+        if name.lower() in lowered:
+            return lowered[name.lower()]
     return None
 
 
+def _last_price(ticker_symbol: str) -> Optional[float]:
+    """Best-effort last price from yfinance, tolerant of API shape changes."""
+    if not HAS_YFINANCE:
+        return None
+    try:
+        ticker = yf.Ticker(ticker_symbol)
+        info = getattr(ticker, "fast_info", None)
+        if info is not None:
+            price = info.get("last_price") if hasattr(info, "get") else getattr(info, "last_price", None)
+            price = _num(price)
+            if price > 0:
+                return price
+        hist = ticker.history(period="1d", interval="1m")
+        if hist is not None and not hist.empty:
+            price = _num(hist["Close"].iloc[-1])
+            if price > 0:
+                return price
+    except Exception:
+        return None
+    return None
+
+
+def _prev_close(ticker_symbol: str) -> Optional[float]:
+    if not HAS_YFINANCE:
+        return None
+    try:
+        info = getattr(yf.Ticker(ticker_symbol), "fast_info", None)
+        if info is None:
+            return None
+        value = info.get("previous_close") if hasattr(info, "get") else getattr(info, "previous_close", None)
+        value = _num(value)
+        return value if value > 0 else None
+    except Exception:
+        return None
+
+
+# ---------------------------------------------------------------------------
+# MCX
+# ---------------------------------------------------------------------------
+MCX_URL = "https://www.mcxindia.com/backpage.aspx/GetMarketWatch"
+
+MCX_HEADERS = {
+    "Content-Type": "application/json; charset=UTF-8",
+    "Accept": "application/json, text/javascript, */*; q=0.01",
+    "X-Requested-With": "XMLHttpRequest",
+    "Origin": "https://www.mcxindia.com",
+    "Referer": "https://www.mcxindia.com/market-data/market-watch",
+}
+
+# yfinance futures → MCX contract conversion
+YF_MAP = {
+    "CRUDEOIL": ("CL=F", lambda usd: usd * USDINR),                    # USD/bbl → ₹/bbl
+    "GOLD": ("GC=F", lambda usd: usd / 31.1035 * 10 * USDINR),         # USD/oz → ₹/10g
+    "SILVER": ("SI=F", lambda usd: usd / 31.1035 * 1000 * USDINR),     # USD/oz → ₹/kg
+    "NATURALGAS": ("NG=F", lambda usd: usd * USDINR),                  # USD/mmBtu → ₹/mmBtu
+    "COPPER": ("HG=F", lambda usd: usd / 0.453592 * USDINR),           # USD/lb → ₹/kg
+}
+
+MCX_DEFAULTS = {"CRUDEOIL": 6850.0, "GOLD": 75400.0, "SILVER": 92400.0}
+
+
+def _mcx_scrape(commodity: str) -> Optional[dict[str, Any]]:
+    """Direct MCX scrape with the full ASP.NET AJAX header stack."""
+    try:
+        resp = session.post(MCX_URL, json={"Option": "1"}, headers=MCX_HEADERS, timeout=5)
+        if resp.status_code != 200:
+            return None
+
+        payload = resp.json()
+        rows = payload.get("d", [])
+        # MCX sometimes double-encodes and returns `d` as a JSON string.
+        if isinstance(rows, str):
+            try:
+                rows = json.loads(rows)
+            except Exception:
+                return None
+        if isinstance(rows, dict):
+            rows = rows.get("Data") or rows.get("data") or []
+        if not isinstance(rows, list):
+            return None
+
+        target = commodity.upper()
+        for row in rows:
+            if not isinstance(row, dict):
+                continue
+            symbol = str(_pick(row, "Symbol", "symbol") or "").upper()
+            if not symbol or target not in symbol:
+                continue
+            ltp = _num(_pick(row, "LTP", "ltp", "LastPrice"))
+            if ltp <= 0:
+                continue
+            circuit_pct = _num(_pick(row, "CircuitLimit", "circuitlimit"), 4.0) or 4.0
+            return {
+                "symbol": symbol,
+                "ltp": ltp,
+                "high": _num(_pick(row, "High", "high")),
+                "low": _num(_pick(row, "Low", "low")),
+                "open": _num(_pick(row, "Open", "open")),
+                "volume": _num(_pick(row, "Volume", "volume")),
+                "upper_circuit": round(ltp * (1 + circuit_pct / 100), 2),
+                "lower_circuit": round(ltp * (1 - circuit_pct / 100), 2),
+                "state": "REAL-TIME MCX DIRECT",
+            }
+    except Exception:
+        return None
+    return None
+
+
+@app.api_route("/api/v1/mcx/live/{commodity}", methods=["GET", "POST"])
+def get_mcx_commodity_quote(commodity: str) -> JSONResponse:
+    comm_upper = commodity.upper()
+
+    # 1. Direct MCX scrape
+    direct = _mcx_scrape(comm_upper)
+    if direct:
+        return JSONResponse(direct)
+
+    # 2. yfinance commodity stream converted to INR
+    mapping = YF_MAP.get(comm_upper)
+    if mapping:
+        ticker_symbol, convert = mapping
+        usd = _last_price(ticker_symbol)
+        if usd and usd > 0:
+            inr_ltp = round(convert(usd), 2)
+            if inr_ltp > 0:
+                return JSONResponse({
+                    "symbol": comm_upper,
+                    "ltp": inr_ltp,
+                    "upper_circuit": round(inr_ltp * 1.04, 2),
+                    "lower_circuit": round(inr_ltp * 0.96, 2),
+                    "state": "SNAPSHOT",
+                    "feed_note": f"yfinance {ticker_symbol} converted at USDINR {USDINR}",
+                })
+
+    # 3. Controlled constant — still HTTP 200
+    default_ltp = MCX_DEFAULTS.get(comm_upper, 92400.0)
+    return JSONResponse({
+        "symbol": comm_upper,
+        "ltp": default_ltp,
+        "upper_circuit": round(default_ltp * 1.04, 2),
+        "lower_circuit": round(default_ltp * 0.96, 2),
+        "state": "SNAPSHOT",
+    })
+
+
+# ---------------------------------------------------------------------------
+# NSE
+# ---------------------------------------------------------------------------
+NSE_DEFAULTS = {"NIFTY": 24200.0, "BANKNIFTY": 51800.0}
+
+
+def _nsemine_quote(symbol: str) -> Optional[dict[str, Any]]:
+    """Probe nsemine's surface; releases differ between `get_quote` helpers."""
+    if not HAS_NSEMINE:
+        return None
+
+    candidates = []
+    for owner in ("get_quote", "get_index_live_price", "get_stock_live_quotes", "live"):
+        obj = getattr(nsemine, owner, None)
+        if callable(obj):
+            candidates.append(obj)
+        elif obj is not None:
+            for meth in ("get_quote", "get_index_live_price", "get_stock_live_quotes"):
+                fn = getattr(obj, meth, None)
+                if callable(fn):
+                    candidates.append(fn)
+
+    index_names = {"NIFTY": "NIFTY 50", "BANKNIFTY": "NIFTY BANK", "FINNIFTY": "NIFTY FINANCIAL SERVICES"}
+
+    for fn in candidates:
+        calls = [{"stock_symbol": symbol, "raw": False}, {"index": index_names.get(symbol, symbol), "raw": False}, (symbol,)]
+        for args in calls:
+            try:
+                raw = fn(**args) if isinstance(args, dict) else fn(*args)
+            except Exception:
+                continue
+            if isinstance(raw, (list, tuple)):
+                raw = raw[0] if raw else None
+            if isinstance(raw, dict):
+                ltp = _num(raw.get("lastPrice") or raw.get("ltp") or raw.get("price"))
+                if ltp > 0:
+                    return {"ltp": ltp, "change": _num(raw.get("change")), "pChange": _num(raw.get("pChange"))}
+    return None
+
+
+@app.get("/api/v1/nse/live/{symbol}")
+def get_nse_live_quote(symbol: str) -> JSONResponse:
+    sym_upper = symbol.upper()
+
+    # 1. nsemine
+    quote = _nsemine_quote(sym_upper)
+    if quote:
+        return JSONResponse({
+            "symbol": sym_upper,
+            "ltp": quote["ltp"],
+            "change": quote["change"],
+            "pChange": quote["pChange"],
+            "state": "REAL-TIME NSE DIRECT",
+        })
+
+    # 2. yfinance
+    ticker_symbol = "^NSEI" if sym_upper == "NIFTY" else ("^NSEBANK" if sym_upper == "BANKNIFTY" else f"{sym_upper}.NS")
+    ltp = _last_price(ticker_symbol)
+    if ltp and ltp > 0:
+        prev = _prev_close(ticker_symbol) or ltp
+        change = round(ltp - prev, 2)
+        p_change = round((change / prev) * 100, 2) if prev else 0.0
+        return JSONResponse({
+            "symbol": sym_upper,
+            "ltp": round(ltp, 2),
+            "change": change,
+            "pChange": p_change,
+            "state": "REAL-TIME YFINANCE",
+        })
+
+    # 3. Constant — never 503
+    default_ltp = NSE_DEFAULTS.get(sym_upper, 1250.0)
+    return JSONResponse({
+        "symbol": sym_upper,
+        "ltp": default_ltp,
+        "change": 0.0,
+        "pChange": 0.0,
+        "state": "SNAPSHOT",
+    })
+
+
+# ---------------------------------------------------------------------------
+# misc
+# ---------------------------------------------------------------------------
 @app.get("/api/v1/health")
 def health() -> dict[str, Any]:
     return {
         "status": "ONLINE",
-        "version": "5.0",
+        "version": "5.1",
         "proxy": "Quant Core Local Proxy",
-        "nsemine": _nsemine() is not None,
+        "nsemine": HAS_NSEMINE,
+        "yfinance": HAS_YFINANCE,
     }
-
-
-@app.get("/api/v1/nse/live/{symbol}")
-def get_nse_live(symbol: str) -> JSONResponse:
-    sym = symbol.upper()
-    try:
-        quote = _nse_quote(sym)
-    except Exception as exc:  # defensive: never 500 on a vendor glitch
-        raise HTTPException(status_code=502, detail=f"nsemine lookup failed: {exc}")
-
-    if not quote:
-        raise HTTPException(
-            status_code=503,
-            detail=(
-                "No live NSE quote available. Install nsemine (pip install nsemine) "
-                "or rely on the portal's deterministic snapshot fallback."
-            ),
-        )
-
-    ltp = _num(quote.get("lastPrice"))
-    return JSONResponse({
-        "symbol": sym,
-        "ltp": ltp,
-        "price": ltp,  # kept for older clients that read `price`
-        "volume": int(_num(quote.get("totalTradedVolume"))),
-        "change_pct": _num(quote.get("pChange")),
-        "state": "REAL-TIME PROXY",
-    })
-
-
-@app.api_route("/api/v1/mcx/live/{commodity}", methods=["GET", "POST"])
-def get_mcx_live(commodity: str) -> JSONResponse:
-    """Live MCX commodity price with circuit bands; falls back to a labelled snapshot."""
-    try:
-        resp = session.post(
-            "https://www.mcxindia.com/backpage.aspx/GetMarketWatch",
-            json={},
-            headers={"X-Requested-With": "XMLHttpRequest"},
-            timeout=5,
-        )
-        if resp.status_code == 200:
-            rows = resp.json().get("d", [])
-            if isinstance(rows, str):
-                rows = []
-            for row in rows:
-                sym = str(row.get("Symbol", "")).upper()
-                if commodity.upper() in sym:
-                    ltp = _num(row.get("LTP"))
-                    if ltp > 0:
-                        return JSONResponse({
-                            "symbol": sym,
-                            "ltp": ltp,
-                            "high": _num(row.get("High")),
-                            "low": _num(row.get("Low")),
-                            "open": _num(row.get("Open")),
-                            "volume": _num(row.get("Volume")),
-                            "upper_circuit": round(ltp * 1.04, 2),
-                            "lower_circuit": round(ltp * 0.96, 2),
-                            "state": "REAL-TIME MCX DIRECT",
-                        })
-    except Exception:
-        pass
-
-    base_price = 6850.0 if "CRUDE" in commodity.upper() else (75400.0 if "GOLD" in commodity.upper() else 92400.0)
-    return JSONResponse({
-        "symbol": commodity.upper(),
-        "ltp": base_price,
-        "volume": 14200,
-        "upper_circuit": round(base_price * 1.04, 2),
-        "lower_circuit": round(base_price * 0.96, 2),
-        "state": "SNAPSHOT",
-    })
 
 
 @app.get("/api/v1/delta/products/categorized")
