@@ -252,7 +252,9 @@
           if (mcxRes.ok) {
             const mData = await mcxRes.json();
             if (Number(mData.ltp) > 0) {
-              return { provider: 'Local Python Proxy (MCX Direct)', state: 'REAL-TIME MCX DIRECT', ltp: Number(mData.ltp), volume: mData.volume, upper: mData.upper_circuit, lower: mData.lower_circuit };
+              const st = String(mData.state || 'SNAPSHOT').toUpperCase();
+              const liveM = st.indexOf('REAL-TIME') === 0;
+              return { provider: 'Local Python Proxy (' + (liveM ? 'MCX Direct' : 'MCX Snapshot') + ')', state: st, ltp: Number(mData.ltp), volume: mData.volume, upper: mData.upper_circuit, lower: mData.lower_circuit };
             }
           }
         } catch (_) {}
