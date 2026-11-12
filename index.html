@@ -463,6 +463,19 @@
     }
 
     // NSE options cost stack: brokerage, exchange txn, STT on sell premium, GST, stamp.
+    // Margin actually blocked per segment. Delta's is exact (its API publishes
+    // initial_margin per contract); MCX uses typical SPAN+exposure rates and is
+    // labelled as an estimate; equity delivery is 100% cash, options spreads are
+    // the width minus credit.
+    const MCX_MARGIN_PCT = { CRUDEOIL: 0.12, GOLD: 0.11, SILVER: 0.12, NATURALGAS: 0.16, COPPER: 0.12, ALUMINIUM: 0.12, ZINC: 0.12, LEAD: 0.12, NICKEL: 0.14 };
+    function mcxMarginPct(sym) {
+      return MCX_MARGIN_PCT[String(sym || '').toUpperCase()] || 0.12;
+    }
+    function capitalInput() {
+      const el = document.getElementById('inp-cap');
+      return Number(el ? el.value : 0) || 150000;
+    }
+
     function executionPlan(sym, step, credit) {
       const capEl = document.getElementById('inp-cap');
       const riskEl = document.getElementById('inp-risk');
@@ -474,7 +487,12 @@
       const perLotRisk = Math.max(1, (step - credit) * lotSize);
       const uncapped = Math.floor(riskBudget / perLotRisk);
       const scale = STATE.mode.indexOf('KELLY') >= 0 ? 0.5 : 1;
-      const lots = Math.max(0, Math.floor(uncapped * scale));
+      const lotsByRisk = Math.max(0, Math.floor(uncapped * scale));
+      // Margin cap: a plan may not propose more lots than the capital can collateralise.
+      const capitalPerLot = Math.max(1, (step - credit) * lotSize);
+      const capitalLots = Math.floor(cap / capitalPerLot);
+      const lots = Math.max(0, Math.min(lotsByRisk, Math.max(0, capitalLots)));
+      const cappedByCapital = lotsByRisk > capitalLots;
       const premiumTurnover = credit * lotSize * lots;
       const brokerage = 40;
       const txn = premiumTurnover * 0.00035;
@@ -483,7 +501,7 @@
       const stamp = premiumTurnover * 0.00003;
       const costs = brokerage + txn + stt + gst + stamp;
       const net = premiumTurnover - costs;
-      return { lots, lotSize, costs, net, pass: net > 0 && lots > 0, riskBudget, perLotRisk };
+      return { lots, lotSize, costs, net, pass: net > 0 && lots > 0, riskBudget, perLotRisk, lotsByRisk, capitalPerLot, capitalLots, cappedByCapital };
     }
 
     function getStrikeStep(sym, price) {
@@ -564,6 +582,8 @@
               <div class="gate-item"><span>Size from Capital × Risk</span><strong>${condorPlan.lots} lot(s) × ${condorPlan.lotSize}</strong></div>
               <div class="gate-item"><span>Capital Required / Lot (margin blocked)</span><strong>${curSym}${Math.round((step * 2 - credit) * condorPlan.lotSize)}</strong></div>
               ${condorPlan.lots > 0 ? `<div class="gate-item"><span>Capital Required at ${condorPlan.lots} lot(s)</span><strong>${curSym}${Math.round((step * 2 - credit) * condorPlan.lotSize * condorPlan.lots)}</strong></div>` : ''}
+              <div class="gate-item"><span>Lots Affordable (margin)</span><strong>${condorPlan.capitalLots < 0 ? 0 : condorPlan.capitalLots} lot(s)</strong></div>
+              ${condorPlan.cappedByCapital ? `<div class="gate-item"><span>Capital Limit Applied</span><span class="tag fail">CAPPED AT ${condorPlan.capitalLots} LOT(S) — risk model allowed ${condorPlan.lotsByRisk}</span></div>` : ''}
               ${condorPlan.lots === 0 ? '<div class="gate-item"><span>Risk Budget</span><span class="tag fail">INSUFFICIENT FOR 1 LOT — NO TRADE</span></div>' : ''}
               <div class="gate-item"><span>Statutory Cost Gate</span><span class="tag ${condorPlan.pass ? 'pass' : 'fail'}">${condorPlan.pass ? 'PASSED' : 'FAILED'} · E_net ${condorPlan.net >= 0 ? '+' : ''}${curSym}${Math.round(condorPlan.net)}</span></div>
               <div class="gate-item"><span>Max Profit / Lot (both wings expire OTM)</span><strong>+${curSym}${Math.round(credit * condorPlan.lotSize)}</strong></div>
@@ -597,6 +617,8 @@
             <div class="gate-item"><span>Size from Capital × Risk</span><strong>${plan.lots} lot(s) × ${plan.lotSize}</strong></div>
             <div class="gate-item"><span>Capital Required / Lot (margin blocked)</span><strong>${curSym}${Math.round((step - credit) * plan.lotSize)}</strong></div>
             ${plan.lots > 0 ? `<div class="gate-item"><span>Capital Required at ${plan.lots} lot(s)</span><strong>${curSym}${Math.round((step - credit) * plan.lotSize * plan.lots)}</strong></div>` : ''}
+            <div class="gate-item"><span>Lots Affordable (margin)</span><strong>${plan.capitalLots < 0 ? 0 : plan.capitalLots} lot(s)</strong></div>
+            ${plan.cappedByCapital ? `<div class="gate-item"><span>Capital Limit Applied</span><span class="tag fail">CAPPED AT ${plan.capitalLots} LOT(S) — risk model allowed ${plan.lotsByRisk}</span></div>` : ''}
             ${plan.lots === 0 ? '<div class="gate-item"><span>Risk Budget</span><span class="tag fail">INSUFFICIENT FOR 1 LOT — NO TRADE</span></div>' : ''}
             <div class="gate-item"><span>Statutory Cost Gate</span><span class="tag ${plan.pass ? 'pass' : 'fail'}">${plan.pass ? 'PASSED' : 'FAILED'} · E_net ${plan.net >= 0 ? '+' : ''}${curSym}${Math.round(plan.net)}</span></div>
             <div class="gate-item"><span>Max Profit / Lot (full credit decay)</span><strong>+${curSym}${Math.round(credit * plan.lotSize)}</strong></div>
@@ -713,6 +735,7 @@
         <div class="gate-item"><span>Round-Trip Fee / Contract</span><strong>$${(notional * taker * 2).toFixed(3)}</strong></div>
         <div class="gate-item"><span>Position Limit</span><strong>${Number(m.position_limit || 0).toLocaleString('en-IN')} contracts</strong></div>
         <div class="gate-item"><span>Liquidation Buffer (IM − MM)</span><strong>$${(im - mm).toFixed(2)} / contract</strong></div>
+        <div class="gate-item"><span>Lots Affordable at ₹${capitalInput().toLocaleString('en-IN')} Capital</span><strong>${im > 0 ? Math.floor((capitalInput() / 86.5) / im) : 0} contract(s)</strong></div>
       </div>`;
     }
 
@@ -908,11 +931,12 @@
               <div class="kv-grid">
                 <div class="kv"><span>Contract Expiry</span><strong>${expiry}</strong></div>
                 <div class="kv"><span>Notional Contract</span><strong>₹${notionalValue}</strong></div>
-                <div class="kv"><span>SPAN + Exposure</span><strong>~12.5% Margin</strong></div>
+                <div class="kv"><span>SPAN + Exposure</span><strong>~${(mcxMarginPct(STATE.symbol) * 100).toFixed(0)}% Margin</strong></div>
                 <div class="kv"><span>Upper Circuit (4%)</span><strong>₹${upper}</strong></div>
               </div>
               <div class="gate-item"><span>Round-Trip Cost / Lot</span><strong>₹${Math.round(feed.ltp * units * 0.000026 * 2 + 40)}</strong></div>
-              <div class="gate-item"><span>Capital Required / Lot (SPAN + Exposure ~12.5%)</span><strong>₹${Math.round(feed.ltp * units * 0.125).toLocaleString('en-IN')}</strong></div>
+              <div class="gate-item"><span>Margin / Lot (SPAN + Exposure ${(mcxMarginPct(STATE.symbol) * 100).toFixed(0)}%)</span><strong>₹${Math.round(feed.ltp * units * mcxMarginPct(STATE.symbol)).toLocaleString('en-IN')}</strong></div>
+              <div class="gate-item"><span>Lots Affordable at ₹${capitalInput().toLocaleString('en-IN')} Capital</span><strong>${Math.max(0, Math.floor(capitalInput() / Math.max(1, feed.ltp * units * mcxMarginPct(STATE.symbol))))} lot(s)</strong></div>
               <div class="gate-item"><span>MCX Transaction Fee</span><span class="tag info">0.0026% AUDITED</span></div>
               <div class="gate-item"><span>GST on Brokerage</span><span class="tag info">18% APPLIED</span></div>
               ${legsHTML}
