@@ -364,7 +364,7 @@ async function nseUniverse() {
 
 const scanMemo = new Map();
 const SCAN_TTL_MS = 90000;
-const SCAN_BATCH = 40;
+const SCAN_BATCH = 20; // Yahoo spark returns HTTP 400 above 20 symbols
 
 function seriesMetrics(closes, meta) {
   if (!closes || closes.length < 30) return null;
@@ -418,33 +418,49 @@ async function scanNse(offset, limit) {
   if (!total) return { state: "UNAVAILABLE", offset, total: 0, scanned: 0, rows: [] };
 
   const slice = universe.slice(offset, offset + limit);
-  const rows = [];
+  const diag = [];
+  const batches = [];
   for (let i = 0; i < slice.length; i += SCAN_BATCH) {
-    const batch = slice.slice(i, i + SCAN_BATCH);
-    const symbols = batch.map(r => `${r.symbol}.NS`).join(",");
-    try {
-      const res = await fetch(
-        `https://query1.finance.yahoo.com/v7/finance/spark?symbols=${encodeURIComponent(symbols)}&range=1y&interval=1d`,
-        { headers: { "User-Agent": UA, Accept: "application/json" } },
-      );
-      if (!res.ok) continue;
-      const body = await res.json();
-      const results = (body && body.spark && body.spark.result) || [];
-      for (const item of results) {
-        const response = (item.response || [])[0] || {};
-        const closes = (((response.indicators || {}).quote || [{}])[0].close || []).filter(
-          v => typeof v === "number" && isFinite(v),
-        );
-        const symbol = String(item.symbol || "").replace(/\.NS$/i, "").toUpperCase();
-        const meta = batch.find(r => r.symbol === symbol) || { symbol, name: symbol, industry: "" };
-        const metrics = seriesMetrics(closes, response.meta || {});
-        if (!metrics) continue;
-        rows.push({ s: meta.symbol, n: meta.name, ind: meta.industry, ...metrics });
-      }
-    } catch (_) {
-      /* one bad batch must not abort the page */
-    }
+    batches.push({ start: i, items: slice.slice(i, i + SCAN_BATCH) });
   }
+
+  // Batches run concurrently: a 160-name page is 8 spark calls in parallel, ~1s total.
+  const settles = await Promise.all(
+    batches.map(async ({ start, items }) => {
+      const symbols = items.map(r => `${r.symbol}.NS`).join(",");
+      try {
+        const res = await fetch(
+          `https://query1.finance.yahoo.com/v7/finance/spark?symbols=${encodeURIComponent(symbols)}&range=1y&interval=1d`,
+          { headers: { "User-Agent": UA, Accept: "application/json" } },
+        );
+        if (!res.ok) {
+          diag.push(`batch ${start}: HTTP ${res.status}`);
+          return [];
+        }
+        const body = await res.json();
+        const results = (body && body.spark && body.spark.result) || [];
+        const out = [];
+        for (const item of results) {
+          const response = (item.response || [])[0] || {};
+          const closes = (((response.indicators || {}).quote || [{}])[0].close || []).filter(
+            v => typeof v === "number" && isFinite(v),
+          );
+          const symbol = String(item.symbol || "").replace(/\.NS$/i, "").toUpperCase();
+          const meta = items.find(r => r.symbol === symbol) || { symbol, name: symbol, industry: "" };
+          const metrics = seriesMetrics(closes, response.meta || {});
+          if (!metrics) continue;
+          out.push({ s: meta.symbol, n: meta.name, ind: meta.industry, ...metrics });
+        }
+        diag.push(`batch ${start}: ${results.length} of ${items.length}`);
+        return out;
+      } catch (err) {
+        // One bad batch must not abort the page, but it must be visible in the payload.
+        diag.push(`batch ${start}: threw ${String((err && err.message) || err)}`);
+        return [];
+      }
+    }),
+  );
+  const rows = settles.flat();
 
   rows.sort((a, b) => b.score - a.score);
   const payload = {
@@ -452,6 +468,7 @@ async function scanNse(offset, limit) {
     offset,
     total,
     scanned: rows.length,
+    diag,
     rows,
   };
   scanMemo.set(key, { data: payload, at: Date.now() });
