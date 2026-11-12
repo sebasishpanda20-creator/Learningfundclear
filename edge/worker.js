@@ -293,6 +293,172 @@ async function mcxLive(commodity) {
   };
 }
 
+// ---------------------------------------------------------------- NSE universe + scan
+// Yahoo's v7/quote and quoteSummary need a crumb, but v7/spark does not and accepts
+// batched symbols, so the whole NSE list can be screened in a handful of subrequests.
+const NSE_UNIVERSE_TTL_MS = 6 * 3600 * 1000;
+let nseUniverseMemo = { data: null, at: 0 };
+const NSE_UNIVERSE_SOURCES = [
+  "https://archives.nseindia.com/content/indices/ind_niftytotalmarket_list.csv",
+  "https://archives.nseindia.com/content/indices/ind_nifty500list.csv",
+];
+
+function splitCsvLine(line) {
+  const out = [];
+  let cur = "";
+  let quoted = false;
+  for (const ch of line) {
+    if (ch === '"') quoted = !quoted;
+    else if (ch === "," && !quoted) {
+      out.push(cur);
+      cur = "";
+    } else cur += ch;
+  }
+  out.push(cur);
+  return out.map(v => v.trim());
+}
+
+function parseUniverseCsv(text) {
+  const lines = String(text || "").split(/\r?\n/).filter(l => l.trim());
+  if (lines.length < 2) return [];
+  const header = splitCsvLine(lines[0]).map(h => h.toLowerCase());
+  const iName = header.indexOf("company name");
+  const iIndustry = header.indexOf("industry");
+  const iSymbol = header.indexOf("symbol");
+  const iSeries = header.indexOf("series");
+  if (iSymbol < 0) return [];
+  const rows = [];
+  for (const line of lines.slice(1)) {
+    const cells = splitCsvLine(line);
+    const symbol = cells[iSymbol] || "";
+    if (!symbol || !/^[A-Z0-9&.-]{1,24}$/i.test(symbol)) continue;
+    if (iSeries >= 0 && cells[iSeries] && cells[iSeries].toUpperCase() !== "EQ") continue;
+    rows.push({
+      symbol: symbol.toUpperCase(),
+      name: cells[iName] || symbol,
+      industry: cells[iIndustry] || "",
+    });
+  }
+  return rows;
+}
+
+async function nseUniverse() {
+  if (nseUniverseMemo.data && Date.now() - nseUniverseMemo.at < NSE_UNIVERSE_TTL_MS) {
+    return nseUniverseMemo.data;
+  }
+  for (const url of NSE_UNIVERSE_SOURCES) {
+    try {
+      const res = await fetch(url, { headers: { "User-Agent": UA } });
+      if (!res.ok) continue;
+      const rows = parseUniverseCsv(await res.text());
+      if (rows.length) {
+        nseUniverseMemo = { data: rows, at: Date.now() };
+        return rows;
+      }
+    } catch (_) {
+      /* try the next source */
+    }
+  }
+  return nseUniverseMemo.data || [];
+}
+
+const scanMemo = new Map();
+const SCAN_TTL_MS = 90000;
+const SCAN_BATCH = 40;
+
+function seriesMetrics(closes, meta) {
+  if (!closes || closes.length < 30) return null;
+  const last = closes[closes.length - 1];
+  const prev = closes[closes.length - 2];
+  if (!(last > 0) || !(prev > 0)) return null;
+  const ago = n => closes[Math.max(0, closes.length - 1 - n)];
+  const pct = from => (from > 0 ? (last / from - 1) * 100 : 0);
+  const meanOf = n => {
+    const arr = closes.slice(-n);
+    return arr.length ? arr.reduce((a, b) => a + b, 0) / arr.length : last;
+  };
+  const ma50 = meanOf(50);
+  const ma200 = meanOf(200);
+  const high52 = meta.fiftyTwoWeekHigh || Math.max(...closes);
+  const low52 = meta.fiftyTwoWeekLow || Math.min(...closes);
+  const offHigh = high52 > 0 ? (last / high52 - 1) * 100 : 0;
+  const rets = [];
+  for (let i = Math.max(1, closes.length - 60); i < closes.length; i++) {
+    rets.push(closes[i] / closes[i - 1] - 1);
+  }
+  const mean = rets.reduce((a, b) => a + b, 0) / Math.max(1, rets.length);
+  const vol = Math.sqrt(rets.reduce((a, b) => a + (b - mean) ** 2, 0) / Math.max(1, rets.length)) * Math.sqrt(252) * 100;
+  const above200 = last > ma200;
+  const d30 = pct(ago(21));
+  const d90 = pct(ago(63));
+  const score = 0.45 * d90 + 0.25 * d30 + (above200 ? 20 : 0) + 0.1 * (100 + offHigh);
+  return {
+    ltp: Math.round(last * 100) / 100,
+    chg: Math.round((last / prev - 1) * 10000) / 100,
+    d30: Math.round(d30 * 100) / 100,
+    d90: Math.round(d90 * 100) / 100,
+    offHigh: Math.round(offHigh * 100) / 100,
+    high52: Math.round(high52 * 100) / 100,
+    low52: Math.round(low52 * 100) / 100,
+    ma50: Math.round(ma50 * 100) / 100,
+    ma200: Math.round(ma200 * 100) / 100,
+    above200,
+    vol: Math.round(vol * 10) / 10,
+    score: Math.round(score * 10) / 10,
+  };
+}
+
+async function scanNse(offset, limit) {
+  const key = `${offset}:${limit}`;
+  const hit = scanMemo.get(key);
+  if (hit && Date.now() - hit.at < SCAN_TTL_MS) return { ...hit.data, cached: true };
+
+  const universe = await nseUniverse();
+  const total = universe.length;
+  if (!total) return { state: "UNAVAILABLE", offset, total: 0, scanned: 0, rows: [] };
+
+  const slice = universe.slice(offset, offset + limit);
+  const rows = [];
+  for (let i = 0; i < slice.length; i += SCAN_BATCH) {
+    const batch = slice.slice(i, i + SCAN_BATCH);
+    const symbols = batch.map(r => `${r.symbol}.NS`).join(",");
+    try {
+      const res = await fetch(
+        `https://query1.finance.yahoo.com/v7/finance/spark?symbols=${encodeURIComponent(symbols)}&range=1y&interval=1d`,
+        { headers: { "User-Agent": UA, Accept: "application/json" } },
+      );
+      if (!res.ok) continue;
+      const body = await res.json();
+      const results = (body && body.spark && body.spark.result) || [];
+      for (const item of results) {
+        const response = (item.response || [])[0] || {};
+        const closes = (((response.indicators || {}).quote || [{}])[0].close || []).filter(
+          v => typeof v === "number" && isFinite(v),
+        );
+        const symbol = String(item.symbol || "").replace(/\.NS$/i, "").toUpperCase();
+        const meta = batch.find(r => r.symbol === symbol) || { symbol, name: symbol, industry: "" };
+        const metrics = seriesMetrics(closes, response.meta || {});
+        if (!metrics) continue;
+        rows.push({ s: meta.symbol, n: meta.name, ind: meta.industry, ...metrics });
+      }
+    } catch (_) {
+      /* one bad batch must not abort the page */
+    }
+  }
+
+  rows.sort((a, b) => b.score - a.score);
+  const payload = {
+    state: rows.length ? "LIVE NSE QUOTES" : "UNAVAILABLE",
+    offset,
+    total,
+    scanned: rows.length,
+    rows,
+  };
+  scanMemo.set(key, { data: payload, at: Date.now() });
+  if (scanMemo.size > 40) scanMemo.clear();
+  return payload;
+}
+
 // ---------------------------------------------------------------- Delta
 // The crypto desk needs the tradable catalog, including RWA tokens, not just a
 // ticker: without it the token list is empty on hosted builds.
@@ -439,6 +605,21 @@ export default {
       if ((m = /^\/api\/v1\/delta\/ticker\/([A-Za-z0-9&._-]+)$/.exec(path))) {
         return json(await deltaLive(m[1]));
       }
+      if (path === "/api/v1/nse/universe") {
+        const symbols = await nseUniverse();
+        return json({
+          symbols,
+          count: symbols.length,
+          state: symbols.length ? "NSE CONSTITUENTS" : "UNAVAILABLE",
+        });
+      }
+
+      if (path === "/api/v1/nse/scan") {
+        const offset = Math.max(0, parseInt(url.searchParams.get("offset") || "0", 10) || 0);
+        const limit = Math.min(200, Math.max(10, parseInt(url.searchParams.get("limit") || "160", 10) || 160));
+        return json(await scanNse(offset, limit));
+      }
+
       if (path === "/api/v1/delta/products/categorized") {
         return json(await deltaProducts());
       }

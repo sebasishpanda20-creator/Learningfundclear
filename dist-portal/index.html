@@ -636,6 +636,94 @@
         </div>`;
     }
 
+    // ---- All-NSE scan -------------------------------------------------------
+    // Bulk fundamentals (PE/ROE) need a Yahoo crumb we cannot get from the edge, so the
+    // universe-wide pass screens price action: momentum, trend vs 200DMA, drawdown from
+    // the 52w high. Score = 0.45×3M + 0.25×1M + 20 if above 200DMA + 0.1×(100+offHigh).
+    let nseScanBusy = false;
+    let nseUniverseLoaded = false;
+
+    async function loadNseUniverse() {
+      if (nseUniverseLoaded) return;
+      nseUniverseLoaded = true;
+      try {
+        const res = await fetch(`${getProxyBaseUrl()}/api/v1/nse/universe`, { signal: AbortSignal.timeout(8000) });
+        if (!res.ok) return;
+        const body = await res.json();
+        const seen = new Set(catalogByDesk.stocks.map(x => x.s));
+        (body.symbols || []).forEach(r => {
+          if (!r || !r.symbol || seen.has(r.symbol)) return;
+          catalogByDesk.stocks.push({ s: r.symbol, n: r.name || r.symbol, e: 'NSE' });
+          seen.add(r.symbol);
+        });
+      } catch (_) {}
+    }
+
+    function scanTableHTML(rows) {
+      const head = `<tr style="color:#94a3b8;border-bottom:1px solid #1f2937"><th style="text-align:left;padding:5px">#</th><th style="text-align:left;padding:5px">Symbol</th><th style="text-align:right;padding:5px">Price</th><th style="text-align:right;padding:5px">1D%</th><th style="text-align:right;padding:5px">1M%</th><th style="text-align:right;padding:5px">3M%</th><th style="text-align:right;padding:5px">vs 52W High</th><th style="text-align:right;padding:5px">200DMA</th><th style="text-align:right;padding:5px">Score</th></tr>`;
+      const tone = v => (v >= 0 ? '#16a34a' : '#dc2626');
+      const sign = v => `${v > 0 ? '+' : ''}${v}%`;
+      const body = rows.map((r, i) => `<tr data-sym="${r.s}" style="cursor:pointer;border-top:1px solid #111827">
+          <td style="padding:5px">${i + 1}</td>
+          <td style="padding:5px"><strong>${r.s}</strong><div style="color:#64748b;font-size:9px">${r.n}</div></td>
+          <td style="text-align:right;padding:5px">₹${r.ltp}</td>
+          <td style="text-align:right;padding:5px;color:${tone(r.chg)}">${sign(r.chg)}</td>
+          <td style="text-align:right;padding:5px;color:${tone(r.d30)}">${sign(r.d30)}</td>
+          <td style="text-align:right;padding:5px;color:${tone(r.d90)}">${sign(r.d90)}</td>
+          <td style="text-align:right;padding:5px;color:${tone(r.offHigh)}">${r.offHigh}%</td>
+          <td style="text-align:right;padding:5px">${r.above200 ? 'above' : 'below'}</td>
+          <td style="text-align:right;padding:5px"><strong>${r.score}</strong></td>
+        </tr>`).join('');
+      return `<table style="width:100%;border-collapse:collapse;font-family:var(--font-mono);font-size:11px">${head}${body}</table>`;
+    }
+
+    async function runNseScan() {
+      if (nseScanBusy) return;
+      nseScanBusy = true;
+      const btn = document.getElementById('btn-nse-scan');
+      const sub = document.getElementById('scan-sub');
+      const out = document.getElementById('scan-results');
+      if (btn) { btn.disabled = true; btn.style.opacity = '0.5'; }
+      const base = getProxyBaseUrl();
+      const rows = [];
+      let total = 0, offset = 0, error = '';
+      out.innerHTML = '<div style="padding:10px 0">Scanning NSE universe…</div>';
+      while (offset < 2000) {
+        let body;
+        try {
+          const res = await fetch(`${base}/api/v1/nse/scan?offset=${offset}&limit=160`, { signal: AbortSignal.timeout(20000) });
+          if (!res.ok) throw new Error(`HTTP ${res.status}`);
+          body = await res.json();
+        } catch (err) {
+          error = String((err && err.message) || err);
+          break;
+        }
+        total = body.total || total;
+        (body.rows || []).forEach(r => rows.push(r));
+        offset += 160;
+        if (sub) sub.innerText = `${Math.min(offset, total)} / ${total} scanned · ${rows.length} priced`;
+        out.innerHTML = `<div style="padding:10px 0">Scanned ${rows.length} of ${total}…</div>`;
+        if (!total || offset >= total) break;
+      }
+      rows.sort((a, b) => b.score - a.score);
+      if (!rows.length) {
+        out.innerHTML = `<div style="padding:10px 0;color:#dc2626">No stocks priced${error ? ` — ${error}` : ''}. The quote path returned nothing.</div>`;
+      } else {
+        const top = rows.slice(0, 40);
+        out.innerHTML = `<div style="padding:8px 0;color:#94a3b8">${rows.length} of ${total || rows.length} stocks scanned${error ? ` (stopped early: ${error})` : ''} · top ${top.length} ranked by momentum score · click a row to load it</div>${scanTableHTML(top)}`;
+        out.querySelectorAll('tr[data-sym]').forEach(tr => {
+          tr.onclick = () => {
+            STATE.symbol = tr.getAttribute('data-sym');
+            const inp = document.getElementById('inp-symbol');
+            if (inp) inp.value = STATE.symbol;
+            renderWorkspace();
+          };
+        });
+      }
+      if (btn) { btn.disabled = false; btn.style.opacity = '1'; }
+      nseScanBusy = false;
+    }
+
     async function renderWorkspace() {
       const mount = document.getElementById('desk-mount');
       const clock = document.getElementById('tel-time');
@@ -745,7 +833,15 @@
               ${legsHTML}
             </div>
           </div>
+          <div class="card" style="margin-top:16px">
+            <div class="card-head">
+              <div><div class="card-title">All-NSE Scan — NIFTY Total Market</div><div class="card-sub" id="scan-sub">Full-universe screen: momentum, 200DMA trend, drawdown from 52w high</div></div>
+              <button id="btn-nse-scan" class="pill" style="cursor:pointer">SCAN ALL NSE STOCKS</button>
+            </div>
+            <div id="scan-results" style="font-family:var(--font-mono);font-size:11px;color:#94a3b8">Not scanned yet.</div>
+          </div>
         `;
+        document.getElementById('btn-nse-scan').onclick = runNseScan;
       } else if (STATE.group === 'risk_tax') {
         mount.innerHTML = `
           <div class="card">
@@ -877,6 +973,7 @@
       if (crumb && cur) crumb.innerText = `${cur.label} / ${(cur.subtabs.find(s => s.id === STATE.subtab) || cur.subtabs[0]).label}`;
 
       if (STATE.group === 'crypto') loadDeltaCatalog();
+      if (STATE.group === 'investing') loadNseUniverse();
       setupAutoSuggest();
       renderWorkspace();
     }
