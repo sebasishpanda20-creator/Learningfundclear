@@ -1,0 +1,157 @@
+{
+  "portal": "https://site-443e334f4a224d008788726d8cf4b9ed.freebuff.page",
+  "proxy": "http://127.0.0.1:8000",
+  "started_at": "2026-11-12T18:56:57.394405+00:00",
+  "finished_at": "2026-11-12T18:57:09.428333+00:00",
+  "duration_ms": 12033,
+  "passed": 15,
+  "failed": 1,
+  "ok": false,
+  "checks": [
+    {
+      "name": "published index.html served",
+      "ok": true,
+      "detail": "HTTP 200, 79,122 bytes"
+    },
+    {
+      "name": "published index.html matches committed build",
+      "ok": true,
+      "detail": "sha256 ad96f6d9a87e vs build ad96f6d9a87e"
+    },
+    {
+      "name": "published robots.txt served",
+      "ok": true,
+      "detail": "HTTP 200, 104 bytes"
+    },
+    {
+      "name": "published robots.txt matches committed build",
+      "ok": true,
+      "detail": "sha256 c2aadd5546da vs build c2aadd5546da"
+    },
+    {
+      "name": "proxy health ONLINE",
+      "ok": true,
+      "detail": "HTTP 200, version 5.3, nsemine=False"
+    },
+    {
+      "name": "NSE RELIANCE priced",
+      "ok": true,
+      "detail": "ltp 1,339.7"
+    },
+    {
+      "name": "NSE RELIANCE is real-time",
+      "ok": true,
+      "detail": "state=REAL-TIME NSE DIRECT"
+    },
+    {
+      "name": "MCX GOLD priced",
+      "ok": true,
+      "detail": "ltp 136,279, expiry 04DEC2026"
+    },
+    {
+      "name": "MCX GOLD is real-time",
+      "ok": true,
+      "detail": "state=REAL-TIME MCX DIRECT"
+    },
+    {
+      "name": "MCX GOLD inside circuit band",
+      "ok": true,
+      "detail": "130,827.84 < 136,279 < 141,730.16"
+    },
+    {
+      "name": "XAUTUSD priced",
+      "ok": true,
+      "detail": "ltp 3,882.57, mark 3,882.5499"
+    },
+    {
+      "name": "XAUTUSD badged LIVE",
+      "ok": true,
+      "detail": "state=LIVE DELTA API"
+    },
+    {
+      "name": "XAUTUSD inside circuit band",
+      "ok": true,
+      "detail": "3,494.2861 < 3,882.57 < 4,270.7941"
+    },
+    {
+      "name": "categorized products not empty while claiming LIVE",
+      "ok": false,
+      "detail": "state=LIVE DELTA API, counts={'Futures': 0, 'Options': 0, 'RWA Tokens': 0}"
+    },
+    {
+      "name": "unknown Delta symbol not tradeable",
+      "ok": true,
+      "detail": "ltp 0, state=UNAVAILABLE"
+    },
+    {
+      "name": "unknown NSE symbol not tradeable",
+      "ok": true,
+      "detail": "ltp 0, state=UNAVAILABLE"
+    }
+  ],
+  "snapshots": {
+    "health": {
+      "status": "ONLINE",
+      "version": "5.3",
+      "proxy": "Quant Core Local Proxy",
+      "nsepython": true,
+      "curl_cffi": true,
+      "nsemine": false,
+      "yfinance": true,
+      "mcx_watch_rows": 5129,
+      "refresher": {
+        "running": true,
+        "watchlist": 11,
+        "cached": 0,
+        "interval_seconds": 300.0,
+        "throttled": true,
+        "last_success_age_s": null
+      }
+    },
+    "nse_reliance": {
+      "symbol": "RELIANCE",
+      "ltp": 1339.7,
+      "change": 4.3,
+      "pChange": 0.32,
+      "state": "REAL-TIME NSE DIRECT",
+      "feed_note": "nsepython (NSE official API)"
+    },
+    "mcx_gold": {
+      "symbol": "GOLD",
+      "ltp": 136279.0,
+      "high": 139315.0,
+      "low": 135530.0,
+      "open": 139282.0,
+      "volume": 13599.0,
+      "change": 54.0,
+      "pChange": 0.04,
+      "expiry": "04DEC2026",
+      "upper_circuit": 141730.16,
+      "lower_circuit": 130827.84,
+      "state": "REAL-TIME MCX DIRECT",
+      "feed_note": "MCX market watch (GetMarketWatch, FUTCOM nearest expiry)"
+    },
+    "xaut": {
+      "symbol": "XAUTUSD",
+      "ltp": 3882.57,
+      "change": -2.604,
+      "pChange": -2.604,
+      "mark_price": 3882.54986383,
+      "funding_rate": 0.004999999999999997,
+      "volume": 1080901761.0476155,
+      "upper_circuit": 4270.79411079,
+      "lower_circuit": 3494.28609065,
+      "state": "LIVE DELTA API"
+    },
+    "delta_categorized": {
+      "categories": {
+        "Futures": [],
+        "Options": [],
+        "RWA Tokens": []
+      },
+      "state": "LIVE DELTA API"
+    }
+  },
+  "deployed_index_sha256": "ad96f6d9a87eee36f7f2bc8e8b3278caddc5a643f91243e523c39bfe7894b921",
+  "build_index_sha256": "ad96f6d9a87eee36f7f2bc8e8b3278caddc5a643f91243e523c39bfe7894b921"
+}
