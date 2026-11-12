@@ -480,20 +480,38 @@ async function scanNse(offset, limit) {
 // The crypto desk needs the tradable catalog, including RWA tokens, not just a
 // ticker: without it the token list is empty on hosted builds.
 let deltaProductsMemo = { data: null, at: 0 };
+let deltaRawMemo = { data: null, at: 0 };
 const DELTA_PRODUCTS_TTL_MS = 300000;
 const CATEGORY_CAP = 400;
 
-async function deltaProducts() {
-  if (deltaProductsMemo.data && Date.now() - deltaProductsMemo.at < DELTA_PRODUCTS_TTL_MS) {
-    return deltaProductsMemo.data;
-  }
+// Raw product rows carry the margin/leverage/fee spec; the categorised view does not.
+async function deltaRawProducts() {
+  if (deltaRawMemo.data && Date.now() - deltaRawMemo.at < DELTA_PRODUCTS_TTL_MS) return deltaRawMemo.data;
   try {
     const res = await fetch("https://api.india.delta.exchange/v2/products", {
       headers: { "User-Agent": UA, Accept: "application/json" },
     });
     if (res.ok) {
       const body = await res.json();
-      const products = (body && body.result) || [];
+      const rows = (body && body.result) || [];
+      if (rows.length) {
+        deltaRawMemo = { data: rows, at: Date.now() };
+        return rows;
+      }
+    }
+  } catch (_) {
+    /* fall through to the memo */
+  }
+  return deltaRawMemo.data || [];
+}
+
+async function deltaProducts() {
+  if (deltaProductsMemo.data && Date.now() - deltaProductsMemo.at < DELTA_PRODUCTS_TTL_MS) {
+    return deltaProductsMemo.data;
+  }
+  try {
+    const products = await deltaRawProducts();
+    if (products.length) {
       const categories = { Futures: [], Options: [], "RWA Tokens": [] };
       // Delta reports tradable products as state "live", not "active".
       // RWA/tokenised instruments are described as "<asset> Token perpetual future"
@@ -639,6 +657,31 @@ export default {
 
       if (path === "/api/v1/delta/products/categorized") {
         return json(await deltaProducts());
+      }
+
+      if (path.startsWith("/api/v1/delta/product/")) {
+        const symbol = decodeURIComponent(path.slice("/api/v1/delta/product/".length)).toUpperCase();
+        const rows = await deltaRawProducts();
+        const product = rows.find(r => String(r.symbol || "").toUpperCase() === symbol);
+        if (!product) return json({ state: "UNAVAILABLE", symbol });
+        const num = v => {
+          const n = Number(v);
+          return isFinite(n) ? n : null;
+        };
+        return json({
+          state: "LIVE DELTA API",
+          symbol: product.symbol,
+          description: product.short_description || "",
+          initial_margin_pct: num(product.initial_margin),
+          maintenance_margin_pct: num(product.maintenance_margin),
+          max_leverage: num(product.default_leverage),
+          contract_value: num(product.contract_value),
+          contract_unit: product.contract_unit_currency || "",
+          maker_fee: num(product.maker_commission_rate),
+          taker_fee: num(product.taker_commission_rate),
+          tick_size: num(product.tick_size),
+          position_limit: num(product.position_size_limit),
+        });
       }
       if (path.startsWith("/api/")) {
         return json({ state: "UNAVAILABLE", error: "unknown endpoint" }, 404);

@@ -357,10 +357,20 @@
             const d = await dRes.json();
             if (Number(d.ltp) > 0) {
               const dState = String(d.state || 'SNAPSHOT').toUpperCase();
+              // Exchange margin spec for this contract (initial/maintenance %, leverage, fees).
+              let margin = null;
+              try {
+                const mRes = await fetch(`${proxyBase}/api/v1/delta/product/${sym.toUpperCase()}`, { signal: AbortSignal.timeout(3000) });
+                if (mRes.ok) {
+                  const m = await mRes.json();
+                  if (m && m.state === 'LIVE DELTA API') margin = m;
+                }
+              } catch (_) {}
               return {
                 provider: 'Delta India (' + (dState.indexOf('LIVE') === 0 ? 'Direct' : 'Snapshot') + ')',
                 state: dState, ltp: Number(d.ltp), pChange: Number(d.pChange) || 0, volume: d.volume,
-                upper: d.upper_circuit, lower: d.lower_circuit, mark: d.mark_price, funding: d.funding_rate, currency: '$'
+                upper: d.upper_circuit, lower: d.lower_circuit, mark: d.mark_price, funding: d.funding_rate, currency: '$',
+                margin
               };
             }
             return { provider: 'Delta India (No Feed)', state: 'UNAVAILABLE', ltp: 0, currency: '$' };
@@ -653,6 +663,41 @@
         </div>`;
     }
 
+    // Delta publishes the contract margin spec per product; without this card the VDA
+    // desk showed no collateral requirement at all.
+    function vdaMarginCard(feed) {
+      const m = feed.margin;
+      if (!m || m.initial_margin_pct == null) {
+        return `<div class="card" style="margin-top:16px">
+          <div class="card-head"><div><div class="card-title">Delta Margin &amp; Leverage Audit</div><div class="card-sub">${STATE.symbol}</div></div><span class="tag fail">UNAVAILABLE</span></div>
+          <div class="gate-item"><span>Exchange margin spec</span><strong>Not returned for this contract</strong></div>
+        </div>`;
+      }
+      const ltp = Number(feed.ltp) || 0;
+      const contractValue = Number(m.contract_value) || 0;
+      const notional = ltp * contractValue;
+      const imPct = Number(m.initial_margin_pct);
+      const mmPct = Number(m.maintenance_margin_pct);
+      const im = notional * imPct / 100;
+      const mm = notional * mmPct / 100;
+      const lev = Number(m.max_leverage) || (imPct > 0 ? 100 / imPct : 0);
+      const taker = Number(m.taker_fee) || 0;
+      return `<div class="card" style="margin-top:16px">
+        <div class="card-head"><div><div class="card-title">Delta Margin &amp; Leverage Audit</div><div class="card-sub">${m.description || STATE.symbol} · 1 contract = ${contractValue} ${m.contract_unit || ''} ≈ $${notional.toFixed(2)}</div></div><span class="tag pass">LIVE DELTA API</span></div>
+        <div class="kv-grid">
+          <div class="kv"><span>Initial Margin</span><strong>${imPct}%</strong></div>
+          <div class="kv"><span>Maintenance Margin</span><strong>${mmPct}%</strong></div>
+          <div class="kv"><span>Max Leverage</span><strong>${Math.round(lev)}×</strong></div>
+          <div class="kv"><span>Margin / Contract</span><strong>$${im.toFixed(2)}</strong></div>
+          <div class="kv"><span>Maintenance / Contract</span><strong>$${mm.toFixed(2)}</strong></div>
+          <div class="kv"><span>Taker Fee</span><strong>${(taker * 100).toFixed(2)}%</strong></div>
+        </div>
+        <div class="gate-item"><span>Round-Trip Fee / Contract</span><strong>$${(notional * taker * 2).toFixed(3)}</strong></div>
+        <div class="gate-item"><span>Position Limit</span><strong>${Number(m.position_limit || 0).toLocaleString('en-IN')} contracts</strong></div>
+        <div class="gate-item"><span>Liquidation Buffer (IM − MM)</span><strong>$${(im - mm).toFixed(2)} / contract</strong></div>
+      </div>`;
+    }
+
     // ---- All-NSE scan -------------------------------------------------------
     // Bulk fundamentals (PE/ROE) need a Yahoo crumb we cannot get from the edge, so the
     // universe-wide pass screens price action: momentum, trend vs 200DMA, drawdown from
@@ -901,6 +946,7 @@
               ${legsHTML}
             </div>
           </div>
+          ${isVdaSymbol(STATE.symbol) ? vdaMarginCard(feed) : ''}
         `;
         drawCanvasChart('inst-chart', feed.ltp);
       }
