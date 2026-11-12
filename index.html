@@ -266,7 +266,7 @@
 
     // Auto-Suggest Search Catalog per Product Desk
     const catalogByDesk = {
-      daily_income: [{ s: 'NIFTY', n: 'NIFTY 50 Index', e: 'NSE' }, { s: 'BANKNIFTY', n: 'Bank NIFTY Index', e: 'NSE' }, { s: 'RELIANCE', n: 'Reliance Industries', e: 'NSE' }],
+      daily_income: [{ s: 'NIFTY', n: 'NIFTY 50 Index', e: 'NSE' }, { s: 'BANKNIFTY', n: 'Bank NIFTY Index', e: 'NSE' }, { s: 'RELIANCE', n: 'Reliance Industries', e: 'NSE' }, { s: 'BTCUSD', n: 'Bitcoin Perpetual', e: 'DELTA' }, { s: 'ETHUSD', n: 'Ethereum Perpetual', e: 'DELTA' }, { s: 'SOLUSD', n: 'Solana Perpetual', e: 'DELTA' }],
       stocks: [{ s: 'NIFTY', n: 'NIFTY 50 Index', e: 'NSE' }, { s: 'BANKNIFTY', n: 'Bank NIFTY Index', e: 'NSE' }, { s: 'RELIANCE', n: 'Reliance Industries', e: 'NSE' }, { s: 'TCS', n: 'Tata Consultancy', e: 'NSE' }],
       mcx: [{ s: 'CRUDEOIL', n: 'Crude Oil Futures (100 bbl)', e: 'MCX' }, { s: 'GOLD', n: 'Gold Futures (1 Kg)', e: 'MCX' }, { s: 'SILVER', n: 'Silver Futures (30 Kg)', e: 'MCX' }, { s: 'COPPER', n: 'Copper Futures (2500 Kg)', e: 'MCX' }, { s: 'NATURALGAS', n: 'Natural Gas (1250 mmBtu)', e: 'MCX' }],
       crypto: [{ s: 'BTCUSD', n: 'Bitcoin Perpetual', e: 'DELTA' }, { s: 'ETHUSD', n: 'Ethereum Perpetual', e: 'DELTA' }, { s: 'SOLUSD', n: 'Solana Perpetual', e: 'DELTA' }, { s: 'PAXGUSD', n: 'Gold RWA Token', e: 'DELTA' }],
@@ -284,12 +284,21 @@
         const res = await fetch(`${getProxyBaseUrl()}/api/v1/delta/products/categorized`, { signal: AbortSignal.timeout(6000) });
         if (!res.ok) return;
         const body = await res.json();
-        const tokens = ((body.categories || {})['RWA Tokens']) || [];
-        const seen = new Set(catalogByDesk.crypto.map(x => x.s));
-        tokens.forEach(t => {
-          if (!t || !t.id || seen.has(t.id)) return;
-          catalogByDesk.crypto.push({ s: t.id, n: t.label || 'RWA Token', e: 'DELTA' });
-          seen.add(t.id);
+        const categories = body.categories || {};
+        const tokens = categories['RWA Tokens'] || [];
+        const perps = (categories.Futures || []).slice(0, 60);
+        // The Daily Income desk trades the same Delta instrument set as the VDA desk.
+        ['crypto', 'daily_income'].forEach(desk => {
+          const list = catalogByDesk[desk] || [];
+          const seen = new Set(list.map(x => x.s));
+          const add = (id, label) => {
+            if (!id || seen.has(id)) return;
+            list.push({ s: id, n: label || id, e: 'DELTA' });
+            seen.add(id);
+          };
+          perps.forEach(p => add(p.id, p.label));
+          tokens.forEach(t => add(t.id, t.label || 'RWA Token'));
+          catalogByDesk[desk] = list;
         });
       } catch (_) {}
     }
@@ -326,11 +335,19 @@
       });
     }
 
+    // A Delta VDA instrument is identified by its symbol, not by the open desk. Gating
+    // this on STATE.group meant a BTCUSD name entered on the Daily Income desk was routed
+    // to the NSE quote route, which has no crypto feed — so it showed nothing.
+    function isVdaSymbol(sym) {
+      const s = String(sym || '').toUpperCase();
+      return /USD$/.test(s) && s.length > 3;
+    }
+
     async function fetchLiveMetrics(sym) {
       const proxyBase = getProxyBaseUrl();
       const onLaptopProxy = /^https?:\/\/(127\.0\.0\.1|localhost)/.test(proxyBase);
       const feedHost = onLaptopProxy ? 'Local Python Proxy' : 'Cloud Edge';
-      const onVdaDesk = (STATE.group === 'crypto' || STATE.group === 'risk_tax') && /USD$/.test(sym.toUpperCase());
+      const onVdaDesk = isVdaSymbol(sym);
 
       // 1. VDA desks read Delta India directly — the NSE route has no crypto feed.
       if (onVdaDesk) {
@@ -430,7 +447,7 @@
     function executionPlan(sym, step, credit) {
       const capEl = document.getElementById('inp-cap');
       const riskEl = document.getElementById('inp-risk');
-      const fx = STATE.group === 'crypto' ? 86.5 : 1;   // capital is ₹, VDA risk is $
+      const fx = isVdaSymbol(sym) ? 86.5 : 1;   // capital is ₹, VDA risk is $
       const cap = (Number(capEl ? capEl.value : 150000) || 150000) / fx;
       const riskPct = Number(riskEl ? riskEl.value : 1.5) || 1.5;
       const lotSize = getLotSize(sym);
@@ -465,7 +482,7 @@
 
     function generateUniversalLegs(sym, ltp, verdict, desk) {
       const step = getStrikeStep(sym, ltp);
-      const curSym = desk === 'crypto' ? '$' : '₹';
+      const curSym = isVdaSymbol(sym) ? '$' : '₹';
       const dte = currentDte();
       const iv = desk === 'crypto' ? 0.55 : 0.18;   // VDA realised vol >> index vol
 
@@ -972,7 +989,7 @@
       const crumb = document.getElementById('breadcrumb');
       if (crumb && cur) crumb.innerText = `${cur.label} / ${(cur.subtabs.find(s => s.id === STATE.subtab) || cur.subtabs[0]).label}`;
 
-      if (STATE.group === 'crypto') loadDeltaCatalog();
+      if (STATE.group === 'crypto' || STATE.group === 'daily_income') loadDeltaCatalog();
       if (STATE.group === 'investing') loadNseUniverse();
       setupAutoSuggest();
       renderWorkspace();
