@@ -476,6 +476,87 @@ async function scanNse(offset, limit) {
   return payload;
 }
 
+// ---------------------------------------------------------------- history
+const HISTORY_TTL_MS = 300000;
+const historyMemo = new Map();
+
+function realizedVolFrom(closes) {
+  const arr = (closes || []).filter(v => typeof v === "number" && isFinite(v));
+  if (arr.length < 20) return null;
+  const rets = [];
+  for (let i = 1; i < arr.length; i++) {
+    if (arr[i - 1] > 0) rets.push(arr[i] / arr[i - 1] - 1);
+  }
+  if (rets.length < 10) return null;
+  const mean = rets.reduce((a, b) => a + b, 0) / rets.length;
+  const sd = Math.sqrt(rets.reduce((a, b) => a + (b - mean) ** 2, 0) / rets.length);
+  return Math.round(sd * Math.sqrt(252) * 1000) / 1000;
+}
+
+async function historyFor(symbol, market) {
+  const key = `${market}:${symbol}`;
+  const hit = historyMemo.get(key);
+  if (hit && Date.now() - hit.at < HISTORY_TTL_MS) return { ...hit.data, cached: true };
+
+  let bars = [];
+  let state = "UNAVAILABLE";
+
+  if (market === "delta") {
+    const end = Math.floor(Date.now() / 1000);
+    const start = end - 370 * 86400;
+    try {
+      const res = await fetch(
+        `https://api.india.delta.exchange/v2/history/candles?resolution=1d&symbol=${encodeURIComponent(symbol)}&start=${start}&end=${end}`,
+        { headers: { "User-Agent": UA, Accept: "application/json" } },
+      );
+      if (res.ok) {
+        const body = await res.json();
+        bars = (body.result || [])
+          .map(c => ({ t: c.time, o: c.open, h: c.high, l: c.low, c: c.close }))
+          .filter(b => typeof b.c === "number" && isFinite(b.c))
+          .reverse();
+        if (bars.length) state = "LIVE DELTA API";
+      }
+    } catch (_) {
+      /* UNAVAILABLE below */
+    }
+  } else if (market === "nse") {
+    const indexMap = { NIFTY: "^NSEI", BANKNIFTY: "^NSEBANK", SENSEX: "^BSESN", FINNIFTY: "NIFTY_FIN_SERVICE.NS" };
+    const ysym = indexMap[symbol.toUpperCase()] || `${symbol.toUpperCase()}.NS`;
+    try {
+      const res = await fetch(
+        `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(ysym)}?range=1y&interval=1d`,
+        { headers: { "User-Agent": UA, Accept: "application/json" } },
+      );
+      if (res.ok) {
+        const body = await res.json();
+        const result = ((body.chart || {}).result || [])[0] || {};
+        const ts = result.timestamp || [];
+        const quote = (((result.indicators || {}).quote || [{}])[0]) || {};
+        bars = ts
+          .map((t, i) => ({ t, o: quote.open && quote.open[i], h: quote.high && quote.high[i], l: quote.low && quote.low[i], c: quote.close && quote.close[i] }))
+          .filter(b => typeof b.c === "number" && isFinite(b.c));
+        if (bars.length) state = "REAL-TIME YFINANCE";
+      }
+    } catch (_) {
+      /* UNAVAILABLE below */
+    }
+  }
+
+  const recent = bars.slice(-180);
+  const payload = {
+    symbol,
+    market,
+    state,
+    bars: recent,
+    realizedVol: realizedVolFrom(bars.map(b => b.c)),
+    note: market === "mcx" ? "MCX publishes no free historical series" : undefined,
+  };
+  historyMemo.set(key, { data: payload, at: Date.now() });
+  if (historyMemo.size > 60) historyMemo.clear();
+  return payload;
+}
+
 // ---------------------------------------------------------------- Delta
 // The crypto desk needs the tradable catalog, including RWA tokens, not just a
 // ticker: without it the token list is empty on hosted builds.
@@ -639,6 +720,13 @@ export default {
       }
       if ((m = /^\/api\/v1\/delta\/ticker\/([A-Za-z0-9&._-]+)$/.exec(path))) {
         return json(await deltaLive(m[1]));
+      }
+      if ((m = /^\/api\/v1\/history\/([A-Za-z0-9^&._-]+)$/.exec(path))) {
+        const sym = m[1].toUpperCase();
+        const requested = (url.searchParams.get("market") || "").toLowerCase();
+        const mcx = ["CRUDEOIL", "GOLD", "SILVER", "NATURALGAS", "COPPER", "ALUMINIUM", "ZINC", "LEAD", "NICKEL"];
+        const market = requested || (/USD$/.test(sym) ? "delta" : (mcx.includes(sym) ? "mcx" : "nse"));
+        return json(await historyFor(sym, market));
       }
       if (path === "/api/v1/nse/universe") {
         const symbols = await nseUniverse();

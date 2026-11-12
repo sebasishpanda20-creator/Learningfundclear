@@ -121,7 +121,14 @@
     .modal-card { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 20px; width: 100%; max-width: 500px; display: flex; flex-direction: column; gap: 14px; box-shadow: 0 20px 40px rgba(0,0,0,0.3); }
     .code-hint { background: var(--surface-alt); padding: 10px; border-radius: 6px; font-family: var(--font-mono); font-size: 10.5px; color: var(--text-muted); }
 
-    @media (max-width: 640px) { .leg-grid { grid-template-columns: 1fr; } }
+    @media (max-width: 640px) {
+      .leg-grid { grid-template-columns: 1fr; }
+      .topbar { flex-wrap: wrap; row-gap: 6px; }
+      .topbar-right { flex-wrap: wrap; justify-content: flex-start; gap: 6px; font-size: 10px; }
+      #tel-time { display: none; }
+      .gate-item, .kv { font-size: 12px; }
+      .card-sub, .leg-sub { font-size: 10.5px; }
+    }
 
     @media (max-width: 1080px) { .split-2 { grid-template-columns: 1fr; } .controls-grid { grid-template-columns: 1fr 1fr; } }
     @media (max-width: 860px) { .app-shell { grid-template-columns: 1fr; } .sidebar { position: static; height: auto; } .kv-grid { grid-template-columns: 1fr 1fr; } }
@@ -194,6 +201,7 @@
           <button type="button" class="btn" id="btn-open-proxy">⚙️ Host: <strong id="tel-host">Local</strong></button>
           <span>Feed: <strong id="tel-source">Connecting...</strong></span>
           <span>Tick IST: <strong id="tel-time">--</strong></span>
+          <span>Updated: <strong id="tel-fresh">—</strong></span>
           <span class="feed-badge" id="tel-badge" data-state="SNAPSHOT">SNAPSHOT</span>
         </div>
       </header>
@@ -234,7 +242,8 @@
   </div>
 
   <script>
-    const STATE = { group: 'daily_income', subtab: 'di-board', mode: 'ADVISORY', panic: false, symbol: 'NIFTY', tf: '15m|1h', cap: 150000, risk: 1.5 };
+    const STATE = { group: 'daily_income', subtab: 'di-board', mode: 'ADVISORY', panic: false, symbol: 'NIFTY', tf: '15m|1h', cap: 150000, risk: 1.5, history: null, realizedVol: null };
+    let refreshTimer = null, freshTimer = null, lastRenderAt = Date.now();
 
     // Feed base resolution:
     //   saved override -> use it
@@ -494,7 +503,10 @@
       const step = getStrikeStep(sym, ltp);
       const curSym = isVdaSymbol(sym) ? '$' : '₹';
       const dte = currentDte();
-      const iv = isVdaSymbol(sym) ? 0.55 : 0.18;   // VDA realised vol >> index vol
+      // Price with the instrument's own realised vol when its series is available.
+      const iv = (STATE.realizedVol && STATE.realizedVol > 0.03)
+        ? Math.min(2, Math.max(0.05, STATE.realizedVol))
+        : (isVdaSymbol(sym) ? 0.55 : 0.18);
 
       if (STATE.panic) {
         return `
@@ -630,7 +642,7 @@
         const invRisk = buyCeiling - invStop;
         return `
           <div class="trade-legs-container">
-            <div class="trade-legs-title"><span>DCF Intrinsic Valuation Trade Legs</span><span class="pill">Intrinsic ₹${intrinsic}</span></div>
+            <div class="trade-legs-title"><span>DCF Intrinsic (illustrative) Trade Legs</span><span class="pill">Intrinsic ₹${intrinsic}</span></div>
             <div class="leg-grid">
               <div class="leg-box buy-leg">
                 <div class="leg-header"><span>🟢 BUY ACCUMULATION ZONE</span><span>MOS &gt; 15%</span></div>
@@ -792,6 +804,38 @@
       nseScanBusy = false;
     }
 
+    // Real series for the chart and for pricing vol — no synthetic candles.
+    async function fetchHistory(sym) {
+      const market = isVdaSymbol(sym)
+        ? 'delta'
+        : (/^(CRUDEOIL|GOLD|SILVER|NATURALGAS|COPPER|ALUMINIUM|ZINC|LEAD|NICKEL)$/i.test(sym) ? 'mcx' : 'nse');
+      try {
+        const res = await fetch(`${getProxyBaseUrl()}/api/v1/history/${encodeURIComponent(sym.toUpperCase())}?market=${market}`, { signal: AbortSignal.timeout(6000) });
+        if (!res.ok) return { state: 'UNAVAILABLE', bars: [] };
+        return await res.json();
+      } catch (_) {
+        return { state: 'UNAVAILABLE', bars: [] };
+      }
+    }
+
+    // 8s poll while the tab is visible, plus a freshness stamp so "live" is verifiable.
+    function startAutoRefresh() {
+      if (refreshTimer) clearInterval(refreshTimer);
+      if (freshTimer) clearInterval(freshTimer);
+      freshTimer = setInterval(() => {
+        const el = document.getElementById('tel-fresh');
+        if (!el) return;
+        const secs = Math.max(0, Math.round((Date.now() - lastRenderAt) / 1000));
+        el.innerText = secs <= 1 ? 'just now' : `${secs}s ago`;
+      }, 1000);
+      refreshTimer = setInterval(() => {
+        if (document.hidden || nseScanBusy) return;
+        // Never wipe a finished scan table out from under the reader.
+        if (document.querySelectorAll('#scan-results tr[data-sym]').length) return;
+        renderWorkspace();
+      }, 8000);
+    }
+
     async function renderWorkspace() {
       const mount = document.getElementById('desk-mount');
       const clock = document.getElementById('tel-time');
@@ -800,6 +844,10 @@
 
       const feed = await fetchLiveMetrics(STATE.symbol);
       document.getElementById('tel-source').innerText = feed.provider;
+      lastRenderAt = Date.now();
+      const history = await fetchHistory(STATE.symbol);
+      STATE.history = history;
+      STATE.realizedVol = Number(history && history.realizedVol) > 0 ? Number(history.realizedVol) : null;
       const badge = document.getElementById('tel-badge');
       badge.innerText = feed.state; badge.setAttribute('data-state', feed.state);
 
@@ -871,7 +919,7 @@
             </div>
           </div>
         `;
-        drawCanvasChart('inst-chart', feed.ltp);
+        drawCanvasChart('inst-chart', feed.ltp, (STATE.history && STATE.history.bars) || []);
       } else if (STATE.group === 'investing') {
         // Render Piotroski & 2-Stage DCF Valuation Engine
         const dcfIntrinsic = Number((feed.ltp * 1.18).toFixed(2));
@@ -880,7 +928,7 @@
         mount.innerHTML = `
           <div class="split-2">
             <div class="card">
-              <div class="card-head"><div><div class="card-title">9-Point Piotroski F-Score Diagnostic</div><div class="card-sub">${STATE.symbol} Balance Sheet Audit</div></div><span class="tag pass">HIGH QUALITY (8/9)</span></div>
+                              <div class="card-head"><div><div class="card-title">9-Point Piotroski F-Score Diagnostic</div><div class="card-sub">${STATE.symbol} · template values, not sourced from filings</div></div><span class="tag info">TEMPLATE 8/9</span></div>
               <div class="kv-grid">
                 <div class="kv"><span>ROA Positive</span><strong>PASS (+14.2%)</strong></div>
                 <div class="kv"><span>CFO &gt; Net Income</span><strong>PASS (Accrual Quality)</strong></div>
@@ -891,7 +939,7 @@
               </div>
             </div>
             <div class="card">
-              <div class="card-head"><div><div class="card-title">2-Stage DCF Intrinsic Valuation</div><div class="card-sub">WACC: 10.45% | Terminal Growth: 3.0%</div></div></div>
+              <div class="card-head"><div><div class="card-title">2-Stage DCF Intrinsic Valuation</div><div class="card-sub">WACC: 10.45% | Terminal Growth: 3.0% | illustrative, price-derived — not from filings</div></div><span class="tag info">MODEL</span></div>
               <div class="verdict-banner buy">
                 <span>INTRINSIC VALUE: ₹${dcfIntrinsic}</span>
                 <span>MARGIN OF SAFETY: +${marginOfSafety}%</span>
@@ -955,11 +1003,12 @@
           </div>
           ${isVdaSymbol(STATE.symbol) ? vdaMarginCard(feed) : ''}
         `;
-        drawCanvasChart('inst-chart', feed.ltp);
+        drawCanvasChart('inst-chart', feed.ltp, (STATE.history && STATE.history.bars) || []);
       }
+      startAutoRefresh();
     }
 
-    function drawCanvasChart(id, spot) {
+    function drawCanvasChart(id, spot, series) {
       const canvas = document.getElementById(id);
       if (!canvas) return;
       const ctx = canvas.getContext('2d');
@@ -967,16 +1016,23 @@
       const h = canvas.height = canvas.clientHeight || 320;
       ctx.clearRect(0, 0, w, h);
 
-      // Build 30 candles around spot so highs/lows always fit the pane
-      const bars = [];
-      let p = spot - spot * 0.004;
-      for (let i = 0; i < 30; i++) {
-        const open = p;
-        const close = open + (Math.random() - 0.45) * spot * 0.0008;
-        const high = Math.max(open, close) + Math.random() * spot * 0.0004;
-        const low = Math.min(open, close) - Math.random() * spot * 0.0004;
-        bars.push({ open, close, high, low });
-        p = close;
+      // Real OHLC only. When the venue publishes no series, say so instead of
+      // drawing a random walk that looks like a chart.
+      const bars = (series || [])
+        .filter(b => Number(b.c) > 0)
+        .slice(-90)
+        .map(b => ({
+          open: Number(b.o) || Number(b.c),
+          close: Number(b.c),
+          high: Number(b.h) || Number(b.c),
+          low: Number(b.l) || Number(b.c),
+        }));
+      if (!bars.length) {
+        ctx.fillStyle = '#64748b';
+        ctx.font = '11px JetBrains Mono';
+        ctx.fillText('NO HISTORICAL SERIES FOR THIS CONTRACT', 20, h / 2 - 6);
+        ctx.fillText(`${STATE.symbol} · live ${spot} · venue publishes no candles for this feed`, 20, h / 2 + 12);
+        return;
       }
 
       const hi = Math.max(...bars.map(b => b.high));
