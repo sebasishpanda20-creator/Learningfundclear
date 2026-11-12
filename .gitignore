@@ -3,3 +3,4 @@ __pycache__/
 cookies.txt
 .opt-expiry-cache/
 node_modules/
+.wrangler/
