@@ -550,6 +550,8 @@
               </div>
               <div class="gate-item"><span>Est. Net Premium Credit</span><strong>${curSym}${credit.toFixed(1)} / lot</strong></div>
               <div class="gate-item"><span>Size from Capital × Risk</span><strong>${condorPlan.lots} lot(s) × ${condorPlan.lotSize}</strong></div>
+              <div class="gate-item"><span>Capital Required / Lot (margin blocked)</span><strong>${curSym}${Math.round((step * 2 - credit) * condorPlan.lotSize)}</strong></div>
+              ${condorPlan.lots > 0 ? `<div class="gate-item"><span>Capital Required at ${condorPlan.lots} lot(s)</span><strong>${curSym}${Math.round((step * 2 - credit) * condorPlan.lotSize * condorPlan.lots)}</strong></div>` : ''}
               ${condorPlan.lots === 0 ? '<div class="gate-item"><span>Risk Budget</span><span class="tag fail">INSUFFICIENT FOR 1 LOT — NO TRADE</span></div>' : ''}
               <div class="gate-item"><span>Statutory Cost Gate</span><span class="tag ${condorPlan.pass ? 'pass' : 'fail'}">${condorPlan.pass ? 'PASSED' : 'FAILED'} · E_net ${condorPlan.net >= 0 ? '+' : ''}${curSym}${Math.round(condorPlan.net)}</span></div>
               <div class="gate-item"><span>Max Profit / Lot (both wings expire OTM)</span><strong>+${curSym}${Math.round(credit * condorPlan.lotSize)}</strong></div>
@@ -581,6 +583,8 @@
             </div>
             <div class="gate-item"><span>Est. Net Credit / Unit</span><strong>${curSym}${credit.toFixed(1)} (Breakeven: ${curSym}${type === 'PE' ? (sellStrike - credit).toFixed(1) : (sellStrike + credit).toFixed(1)})</strong></div>
             <div class="gate-item"><span>Size from Capital × Risk</span><strong>${plan.lots} lot(s) × ${plan.lotSize}</strong></div>
+            <div class="gate-item"><span>Capital Required / Lot (margin blocked)</span><strong>${curSym}${Math.round((step - credit) * plan.lotSize)}</strong></div>
+            ${plan.lots > 0 ? `<div class="gate-item"><span>Capital Required at ${plan.lots} lot(s)</span><strong>${curSym}${Math.round((step - credit) * plan.lotSize * plan.lots)}</strong></div>` : ''}
             ${plan.lots === 0 ? '<div class="gate-item"><span>Risk Budget</span><span class="tag fail">INSUFFICIENT FOR 1 LOT — NO TRADE</span></div>' : ''}
             <div class="gate-item"><span>Statutory Cost Gate</span><span class="tag ${plan.pass ? 'pass' : 'fail'}">${plan.pass ? 'PASSED' : 'FAILED'} · E_net ${plan.net >= 0 ? '+' : ''}${curSym}${Math.round(plan.net)}</span></div>
             <div class="gate-item"><span>Max Profit / Lot (full credit decay)</span><strong>+${curSym}${Math.round(credit * plan.lotSize)}</strong></div>
@@ -641,6 +645,8 @@
             </div>
             <div class="gate-item"><span>Max Profit / Share (to intrinsic)</span><strong>+₹${invReward}</strong></div>
             <div class="gate-item"><span>Max Loss / Share (8% stop)</span><strong>−₹${invRisk}</strong></div>
+            <div class="gate-item"><span>Capital Required / Share (at buy ceiling)</span><strong>₹${buyCeiling}</strong></div>
+            <div class="gate-item"><span>Capital for 100 Shares</span><strong>₹${(buyCeiling * 100).toLocaleString('en-IN')}</strong></div>
             <div class="gate-item"><span>Exit Plan</span><strong>Buy ≤ ₹${buyCeiling} · hard stop ₹${invStop} · exit at ₹${intrinsic} or if thesis breaks</strong></div>
           </div>`;
       }
@@ -858,6 +864,7 @@
                 <div class="kv"><span>Upper Circuit (4%)</span><strong>₹${upper}</strong></div>
               </div>
               <div class="gate-item"><span>Round-Trip Cost / Lot</span><strong>₹${Math.round(feed.ltp * units * 0.000026 * 2 + 40)}</strong></div>
+              <div class="gate-item"><span>Capital Required / Lot (SPAN + Exposure ~12.5%)</span><strong>₹${Math.round(feed.ltp * units * 0.125).toLocaleString('en-IN')}</strong></div>
               <div class="gate-item"><span>MCX Transaction Fee</span><span class="tag info">0.0026% AUDITED</span></div>
               <div class="gate-item"><span>GST on Brokerage</span><span class="tag info">18% APPLIED</span></div>
               ${legsHTML}
