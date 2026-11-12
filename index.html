@@ -851,6 +851,28 @@
       nseScanBusy = false;
     }
 
+    // Valid ranges differ by desk: a spread's stop is a multiple of credit, an MCX or
+    // equity stop is a small % of price. One shared range would make 0.8% impossible.
+    function exitLimits(desk) {
+      if (desk === 'mcx') return { tpMin: 0.1, tpMax: 20, slMin: 0.1, slMax: 20 };
+      if (desk === 'investing') return { tpMin: 1, tpMax: 100, slMin: 1, slMax: 50 };
+      return { tpMin: 5, tpMax: 100, slMin: 20, slMax: 500 };
+    }
+
+    // Keep the header inputs showing the ACTIVE desk's exit rules. Written on every render
+    // (skipping a focused field) — otherwise the desk switched but the numbers didn't.
+    function syncExitInputs() {
+      const tpEl = document.getElementById('inp-tp');
+      const slEl = document.getElementById('inp-sl');
+      if (!tpEl || !slEl) return;
+      const ex = exitSettings(STATE.group);
+      const lim = exitLimits(STATE.group);
+      tpEl.min = lim.tpMin; tpEl.max = lim.tpMax;
+      slEl.min = lim.slMin; slEl.max = lim.slMax;
+      if (document.activeElement !== tpEl) tpEl.value = ex.tp;
+      if (document.activeElement !== slEl) slEl.value = ex.sl;
+    }
+
     // Real series for the chart and for pricing vol — no synthetic candles.
     async function fetchHistory(sym) {
       const market = isVdaSymbol(sym)
@@ -887,6 +909,7 @@
       const mount = document.getElementById('desk-mount');
       const clock = document.getElementById('tel-time');
       if (clock) clock.innerText = new Date().toLocaleTimeString('en-IN', { timeZone: 'Asia/Kolkata' });
+      syncExitInputs();
       mount.innerHTML = `<div class="card"><div style="text-align:center; padding:20px; font-family:var(--font-mono);">⚡ Executing Real-Time Quant Engine for ${STATE.symbol}...</div></div>`;
 
       const feed = await fetchLiveMetrics(STATE.symbol);
@@ -1164,8 +1187,9 @@
         tpEl.value = ex.tp;
         slEl.value = ex.sl;
         tpEl.onchange = slEl.onchange = () => {
-          const tp = Math.min(100, Math.max(5, Number(tpEl.value) || 50));
-          const sl = Math.max(20, Math.min(500, Number(slEl.value) || 200));
+          const lim = exitLimits(STATE.group);
+          const tp = Math.min(lim.tpMax, Math.max(lim.tpMin, Number(tpEl.value) || lim.tpMin));
+          const sl = Math.min(lim.slMax, Math.max(lim.slMin, Number(slEl.value) || lim.slMin));
           STATE.exits[STATE.group] = { tp, sl };
           tpEl.value = tp;
           slEl.value = sl;
