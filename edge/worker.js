@@ -316,7 +316,11 @@ async function deltaProducts() {
       // RWA/tokenised instruments are described as "<asset> Token perpetual future"
       // (Tether Gold, PAX Gold, ONDO Token, bStocks Token), so the description is the
       // reliable discriminator — symbol prefixes only covered PAXG/XAUT.
-      const RWA_DESC = /(ondo|bstock|rwa|tokeni[sz]ed|gold token|silver.*token) token|[a-z] token perpetual/i;
+      // Tokenised real-world assets on Delta carry an explicit issuer marker in the
+      // description: "xStock Token", "bStocks Token", "ONDO Token", "Gold Token".
+      // A bare "Token Perpetual" is an ordinary crypto token (WalletConnect, Venice,
+      // Sun), so that generic pattern is deliberately NOT matched.
+      const RWA_DESC = /xstock token|bstock token|ondo token|rwa token|tokeni[sz]ed|gold token|silver[^.]*ondo token/i;
       for (const product of products) {
         const state = String(product.state || "").toLowerCase();
         if (state !== "active" && state !== "live") continue;
