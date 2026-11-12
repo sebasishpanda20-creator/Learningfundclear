@@ -484,7 +484,7 @@
       const step = getStrikeStep(sym, ltp);
       const curSym = isVdaSymbol(sym) ? '$' : '₹';
       const dte = currentDte();
-      const iv = desk === 'crypto' ? 0.55 : 0.18;   // VDA realised vol >> index vol
+      const iv = isVdaSymbol(sym) ? 0.55 : 0.18;   // VDA realised vol >> index vol
 
       if (STATE.panic) {
         return `
