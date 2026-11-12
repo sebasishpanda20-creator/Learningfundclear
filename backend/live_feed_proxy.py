@@ -23,6 +23,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import threading
 import time
 from contextlib import asynccontextmanager
@@ -765,6 +766,181 @@ def get_delta_products():
     return JSONResponse({"result": [], "state": "UNAVAILABLE", "error": error})
 
 
+# ---------------------------------------------------------------------------
+# History / candles
+# ---------------------------------------------------------------------------
+HISTORY_TTL_SECONDS = 300.0
+_history_cache: dict[str, tuple[dict[str, Any], float]] = {}
+
+DELTA_RESOLUTION_WINDOW = {
+    "1m": 2 * 86400, "3m": 5 * 86400, "5m": 10 * 86400, "15m": 30 * 86400,
+    "30m": 60 * 86400, "1h": 180 * 86400, "2h": 240 * 86400,
+    "4h": 365 * 86400, "6h": 365 * 86400, "1d": 370 * 86400,
+}
+
+YAHOO_RANGE_INTERVAL = {
+    "1m": ("5d", "1m"), "5m": ("5d", "5m"), "15m": ("1mo", "15m"),
+    "30m": ("1mo", "30m"), "1h": ("3mo", "60m"), "4h": ("1y", "1d"), "1d": ("1y", "1d"),
+}
+
+NSE_YAHOO_SYMBOLS = {
+    "NIFTY": "^NSEI", "BANKNIFTY": "^NSEBANK", "SENSEX": "^BSESN",
+    "FINNIFTY": "NIFTY_FIN_SERVICE.NS",
+}
+
+
+def _realized_vol(closes: list[Any]) -> Optional[float]:
+    """Annualised vol from closes, matching the worker's rounding (3 decimals)."""
+    vals = [float(v) for v in (closes or []) if isinstance(v, (int, float)) and v > 0]
+    if len(vals) < 20:
+        return None
+    rets = [vals[i] / vals[i - 1] - 1 for i in range(1, len(vals)) if vals[i - 1] > 0]
+    if len(rets) < 10:
+        return None
+    mean = sum(rets) / len(rets)
+    var = sum((r - mean) ** 2 for r in rets) / len(rets)
+    return round((var ** 0.5) * (252 ** 0.5), 3)
+
+
+def _yahoo_bars(ticker_symbol: str, resolution: str) -> list[dict[str, Any]]:
+    """Daily or intraday OHLC from Yahoo's chart endpoint."""
+    from urllib.parse import quote
+
+    rng, interval = YAHOO_RANGE_INTERVAL.get(resolution, ("1y", "1d"))
+    r = requests.get(
+        "https://query1.finance.yahoo.com/v8/finance/chart/" + quote(ticker_symbol, safe=""),
+        params={"range": rng, "interval": interval},
+        headers={"User-Agent": "Mozilla/5.0", "Accept": "application/json"},
+        timeout=8,
+    )
+    r.raise_for_status()
+    result = ((r.json().get("chart") or {}).get("result") or [{}])[0]
+    stamps = result.get("timestamp") or []
+    quote_block = (((result.get("indicators") or {}).get("quote") or [{}])[0]) or {}
+    opens = quote_block.get("open") or []
+    highs = quote_block.get("high") or []
+    lows = quote_block.get("low") or []
+    closes = quote_block.get("close") or []
+    bars: list[dict[str, Any]] = []
+    for i, stamp in enumerate(stamps):
+        close = closes[i] if i < len(closes) else None
+        if not isinstance(close, (int, float)):
+            continue
+        bars.append({
+            "t": stamp,
+            "o": opens[i] if i < len(opens) and isinstance(opens[i], (int, float)) else close,
+            "h": highs[i] if i < len(highs) and isinstance(highs[i], (int, float)) else close,
+            "l": lows[i] if i < len(lows) and isinstance(lows[i], (int, float)) else close,
+            "c": close,
+        })
+    return bars
+
+
+@app.get("/api/v1/history/{symbol}")
+def get_history(symbol: str, market: str = "auto", resolution: str = "1d") -> JSONResponse:
+    """OHLCV in the same shape the Cloudflare Worker serves.
+
+    Bars are oldest-first {t,o,h,l,c}, capped at 180, with realizedVol alongside,
+    so the portal's canvas chart behaves the same against the local proxy.
+    """
+    sym = str(symbol or "").upper()
+    mkt = str(market or "auto").lower()
+    if mkt not in ("delta", "nse", "mcx"):
+        # No market hint: a *USD symbol is a Delta VDA pair, a mapped commodity is
+        # MCX, everything else is NSE. Keeps /history/BTCUSD working on its own.
+        mkt = "delta" if sym.endswith("USD") else ("mcx" if sym in MCX_PROXY_MAP else "nse")
+    res = str(resolution or "1d").lower()
+    if res not in DELTA_RESOLUTION_WINDOW:
+        res = "1d"
+
+    key = f"{mkt}:{sym}:{res}"
+    now = time.time()
+    cached = _history_cache.get(key)
+    if cached and now - cached[1] < HISTORY_TTL_SECONDS:
+        return JSONResponse({**cached[0], "cached": True})
+
+    bars: list[dict[str, Any]] = []
+    state = "UNAVAILABLE"
+    note: Optional[str] = None
+
+    if mkt == "delta":
+        end = int(now)
+        start = end - DELTA_RESOLUTION_WINDOW[res]
+        try:
+            r = requests.get(
+                "https://api.india.delta.exchange/v2/history/candles",
+                params={"resolution": res, "symbol": sym, "start": start, "end": end},
+                headers={"User-Agent": "Mozilla/5.0", "Accept": "application/json"},
+                timeout=8,
+            )
+            if r.status_code == 200:
+                candles = r.json().get("result") or []
+                bars = [
+                    {"t": c.get("time"), "o": c.get("open"), "h": c.get("high"),
+                     "l": c.get("low"), "c": c.get("close")}
+                    for c in candles
+                    if isinstance(c.get("close"), (int, float))
+                ]
+                bars.reverse()  # the venue returns newest first
+                if bars:
+                    state = "LIVE DELTA API"
+        except Exception:
+            pass
+    elif mkt == "nse":
+        ticker = NSE_YAHOO_SYMBOLS.get(sym, f"{sym}.NS")
+        try:
+            bars = _yahoo_bars(ticker, res)
+            if bars:
+                state = "REAL-TIME YFINANCE"
+        except Exception:
+            pass
+    elif mkt == "mcx":
+        entry = MCX_PROXY_MAP.get(sym)
+        if entry:
+            ticker, unit_mult, duty = entry
+            try:
+                raw = _yahoo_bars(ticker, res)
+                rate = _usdinr_rate()
+                if raw and rate:
+                    factor = rate * unit_mult * duty
+                    bars = [
+                        {"t": b["t"], "o": b["o"] * factor, "h": b["h"] * factor,
+                         "l": b["l"] * factor, "c": b["c"] * factor}
+                        for b in raw
+                    ]
+                    state = "PROXY YFINANCE"
+                    note = (
+                        f"{ticker} x {unit_mult:.4g} x duty {duty:.2f} at USDINR {rate:.2f} "
+                        "- converted proxy bars, not the MCX future"
+                    )
+            except Exception:
+                pass
+        else:
+            note = "no mapped history source for this commodity"
+
+    payload: dict[str, Any] = {
+        "symbol": sym,
+        "market": mkt,
+        "state": state,
+        "bars": bars[-180:],
+        "realizedVol": _realized_vol([b["c"] for b in bars]),
+    }
+    if note:
+        payload["note"] = note
+
+    _history_cache[key] = (payload, now)
+    if len(_history_cache) > 60:
+        _history_cache.clear()
+    return JSONResponse(payload)
+
+
+# Tokenised real-world assets on Delta carry an issuer marker in the description:
+# "xStock Token", "bStocks Token", "ONDO Token", "Gold Token". A bare "Token
+# Perpetual" is an ordinary crypto token (WalletConnect, Venice, Sun), so that
+# generic pattern is deliberately NOT matched — same rule as the edge worker.
+RWA_DESC = re.compile(r"(xstocks?|bstocks?|ondo)\s+token|tokeni[sz]ed|\brwa\b|gold token", re.I)
+
+
 @app.get("/api/v1/delta/products/categorized")
 def get_delta_categorized() -> JSONResponse:
     try:
@@ -779,8 +955,21 @@ def get_delta_categorized() -> JSONResponse:
                     continue
                 s = str(p.get("symbol", ""))
                 ct = str(p.get("contract_type", "")).lower()
-                if "rwa" in s.lower():
-                    cats["RWA Tokens"].append({"id": s, "label": f"{s} (RWA)"})
+                descriptor = f"{p.get('description') or ''} {p.get('short_description') or ''}"
+                # Same discriminator as the Cloudflare Worker: tokenised real-world
+                # assets carry an issuer marker (xStock/bStocks/ONDO/Gold Token).
+                # A bare "Token perpetual" is an ordinary crypto token (WalletConnect,
+                # Venice, Sun), so it is deliberately NOT matched here.
+                is_rwa = (
+                    p.get("is_rwa") is True
+                    or "rwa" in s.lower()
+                    or bool(RWA_DESC.search(descriptor))
+                )
+                if is_rwa and "option" not in ct:
+                    cats["RWA Tokens"].append({
+                        "id": s,
+                        "label": p.get("short_description") or f"{s} (RWA token)",
+                    })
                 elif "option" in ct:
                     cats["Options"].append({"id": s, "label": f"{s} (Option)"})
                 else:
@@ -792,7 +981,15 @@ def get_delta_categorized() -> JSONResponse:
                     "state": "EMPTY",
                     "feed_note": "venue returned no categorised products",
                 })
-            return JSONResponse({"categories": cats, "state": "LIVE DELTA API"})
+            return JSONResponse({
+                "categories": cats,
+                "state": "LIVE DELTA API",
+                "counts": {
+                    "futures": len(cats["Futures"]),
+                    "options": len(cats["Options"]),
+                    "rwa": len(cats["RWA Tokens"]),
+                },
+            })
     except Exception:
         pass
 
