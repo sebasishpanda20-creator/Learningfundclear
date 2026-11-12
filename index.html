@@ -1814,6 +1814,7 @@
     <div style="display:flex; align-items:center; justify-content:space-between; gap:10px; padding:8px 12px; background:var(--surface-alt); border-bottom:1px solid var(--border); flex-wrap:wrap;">
       <span style="font-size:11px; font-weight:800; letter-spacing:0.06em; text-transform:uppercase; color:var(--primary);">🛡️ Institutional Hedging &amp; Manual Trade Book</span>
       <div style="display:flex; align-items:center; gap:6px;">
+        <button type="button" class="btn" id="btn-change-rescue" title="Change the terminal URL">⚙️ URL</button>
         <a id="rescue-fullscreen" class="btn" href="#" target="_blank" rel="noopener noreferrer" style="text-decoration:none;">Full Screen ↗</a>
         <button type="button" class="btn btn-danger" id="btn-close-rescue">✕ Back to Desks</button>
       </div>
@@ -1826,10 +1827,95 @@
     // with localStorage['LFC_RESCUE_URL'] instead of editing this file.
     const RESCUE_TERMINAL_URL = 'https://YOUR-APP-NAME.streamlit.app';
 
+    const RESCUE_STORAGE_KEY = 'LFC_RESCUE_URL';
+
+    // Accepts a bare host ("myapp.streamlit.app") or a full URL, and rejects anything
+    // that is not http(s) before it reaches an iframe src.
+    function normaliseRescueUrl(raw) {
+      let url = String(raw || '').trim();
+      if (!url) return '';
+      if (!/^https?:\/\//i.test(url)) url = 'https://' + url;
+      try {
+        const parsed = new URL(url);
+        const hostOk = parsed.hostname === 'localhost' || parsed.hostname.indexOf('.') !== -1;
+        if (!/^https?:$/.test(parsed.protocol) || !hostOk) return '';
+        return (parsed.origin + parsed.pathname).replace(/\/+$/, '');
+      } catch (_) {
+        return '';
+      }
+    }
+
     function rescueTerminalUrl() {
       let stored = '';
-      try { stored = localStorage.getItem('LFC_RESCUE_URL') || ''; } catch (_) {}
-      return (stored || RESCUE_TERMINAL_URL || '').replace(/\/+$/, '');
+      try { stored = localStorage.getItem(RESCUE_STORAGE_KEY) || ''; } catch (_) {}
+      const base = normaliseRescueUrl(stored) || normaliseRescueUrl(RESCUE_TERMINAL_URL);
+      // URL parsing lowercases the host, so the placeholder check must be case-insensitive.
+      return base && base.toLowerCase().indexOf('your-app-name') === -1 ? base : '';
+    }
+
+    function saveRescueUrl(raw) {
+      const url = normaliseRescueUrl(raw);
+      if (!url || url.toLowerCase().indexOf('your-app-name') !== -1) return '';
+      try { localStorage.setItem(RESCUE_STORAGE_KEY, url); } catch (_) { return ''; }
+      return url;
+    }
+
+    function renderRescueSetup(message) {
+      const body = document.getElementById('rescue-terminal-body');
+      const link = document.getElementById('rescue-fullscreen');
+      if (!body) return;
+      if (link) { link.setAttribute('href', '#'); link.setAttribute('aria-disabled', 'true'); }
+      let current = '';
+      try { current = localStorage.getItem(RESCUE_STORAGE_KEY) || ''; } catch (_) {}
+      body.innerHTML = '<div style="max-width:620px;margin:36px auto;padding:20px;border:1px solid var(--border);border-left:4px solid var(--primary);background:var(--surface-alt);border-radius:8px;font-size:13px;line-height:1.6;color:var(--text);">'
+        + '<div style="font-weight:800;font-family:var(--font-mono);margin-bottom:6px;">Connect the Trade Rescue Terminal</div>'
+        + '<div style="color:var(--text-sec);margin-bottom:10px;">Deploy <code>app.py</code> on share.streamlit.io, then paste the app URL here once. It is saved in this browser and reused on every visit.</div>'
+        + (message ? '<div style="color:var(--danger);font-weight:700;margin-bottom:8px;">' + message + '</div>' : '')
+        + '<div style="display:flex;gap:8px;flex-wrap:wrap;">'
+        + '<input id="rescue-url-input" type="url" inputmode="url" autocomplete="url" spellcheck="false" placeholder="https://your-app.streamlit.app" value="' + current.replace(/"/g, '&quot;') + '" style="flex:1;min-width:240px;padding:8px 10px;border-radius:5px;border:1px solid var(--border);background:var(--surface);color:var(--text);font-family:var(--font-mono);font-size:12px;" />'
+        + '<button type="button" class="btn" id="btn-save-rescue">Save &amp; Open</button>'
+        + '</div>'
+        + '<div style="color:var(--text-muted);margin-top:10px;font-size:11px;">Paste the address Streamlit gives you (the one ending in <code>.streamlit.app</code>). The portal appends <code>?embed=true</code> itself.</div>'
+        + '</div>';
+
+      const input = document.getElementById('rescue-url-input');
+      const save = document.getElementById('btn-save-rescue');
+      const commit = () => {
+        const url = saveRescueUrl(input ? input.value : '');
+        if (!url) {
+          renderRescueSetup('That does not look like a valid http(s) address, or this browser is blocking storage. Check the URL and try again.');
+          return;
+        }
+        openRescueFrame(url);
+      };
+      if (save) save.onclick = commit;
+      if (input) {
+        input.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); commit(); } });
+        input.focus();
+      }
+    }
+
+    function openRescueFrame(base) {
+      const body = document.getElementById('rescue-terminal-body');
+      const link = document.getElementById('rescue-fullscreen');
+      if (!body) return;
+      const url = base || rescueTerminalUrl();
+      if (!url) { renderRescueSetup(''); return; }
+      if (link) { link.setAttribute('href', url); link.removeAttribute('aria-disabled'); }
+      const src = url + '/?embed=true';
+      const existing = body.querySelector('iframe');
+      if (existing) {
+        if (existing.getAttribute('src') !== src) existing.setAttribute('src', src);
+        return;
+      }
+      // Built on first open so the portal stays light until the drawer is used.
+      const frame = document.createElement('iframe');
+      frame.src = src;
+      frame.title = 'Institutional Hedging & Trade Rescue Terminal';
+      frame.setAttribute('allow', 'clipboard-write');
+      frame.style.cssText = 'width:100%;height:100%;border:0;display:block;';
+      body.innerHTML = '';
+      body.appendChild(frame);
     }
 
     function closeRescueTerminal() {
@@ -1849,36 +1935,12 @@
       drawer.style.display = 'flex';
       document.body.style.overflow = 'hidden';
 
-      const base = rescueTerminalUrl();
-      const configured = /^https?:\/\//.test(base) && base.indexOf('YOUR-APP-NAME') === -1;
-
-      if (!configured) {
-        // Never render a broken iframe: say what is missing instead.
-        link.setAttribute('href', '#');
-        link.setAttribute('aria-disabled', 'true');
-        body.innerHTML = '<div style="max-width:640px;margin:48px auto;padding:18px 20px;border-left:4px solid #f59e0b;background:var(--surface-alt);border-radius:8px;font-size:13px;line-height:1.65;">'
-          + '<strong>The terminal URL is not configured yet.</strong><br/>'
-          + 'Set <code>RESCUE_TERMINAL_URL</code> near the bottom of <code>index.html</code> to your Streamlit app, or run '
-          + '<code>localStorage.setItem(\'LFC_RESCUE_URL\', \'https://&lt;your-app&gt;.streamlit.app\')</code> and reopen this drawer.'
-          + '<br/><br/>The terminal itself is <code>app.py</code> in the repository root.</div>';
-        return;
-      }
-
-      link.setAttribute('href', base);
-      link.removeAttribute('aria-disabled');
-
-      // Build the iframe once per page load so the portal stays light until opened.
-      if (!body.querySelector('iframe')) {
-        const frame = document.createElement('iframe');
-        frame.src = base + '/?embed=true';
-        frame.title = 'Institutional Hedging & Trade Rescue Terminal';
-        frame.setAttribute('allow', 'clipboard-write');
-        frame.style.cssText = 'width:100%;height:100%;border:0;display:block;';
-        body.appendChild(frame);
-      }
+      // Configured -> the terminal; not configured -> the paste-once setup card.
+      openRescueFrame();
     }
 
     document.getElementById('btn-rescue-terminal')?.addEventListener('click', toggleRescueTerminal);
+    document.getElementById('btn-change-rescue')?.addEventListener('click', () => renderRescueSetup(''));
     document.getElementById('btn-close-rescue').onclick = closeRescueTerminal;
     document.addEventListener('keydown', function (event) {
       if (event.key === 'Escape') closeRescueTerminal();
