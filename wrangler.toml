@@ -1,0 +1,7 @@
+# Cloudflare Pages project configuration.
+# With pages_build_output_dir set, `wrangler pages deploy` needs no arguments:
+#   cd Learningfundclear && wrangler pages deploy
+# The project name must match the Pages project created in the dashboard.
+name = "learningfundclear"
+pages_build_output_dir = "./dist-portal"
+compatibility_date = "2026-11-12"
