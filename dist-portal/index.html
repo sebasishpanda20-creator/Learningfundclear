@@ -82,6 +82,9 @@
     .verdict-banner.buy { background: var(--success-bg); color: var(--success); border: 1px solid var(--success); }
     .verdict-banner.sell { background: var(--danger-bg); color: var(--danger); border: 1px solid var(--danger); }
     .verdict-banner.wait { background: var(--warn-bg); color: var(--warn); border: 1px solid var(--warn); }
+    .xseg-toolbar { display: flex; flex-wrap: wrap; gap: 10px; align-items: flex-start; justify-content: space-between; margin-bottom: 10px; }
+    .xseg-filter { font-size: 11px; padding: 5px 8px; border-radius: 5px; border: 1px solid var(--border); background: var(--surface-alt); color: var(--text); font-family: var(--font-mono); }
+    .xseg-pop-bar { display: inline-block; height: 6px; border-radius: 3px; background: var(--success); margin-right: 6px; vertical-align: middle; max-width: 40px; }
 
     .kv-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; font-family: var(--font-mono); font-size: 11.5px; }
     .kv { background: var(--surface-alt); border: 1px solid var(--border); padding: 8px 10px; border-radius: 6px; }
@@ -196,6 +199,7 @@
           <strong id="breadcrumb" style="font-size:13px;">Daily Income &amp; Theta Desk / Multi-Regime Board</strong>
         </div>
         <div class="topbar-right">
+          <button type="button" class="btn" id="btn-rescue-terminal" title="Open the Institutional Hedging &amp; Trade Rescue Terminal">🛡️ Trade Rescue &amp; Book</button>
           <button type="button" class="btn btn-warn" id="btn-mode">🛡️ ADVISORY (SIGNAL)</button>
           <button type="button" class="btn btn-danger" id="btn-panic">🚨 PANIC SWITCH</button>
           <button type="button" class="btn" id="btn-open-proxy">⚙️ Host: <strong id="tel-host">Local</strong></button>
@@ -220,6 +224,7 @@
             <div class="auto-suggest-box" id="suggest-box">
               <input type="text" id="inp-symbol" class="auto-suggest-input" value="NIFTY" placeholder="Type symbol..." />
               <ul class="auto-suggest-popup" id="suggest-popup" style="display:none;"></ul>
+              <div id="suggest-count" style="font-size:10px; color:var(--text-muted); margin-top:3px; font-family:var(--font-mono);"></div>
             </div>
           </div>
           <div class="field">
@@ -245,7 +250,7 @@
 
   <script>
     const STATE = {
-      group: 'daily_income', subtab: 'di-board', mode: 'ADVISORY', panic: false,
+      group: 'daily_income', subtab: 'di-scan', mode: 'ADVISORY', panic: false,
       symbol: 'NIFTY', tf: '15m|1h', cap: 150000, risk: 1.5, history: null, realizedVol: null,
       // Per-desk exit rules. Spreads read these as % of the credit collected;
       // MCX and equity read them as % of price.
@@ -280,7 +285,7 @@
 
     // Dedicated Product Desks including Standalone MCX Commodities Desk
     const TAXONOMY = [
-      { id: 'daily_income', label: 'Daily Income & Theta Desk', badge: 'Multi-Regime', subtabs: [{ id: 'di-board', label: 'Daily Income Board' }, { id: 'di-theta', label: 'Defined-Risk Theta Spreads' }] },
+      { id: 'daily_income', label: 'Daily Income & Theta Desk', badge: 'Multi-Regime', subtabs: [{ id: 'di-scan', label: 'Suggestions & Scan' }, { id: 'di-board', label: 'Daily Income Board' }, { id: 'di-theta', label: 'Defined-Risk Theta Spreads' }] },
       { id: 'stocks', label: 'Stocks F&O (NSE)', badge: 'TradFi', subtabs: [{ id: 'stk-options', label: 'BSM Options Greeks & Skew' }, { id: 'stk-hedges', label: 'Beta Index Hedge & Collar' }] },
       { id: 'mcx', label: 'MCX Commodities Desk', badge: 'LIVE MCX', subtabs: [{ id: 'mcx-futures', label: 'Commodity Futures & Circuit Bands' }, { id: 'mcx-carry', label: 'Storage & Carry Cost Yield' }] },
       { id: 'crypto', label: 'Crypto VDA (Delta India)', badge: 'LIVE API', subtabs: [{ id: 'cry-perps', label: 'Perps & 5-Window Walk-Forward' }, { id: 'cry-funding', label: '8h Funding Yield Carry' }] },
@@ -298,8 +303,182 @@
       risk_tax: [{ s: 'BTCUSD', n: 'Bitcoin VDA', e: 'CRYPTO' }, { s: 'NIFTY', n: 'NIFTY Futures', e: 'NSE' }, { s: 'CRUDEOIL', n: 'Crude Oil Futures', e: 'MCX' }]
     };
 
+    // Complete Active MCX Commodities Catalog (Standard, Mini, Micro & Indices)
+    const MCX_CATALOG = [
+      { symbol: "CRUDEOIL",   name: "Crude Oil Futures (100 bbl)",       exchange: "MCX", step: 50,  lot: 100 },
+      { symbol: "CRUDEOILM",  name: "Crude Oil Mini (10 bbl)",           exchange: "MCX", step: 50,  lot: 10 },
+      { symbol: "NATURALGAS", name: "Natural Gas Futures (1,250 mmBtu)", exchange: "MCX", step: 5,   lot: 1250 },
+      { symbol: "NATGASMINI", name: "Natural Gas Mini (250 mmBtu)",      exchange: "MCX", step: 5,   lot: 250 },
+      { symbol: "GOLD",       name: "Gold Futures (1 kg | per 10g)",     exchange: "MCX", step: 500, lot: 100 },
+      { symbol: "GOLDM",      name: "Gold Mini (100g | per 10g)",        exchange: "MCX", step: 500, lot: 10 },
+      { symbol: "GOLDTEN",    name: "Gold Ten (10g | per 10g)",          exchange: "MCX", step: 500, lot: 1 },
+      { symbol: "SILVER",     name: "Silver Futures (30 kg | per 1kg)",  exchange: "MCX", step: 500, lot: 30 },
+      { symbol: "SILVERM",    name: "Silver Mini (5 kg | per 1kg)",      exchange: "MCX", step: 500, lot: 5 },
+      { symbol: "SILVERMIC",  name: "Silver Micro (1 kg | per 1kg)",     exchange: "MCX", step: 500, lot: 1 },
+      { symbol: "COPPER",     name: "Copper Futures (2,500 kg)",         exchange: "MCX", step: 5,   lot: 2500 },
+      { symbol: "ZINC",       name: "Zinc Futures (5 MT | per 1kg)",     exchange: "MCX", step: 2.5, lot: 5000 },
+      { symbol: "ZINCMINI",   name: "Zinc Mini (1 MT | per 1kg)",        exchange: "MCX", step: 2.5, lot: 1000 },
+      { symbol: "ALUMINIUM",  name: "Aluminium Futures (5 MT)",          exchange: "MCX", step: 2.5, lot: 5000 },
+      { symbol: "ALUMINI",    name: "Aluminium Mini (1 MT)",             exchange: "MCX", step: 2.5, lot: 1000 },
+      { symbol: "LEAD",       name: "Lead Futures (5 MT | per 1kg)",     exchange: "MCX", step: 2.5, lot: 5000 },
+      { symbol: "LEADMINI",   name: "Lead Mini (1 MT | per 1kg)",        exchange: "MCX", step: 2.5, lot: 1000 },
+      { symbol: "NICKEL",     name: "Nickel Futures (250 kg)",           exchange: "MCX", step: 10,  lot: 250 },
+      { symbol: "MCXBULLDEX", name: "MCX Bullion Index Futures",         exchange: "MCX", step: 100, lot: 30 },
+      { symbol: "MCXMETLDEX", name: "MCX Base Metal Index Futures",      exchange: "MCX", step: 100, lot: 40 }
+    ];
+
+    // Show all MCX instruments on focus even when default "CRUDEOIL" is pre-filled
+    function renderMcxSuggestions(query = "", isFocusEvent = false) {
+      const q = isFocusEvent ? "" : String(query || '').trim().toUpperCase();
+      return MCX_CATALOG.filter(
+        item => !q || item.symbol.includes(q) || item.name.toUpperCase().includes(q)
+      );
+    }
+
+    // The MCX desk's autosuggest reads the same catalog, so the desk default
+    // (CRUDEOIL) no longer hides the 19 other listed contracts.
+    catalogByDesk.mcx = MCX_CATALOG.map(c => ({ s: c.symbol, n: c.name, e: 'MCX' }));
+
+    // Minis, micros and index products inherit their parent contract's margin band.
+    const MCX_PARENT = {
+      CRUDEOILM: 'CRUDEOIL', NATGASMINI: 'NATURALGAS', GOLDM: 'GOLD', GOLDTEN: 'GOLD',
+      SILVERM: 'SILVER', SILVERMIC: 'SILVER', ZINCMINI: 'ZINC', ALUMINI: 'ALUMINIUM',
+      LEADMINI: 'LEAD', MCXBULLDEX: 'GOLD', MCXMETLDEX: 'COPPER'
+    };
+
+    // Multi-asset universe for the Daily Income desk: NSE F&O, MCX and Delta VDA.
+    const DAILY_INCOME_UNIVERSE = [
+      // NSE Indices & Liquid F&O
+      { symbol: "NIFTY",      name: "NIFTY 50 Index",           segment: "NSE",   cur: "₹", step: 50,   lot: 75 },
+      { symbol: "BANKNIFTY",  name: "Bank NIFTY Index",         segment: "NSE",   cur: "₹", step: 100,  lot: 30 },
+      { symbol: "FINNIFTY",   name: "NIFTY Financial Services", segment: "NSE",   cur: "₹", step: 50,   lot: 65 },
+      { symbol: "RELIANCE",   name: "Reliance Industries F&O",  segment: "NSE",   cur: "₹", step: 10,   lot: 250 },
+      { symbol: "HDFCBANK",   name: "HDFC Bank F&O",            segment: "NSE",   cur: "₹", step: 10,   lot: 550 },
+      { symbol: "ICICIBANK",  name: "ICICI Bank F&O",           segment: "NSE",   cur: "₹", step: 10,   lot: 700 },
+      { symbol: "TCS",        name: "Tata Consultancy F&O",     segment: "NSE",   cur: "₹", step: 20,   lot: 175 },
+      // MCX Commodities
+      { symbol: "CRUDEOIL",   name: "Crude Oil Futures",        segment: "MCX",   cur: "₹", step: 50,   lot: 100 },
+      { symbol: "NATURALGAS", name: "Natural Gas Futures",      segment: "MCX",   cur: "₹", step: 5,    lot: 1250 },
+      { symbol: "GOLD",       name: "Gold Futures (per 10g)",   segment: "MCX",   cur: "₹", step: 500,  lot: 100 },
+      { symbol: "SILVER",     name: "Silver Futures (per 1kg)", segment: "MCX",   cur: "₹", step: 500,  lot: 30 },
+      // Delta Exchange India (Crypto VDA)
+      { symbol: "BTCUSD",     name: "Bitcoin Perpetual / Opt",  segment: "DELTA", cur: "$", step: 500,  lot: 1 },
+      { symbol: "ETHUSD",     name: "Ethereum Perpetual / Opt", segment: "DELTA", cur: "$", step: 50,   lot: 1 },
+      { symbol: "SOLUSD",     name: "Solana Perpetual / Opt",   segment: "DELTA", cur: "$", step: 5,    lot: 1 },
+      { symbol: "XRPUSD",     name: "Ripple Perpetual / Opt",   segment: "DELTA", cur: "$", step: 0.05, lot: 1 }
+    ];
+
+    function getDailyIncomeSuggestions(query = "", isFocus = false) {
+      const q = isFocus ? "" : String(query || '').trim().toUpperCase();
+      return DAILY_INCOME_UNIVERSE.filter(
+        item => !q || item.symbol.includes(q) || item.name.toUpperCase().includes(q) || item.segment.includes(q)
+      );
+    }
+
+    catalogByDesk.daily_income = DAILY_INCOME_UNIVERSE.map(u => ({ s: u.symbol, n: u.name, e: u.segment }));
+
+    // Full Delta Exchange India Fallback Catalog (Perps + RWA)
+    const DELTA_INDIA_FALLBACK = [
+      { symbol: "BTCUSD", type: "Perpetual Futures", underlying: "BTC" },
+      { symbol: "ETHUSD", type: "Perpetual Futures", underlying: "ETH" },
+      { symbol: "SOLUSD", type: "Perpetual Futures", underlying: "SOL" },
+      { symbol: "XRPUSD", type: "Perpetual Futures", underlying: "XRP" },
+      { symbol: "BNBUSD", type: "Perpetual Futures", underlying: "BNB" },
+      { symbol: "DOGEUSD", type: "Perpetual Futures", underlying: "DOGE" },
+      { symbol: "ADAUSD", type: "Perpetual Futures", underlying: "ADA" },
+      { symbol: "AVAXUSD", type: "Perpetual Futures", underlying: "AVAX" },
+      { symbol: "LINKUSD", type: "Perpetual Futures", underlying: "LINK" },
+      { symbol: "DOTUSD", type: "Perpetual Futures", underlying: "DOT" },
+      { symbol: "SUIUSD", type: "Perpetual Futures", underlying: "SUI" },
+      { symbol: "APTUSD", type: "Perpetual Futures", underlying: "APT" },
+      { symbol: "NEARUSD", type: "Perpetual Futures", underlying: "NEAR" },
+      { symbol: "LTCUSD", type: "Perpetual Futures", underlying: "LTC" },
+      { symbol: "BCHUSD", type: "Perpetual Futures", underlying: "BCH" },
+      { symbol: "ARBUSD", type: "Perpetual Futures", underlying: "ARB" },
+      { symbol: "OPUSD", type: "Perpetual Futures", underlying: "OP" },
+      { symbol: "FILUSD", type: "Perpetual Futures", underlying: "FIL" },
+      { symbol: "ATOMUSD", type: "Perpetual Futures", underlying: "ATOM" },
+      { symbol: "PAXGUSD", type: "RWA Gold Perp", underlying: "PAXG" }
+    ];
+
+    let deltaProducts = [...DELTA_INDIA_FALLBACK];
+
+    function normaliseDeltaProduct(p) {
+      const symbol = String(p.symbol || p.id || '').toUpperCase();
+      if (!symbol) return null;
+      return {
+        symbol,
+        type: p.contract_type || p.type || 'Futures',
+        underlying: (p.underlying_asset && p.underlying_asset.symbol) || symbol.replace(/USD$/, '')
+      };
+    }
+
+    // Keep the Delta desks' autosuggest pointing at one deduplicated catalog.
+    function syncDeltaCatalog() {
+      const rows = deltaProducts.map(p => ({ s: p.symbol, n: p.underlying + ' · ' + p.type, e: 'DELTA' }));
+      // Only the VDA desk mirrors the whole venue; the Daily Income desk is the
+      // curated DAILY_INCOME_UNIVERSE and must not be swamped by 250 perps.
+      ['crypto'].forEach(desk => {
+        const nonDelta = (catalogByDesk[desk] || []).filter(x => x.e !== 'DELTA');
+        catalogByDesk[desk] = nonDelta.concat(rows);
+      });
+    }
+
+    const DELTA_KNOWN_ORDER = new Map(DELTA_INDIA_FALLBACK.map((p, i) => [p.symbol, i]));
+
+    function mergeDeltaProducts(list) {
+      const bySymbol = new Map(deltaProducts.map(p => [p.symbol, p]));
+      list.forEach(raw => {
+        const p = normaliseDeltaProduct(raw);
+        if (p) bySymbol.set(p.symbol, p);
+      });
+      // Non-options first (~950 option symbols would bury every perp), then the
+      // fallback majors in their curated order, then everything else A-Z.
+      const isOption = t => /option/i.test(t) ? 1 : 0;
+      deltaProducts = [...bySymbol.values()].sort((a, b) => {
+        const byType = isOption(a.type) - isOption(b.type);
+        if (byType) return byType;
+        const ka = DELTA_KNOWN_ORDER.has(a.symbol) ? DELTA_KNOWN_ORDER.get(a.symbol) : 999;
+        const kb = DELTA_KNOWN_ORDER.has(b.symbol) ? DELTA_KNOWN_ORDER.get(b.symbol) : 999;
+        if (ka !== kb) return ka - kb;
+        return a.symbol.localeCompare(b.symbol);
+      });
+      syncDeltaCatalog();
+    }
+
+    let deltaProductsLoaded = false;
+    async function loadAllDeltaIndiaInstruments() {
+      if (deltaProductsLoaded) return;
+      deltaProductsLoaded = true;
+      const urls = [
+        `${getProxyBaseUrl()}/api/v1/delta/products`,
+        "https://api.india.delta.exchange/v2/products?contract_types=perpetual_futures,call_options,put_options&states=live&page_size=500"
+      ];
+      for (const url of urls) {
+        try {
+          const res = await fetch(url, { signal: AbortSignal.timeout(6000) });
+          const json = await res.json();
+          const list = json.result || json.products || [];
+          if (Array.isArray(list) && list.length > 1) {
+            mergeDeltaProducts(list);
+            break;
+          }
+        } catch (e) { /* Try next endpoint */ }
+      }
+    }
+
+    // Show full list on input focus even when default "BTCUSD" is present
+    function filterDeltaSuggest(query, isInitialFocus = false) {
+      const q = isInitialFocus ? "" : String(query || '').trim().toUpperCase();
+      return deltaProducts.filter(item =>
+        !q || item.symbol.includes(q) || item.underlying.includes(q)
+      ).slice(0, 50);
+    }
+
+    syncDeltaCatalog();
+
     // Pull Delta's real catalog once per session so RWA tokens appear in the crypto
-    // autosuggest instead of only the four hardcoded perps.
+    // autosuggest instead of only the hardcoded perps.
     let deltaCatalogLoaded = false;
     async function loadDeltaCatalog() {
       if (deltaCatalogLoaded) return;
@@ -310,9 +489,9 @@
         const body = await res.json();
         const categories = body.categories || {};
         const tokens = categories['RWA Tokens'] || [];
-        const perps = (categories.Futures || []).slice(0, 60);
-        // The Daily Income desk trades the same Delta instrument set as the VDA desk.
-        ['crypto', 'daily_income'].forEach(desk => {
+        const perps = (categories.Futures || []).slice(0, 400);
+        // The VDA desk mirrors the venue catalog; Daily Income keeps its curated list.
+        ['crypto'].forEach(desk => {
           const list = catalogByDesk[desk] || [];
           const seen = new Set(list.map(x => x.s));
           const add = (id, label) => {
@@ -324,6 +503,11 @@
           tokens.forEach(t => add(t.id, t.label || 'RWA Token'));
           catalogByDesk[desk] = list;
         });
+        // Feed the same rows into the shared Delta list the autosuggest reads.
+        mergeDeltaProducts([
+          ...perps.map(p => ({ symbol: p.id, contract_type: 'Perpetual Futures' })),
+          ...tokens.map(t => ({ symbol: t.id, contract_type: 'RWA Token Perp' }))
+        ]);
       } catch (_) {}
     }
 
@@ -331,22 +515,49 @@
       const input = document.getElementById('inp-symbol');
       const popup = document.getElementById('suggest-popup');
 
-      input.onfocus = input.oninput = () => {
-        const q = input.value.trim().toUpperCase();
-        const items = (catalogByDesk[STATE.group] || catalogByDesk.stocks).filter(x => x.s.includes(q) || x.n.toUpperCase().includes(q));
+      // The field already holds the active symbol, so filtering the catalog by the
+      // current text would leave exactly one match (BTCUSD -> only BTCUSD) and hide
+      // every other instrument. Focus lists the whole desk catalog; typing narrows it.
+      const renderSuggestions = (rawQuery, showAll) => {
+        const q = (rawQuery || '').trim().toUpperCase();
+        const catalog = catalogByDesk[STATE.group] || catalogByDesk.stocks;
+        const isDeltaDesk = STATE.group === 'crypto';
+        const isDailyDesk = STATE.group === 'daily_income';
+        const isMcxDesk = STATE.group === 'mcx';
+        const matches = isDeltaDesk
+          ? filterDeltaSuggest(rawQuery, showAll).map(p => ({ s: p.symbol, n: p.underlying + ' · ' + p.type, e: 'DELTA' }))
+          : isDailyDesk
+            ? getDailyIncomeSuggestions(rawQuery, showAll).map(u => ({ s: u.symbol, n: u.name, e: u.segment }))
+            : isMcxDesk
+              ? renderMcxSuggestions(rawQuery, showAll).map(c => ({ s: c.symbol, n: c.name, e: 'MCX' }))
+              : (showAll || !q
+                ? catalog
+                : catalog.filter(x => x.s.includes(q) || x.n.toUpperCase().includes(q)));
+        const items = matches.slice(0, 60);
         if (items.length === 0) { popup.style.display = 'none'; return; }
+
+        const hidden = matches.length - items.length;
+        const moreRow = hidden > 0
+          ? `<li class="auto-suggest-item" style="opacity:0.65; cursor:default;"><span style="font-size:10px; color:var(--text-muted);">+${hidden} more — type to narrow</span></li>`
+          : '';
 
         popup.innerHTML = items.map(x => `
           <li class="auto-suggest-item" data-sym="${x.s}">
             <div><strong>${x.s}</strong> <span style="font-size:10px; color:var(--text-muted);">${x.n}</span></div>
             <span class="pill">${x.e}</span>
           </li>
-        `).join('');
+        `).join('') + moreRow;
         popup.style.display = 'block';
+
+        const countEl = document.getElementById('suggest-count');
+        if (countEl && showAll) countEl.textContent = `${catalog.length} instruments`;
+        if (countEl && !showAll) countEl.textContent = `${matches.length} match${matches.length === 1 ? '' : 'es'}`;
 
         popup.querySelectorAll('li').forEach(el => {
           el.onclick = () => {
-            STATE.symbol = el.getAttribute('data-sym');
+            const chosen = el.getAttribute('data-sym');
+            if (!chosen) return;
+            STATE.symbol = chosen;
             input.value = STATE.symbol;
             popup.style.display = 'none';
             renderWorkspace();
@@ -357,6 +568,9 @@
       document.addEventListener('click', (e) => {
         if (!document.getElementById('suggest-box').contains(e.target)) popup.style.display = 'none';
       });
+
+      input.onfocus = () => renderSuggestions(input.value, true);
+      input.oninput = () => renderSuggestions(input.value, false);
     }
 
     // A Delta VDA instrument is identified by its symbol, not by the open desk. Gating
@@ -367,7 +581,8 @@
       return /USD$/.test(s) && s.length > 3;
     }
 
-    async function fetchLiveMetrics(sym) {
+    async function fetchLiveMetrics(sym, groupOverride = null) {
+      const deskGroup = groupOverride || STATE.group;
       const proxyBase = getProxyBaseUrl();
       const onLaptopProxy = /^https?:\/\/(127\.0\.0\.1|localhost)/.test(proxyBase);
       const feedHost = onLaptopProxy ? 'Local Python Proxy' : 'Cloud Edge';
@@ -403,8 +618,9 @@
         return { provider: 'Delta India (No Feed)', state: 'UNAVAILABLE', ltp: 0, currency: '$' };
       }
 
-      // 2. Try MCX endpoint if active desk is MCX
-      if (STATE.group === 'mcx') {
+      // 2. Try MCX endpoint if active desk is MCX (or the caller asked for MCX:
+      // the cross-segment board scans MCX rows while the Daily Income desk is open).
+      if (deskGroup === 'mcx') {
         try {
           // Cold MCX calls parse a ~2.8 MB market-watch payload (~1.5 s), so this
           // budget must exceed that or every first load falls back to SNAPSHOT.
@@ -483,8 +699,39 @@
     // labelled as an estimate; equity delivery is 100% cash, options spreads are
     // the width minus credit.
     const MCX_MARGIN_PCT = { CRUDEOIL: 0.12, GOLD: 0.11, SILVER: 0.12, NATURALGAS: 0.16, COPPER: 0.12, ALUMINIUM: 0.12, ZINC: 0.12, LEAD: 0.12, NICKEL: 0.14 };
+    // Verdict tone drives the banner colour: a BEARISH advisory should not wear the
+    // green "buy" banner just because panic mode is off.
+    function verdictTone(verdict) {
+      const v = String(verdict || '').toUpperCase();
+      if (v.includes('PANIC')) return 'wait';
+      if (v.includes('BULLISH')) return 'buy';
+      if (v.includes('BEARISH')) return 'sell';
+      return 'wait';
+    }
+
+    // Live verdict refresh. Tailwind is not loaded on this page, so the tone maps
+    // onto the portal's own buy/sell/wait modifiers instead of bg-*-50 utilities.
+    function updateVerdictBanner(verdictLabel, formattedLtp) {
+      const banner = document.getElementById('verdict-banner');
+      const textEl = document.getElementById('verdict-text');
+      const ltpEl = document.getElementById('verdict-ltp');
+      if (!banner || !textEl || !ltpEl) return false;
+
+      const upper = String(verdictLabel || '').toUpperCase();
+      textEl.textContent = `VERDICT: ${upper}`;
+      ltpEl.textContent = `LTP: ${formattedLtp}`;
+
+      // Strip every previous state, then apply the current one.
+      banner.classList.remove('buy', 'sell', 'wait');
+      banner.classList.add(verdictTone(upper));
+      return true;
+    }
+
     function mcxMarginPct(sym) {
-      return MCX_MARGIN_PCT[String(sym || '').toUpperCase()] || 0.12;
+      const s = String(sym || '').toUpperCase();
+      if (MCX_MARGIN_PCT[s]) return MCX_MARGIN_PCT[s];
+      const parent = MCX_PARENT[s];
+      return (parent && MCX_MARGIN_PCT[parent]) || 0.12;
     }
     function exitSettings(desk) {
       const d = STATE.exits[desk] || STATE.exits.daily_income;
@@ -786,6 +1033,328 @@
       } catch (_) {}
     }
 
+    // ------------------------------------------------------ cross-segment income board
+    // IV per segment is an explicit model input (these quote routes publish no implied
+    // vol); POP, credit and theta are BSM outputs on the live LTP.
+    const SEGMENT_MODEL = {
+      NSE:   { iv: 0.16, tax: 0.30, feeRate: 0.0016,  feeFlat: 40 },
+      MCX:   { iv: 0.22, tax: 0.30, feeRate: 0.0006,  feeFlat: 40 },
+      DELTA: { iv: 0.55, tax: 0.312, feeRate: 0.00118, feeFlat: 0 }
+    };
+    const SEG_BADGE = {
+      NSE:   { bg: 'rgba(37,99,235,0.12)',   fg: '#2563eb' },
+      MCX:   { bg: 'rgba(180,83,9,0.14)',    fg: '#b45309' },
+      DELTA: { bg: 'rgba(126,34,206,0.14)',  fg: '#7e22ce' }
+    };
+    const INCOME_DTE = 7;
+    const INCOME_POP_FLOOR = 65;
+    const INCOME_CACHE_MS = 120000;
+    const roundToStep = (v, step) => (step > 0 ? Math.round(v / step) * step : v);
+    let incomeSeg = 'ALL';
+    let incomeDte = INCOME_DTE;
+    let incomeCapital = 150000;
+    let incomeScan = { rows: [], missing: [], at: 0, busy: false };
+
+    function incomeBoardShell() {
+      const opt = (v, label) => `<option value="${v}"${incomeSeg === v ? ' selected' : ''}>${label}</option>`;
+      return `
+        <div class="card" id="income-board-shell">
+          <div class="xseg-toolbar">
+            <div>
+              <div class="card-title">Cross-Segment High-Probability Daily Income Board</div>
+              <div class="card-sub">1-SD iron condors on NSE indices/F&amp;O, MCX commodities and Delta India VDA, ranked by BSM probability of profit and daily theta yield. Only POP ≥ ${INCOME_POP_FLOOR}% with a positive post-tax net edge is listed.</div>
+            </div>
+            <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+              <select id="income-seg-filter" class="xseg-filter" onchange="setIncomeSegment(this.value)">
+                ${opt('ALL', 'All Segments (NSE + MCX + Delta)')}
+                ${opt('NSE', 'NSE Equities &amp; Indices')}
+                ${opt('MCX', 'MCX Commodities')}
+                ${opt('DELTA', 'Crypto VDA (Delta India)')}
+              </select>
+              <button class="btn" id="btn-income-scan" onclick="renderCrossSegmentIncomeBoard(true)">↻ Scan All Segments</button>
+            </div>
+          </div>
+          <table class="inst-table">
+            <thead>
+              <tr>
+                <th>Segment</th><th>Instrument</th><th>Strategy</th><th>Short / Hedge Legs</th>
+                <th>POP %</th><th>Theta / Day</th><th>Post-Tax Net Edge</th><th style="text-align:right">Action</th>
+              </tr>
+            </thead>
+            <tbody id="cross-segment-income-rows"></tbody>
+          </table>
+          <div class="card-sub" id="income-board-note" style="margin-top:8px;"></div>
+        </div>
+      `;
+    }
+
+    function setIncomeSegment(v) {
+      incomeSeg = v || 'ALL';
+      paintIncomeBoard();
+    }
+
+    // Load Setup: switches the desk onto the row's instrument and re-runs the engine.
+    function loadIncomeSetup(symbol, segment) {
+      const sym = String(symbol || '').toUpperCase();
+      if (!sym) return;
+      STATE.symbol = sym;
+      STATE.activeSegment = segment || '';
+      const input = document.getElementById('inp-symbol') || document.getElementById('active-instrument-input');
+      if (input) input.value = sym;
+      renderWorkspace();
+    }
+
+    function paintIncomeBoard() {
+      const tbody = document.getElementById('cross-segment-income-rows');
+      const note = document.getElementById('income-board-note');
+      if (!tbody) return;
+      const rows = incomeScan.rows.filter(r => incomeSeg === 'ALL' || r.segment === incomeSeg);
+      const pass = rows.filter(r => r.pop >= INCOME_POP_FLOOR && r.net > 0);
+      const colspan = 8;
+      if (!rows.length) {
+        const msg = incomeScan.busy
+          ? 'Scanning NSE, MCX and Delta…'
+          : `No ${incomeSeg === 'ALL' ? '' : incomeSeg + ' '}instrument returned a live price.`;
+        tbody.innerHTML = `<tr><td colspan="${colspan}" style="padding:14px;color:var(--text-muted)">${msg}</td></tr>`;
+      } else if (!pass.length) {
+        tbody.innerHTML = `<tr><td colspan="${colspan}" style="padding:14px;color:var(--text-muted)">${rows.length} instrument(s) priced, but none clears POP ≥ ${INCOME_POP_FLOOR}% with a positive post-tax net edge.</td></tr>`;
+      } else {
+        tbody.innerHTML = pass.map(r => `
+          <tr>
+            <td><span class="tag" style="background:${SEG_BADGE[r.segment].bg};color:${SEG_BADGE[r.segment].fg};">${r.segment}</span></td>
+            <td><strong>${r.symbol}</strong> <span class="card-sub">(${r.cur}${r.ltp})</span><div class="card-sub">${r.name}</div></td>
+            <td>1-SD Iron Condor<div class="card-sub">${r.dte}D · ${(SEGMENT_MODEL[r.segment].iv * 100).toFixed(0)}% IV model</div></td>
+            <td style="font-family:var(--font-mono);font-size:11px">SELL ${r.shortPut} PE / ${r.shortCall} CE<div class="card-sub">Hedge ${r.longPut} PE / ${r.longCall} CE · ${r.lot} lot</div></td>
+            <td><span class="xseg-pop-bar" style="width:${Math.max(4, Math.round(r.pop))}px"></span><strong>${r.pop.toFixed(1)}%</strong></td>
+            <td style="color:var(--success)">+${r.cur}${Math.round(r.thetaPerDay).toLocaleString('en-IN')}/day</td>
+            <td><strong style="color:var(--success)">+${r.cur}${Math.round(r.net).toLocaleString('en-IN')}</strong><div class="card-sub">credit ${r.cur}${Math.round(r.grossCredit).toLocaleString('en-IN')} − fees ${r.cur}${Math.round(r.fees).toLocaleString('en-IN')} − ${(SEGMENT_MODEL[r.segment].tax * 100).toFixed(1)}% tax</div></td>
+            <td style="text-align:right"><button class="btn" data-load="${r.symbol}" data-seg="${r.segment}">Load Setup</button></td>
+          </tr>
+        `).join('');
+      }
+
+      tbody.querySelectorAll('button[data-load]').forEach(btn => {
+        btn.onclick = (ev) => {
+          ev.stopPropagation();
+          loadIncomeSetup(btn.getAttribute('data-load'), btn.getAttribute('data-seg'));
+        };
+      });
+
+      if (note) {
+        const parts = [
+          `IV model: NSE ${(SEGMENT_MODEL.NSE.iv * 100).toFixed(0)}%, MCX ${(SEGMENT_MODEL.MCX.iv * 100).toFixed(0)}%, VDA ${(SEGMENT_MODEL.DELTA.iv * 100).toFixed(0)}% · ${incomeDte}D · 1σ iron condors`
+        ];
+        if (incomeScan.at) parts.push(`scanned ${Math.round((Date.now() - incomeScan.at) / 1000)}s ago`);
+        if (incomeScan.missing.length) parts.push(`no live feed: ${incomeScan.missing.join(', ')}`);
+        note.textContent = parts.join(' · ');
+      }
+    }
+
+    async function scanIncomeUniverse() {
+      incomeScan.busy = true;
+      const results = await Promise.allSettled(DAILY_INCOME_UNIVERSE.map(async item => {
+        const feed = await fetchLiveMetrics(item.symbol, item.segment === 'MCX' ? 'mcx' : 'nse');
+        return { item, feed };
+      }));
+      const rows = [];
+      const missing = [];
+      results.forEach((res, i) => {
+        const item = DAILY_INCOME_UNIVERSE[i];
+        const feed = res.status === 'fulfilled' ? (res.value.feed || {}) : {};
+        const ltp = Number(feed.ltp) || 0;
+        const model = SEGMENT_MODEL[item.segment];
+        if (!(ltp > 0) || !model) { missing.push(item.symbol); return; }
+        const lot = Number(item.lot) || getLotSize(item.symbol);
+        const step = Number(item.step) || Math.max(ltp * 0.005, 0.0001);
+        const sd = ltp * model.iv * Math.sqrt(incomeDte / 365);
+
+        // 1-SD iron condor: short the ±1σ strikes, hedge one step further out.
+        const shortPut = roundToStep(ltp - sd, step);
+        const longPut = roundToStep(shortPut - step, step);
+        const shortCall = roundToStep(ltp + sd, step);
+        const longCall = roundToStep(shortCall + step, step);
+
+        const sp = calculateBSM(ltp, shortPut, incomeDte, model.iv, 'PUT');
+        const lp = calculateBSM(ltp, longPut, incomeDte, model.iv, 'PUT');
+        const sc = calculateBSM(ltp, shortCall, incomeDte, model.iv, 'CALL');
+        const lc = calculateBSM(ltp, longCall, incomeDte, model.iv, 'CALL');
+
+        const spN = calculateBSM(ltp, shortPut, incomeDte - 1, model.iv, 'PUT');
+        const lpN = calculateBSM(ltp, longPut, incomeDte - 1, model.iv, 'PUT');
+        const scN = calculateBSM(ltp, shortCall, incomeDte - 1, model.iv, 'CALL');
+        const lcN = calculateBSM(ltp, longCall, incomeDte - 1, model.iv, 'CALL');
+
+        // Credit is what the four legs are worth, not a fixed fraction of the width.
+        const creditPts = Math.max(0, (sp.price - lp.price) + (sc.price - lc.price));
+        const grossCredit = creditPts * lot;
+        // BSM survival probability: P(shortPut < S_T < shortCall).
+        const pop = Math.max(0, (sp.pop - sc.pop) * 100);
+        const thetaPts = (sp.price - lp.price) + (sc.price - lc.price)
+          - ((spN.price - lpN.price) + (scN.price - lcN.price));
+        const thetaPerDay = Math.max(0, thetaPts) * lot;
+        const fees = grossCredit * model.feeRate + model.feeFlat;
+        const net = (grossCredit - fees) * (1 - model.tax);
+        rows.push({
+          symbol: item.symbol, name: item.name, segment: item.segment, cur: item.cur, lot, step,
+          ltp, shortPut, longPut, shortCall, longCall, dte: incomeDte,
+          pop, thetaPerDay, grossCredit, fees, net
+        });
+      });
+      rows.sort((a, b) => b.net - a.net || b.pop - a.pop);
+      incomeScan = { rows, missing, at: Date.now(), busy: false };
+      paintIncomeBoard();
+      paintSuggestionConsole();
+    }
+
+    function renderCrossSegmentIncomeBoard(force = false) {
+      const host = document.getElementById('cross-segment-board');
+      if (!host) return;
+      if (!document.getElementById('income-board-shell')) host.innerHTML = incomeBoardShell();
+      if (!force && incomeScan.at && Date.now() - incomeScan.at < INCOME_CACHE_MS) {
+        paintIncomeBoard();
+        return;
+      }
+      if (incomeScan.busy) {
+        // The mount is rebuilt every 8s; keep the in-flight state visible.
+        const busyRows = document.getElementById('cross-segment-income-rows');
+        if (busyRows) busyRows.innerHTML = `<tr><td colspan="8" style="padding:14px;color:var(--text-muted)">Scanning ${DAILY_INCOME_UNIVERSE.length} instruments across NSE, MCX and VDA…</td></tr>`;
+        return;
+      }
+      const tbody = document.getElementById('cross-segment-income-rows');
+      if (tbody) {
+        tbody.innerHTML = `<tr><td colspan="8" style="padding:14px;color:var(--text-muted)">Scanning ${DAILY_INCOME_UNIVERSE.length} instruments across NSE, MCX and VDA…</td></tr>`;
+      }
+      scanIncomeUniverse();
+    }
+
+    // ------------------------------------------------ suggestion & scan console
+    const HORIZON_MAP = { '5m': 3, '15m': 7, '1h': 21 };
+
+    function suggestionShell() {
+      const opts = [['5m', '5m Scalp (3D expiry)'], ['15m', '15m Intraday (7D expiry)'], ['1h', '1h Swing (21D expiry)']]
+        .map(([v, label]) => `<option value="${v}"${HORIZON_MAP[v] === incomeDte ? ' selected' : ''}>${label}</option>`)
+        .join('');
+      return `
+        <div class="card" id="suggestion-shell" style="margin-bottom:12px;">
+          <div class="xseg-toolbar">
+            <div>
+              <div class="card-title">Suggestion &amp; Scan</div>
+              <div class="card-sub">Set the horizon and the capital you are willing to block, then scan. The engine ranks 1-SD iron condors across NSE, MCX and Delta VDA by post-tax return on the capital actually posted.</div>
+            </div>
+            <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+              <select id="suggestion-tf" class="xseg-filter" onchange="setSuggestionHorizon(this.value)">${opts}</select>
+              <input id="suggestion-capital" class="xseg-filter" type="number" min="1000" step="1000" value="${incomeCapital}" style="width:118px;" title="Capital to block" onchange="setSuggestionCapital(this.value)" />
+              <button class="btn" id="btn-suggestion-scan" onclick="runSuggestionScan()">Scan for Trades</button>
+            </div>
+          </div>
+          <div class="card-sub" id="suggestion-summary" style="margin-bottom:6px;"></div>
+          <table class="inst-table">
+            <thead><tr><th>#</th><th>Instrument</th><th>Structure</th><th>POP %</th><th>Lots</th><th>Capital Blocked</th><th>Theta / Day</th><th>Net Edge</th><th style="text-align:right">Action</th></tr></thead>
+            <tbody id="suggestion-body"></tbody>
+          </table>
+          <div class="card-sub" id="suggestion-foot" style="margin-top:8px;"></div>
+        </div>
+      `;
+    }
+
+    function setSuggestionHorizon(v, quiet = false) {
+      incomeDte = HORIZON_MAP[v] || INCOME_DTE;
+      incomeScan.at = 0; // strikes and premiums both move with the horizon
+      if (quiet) return;
+      runSuggestionScan();
+    }
+
+    function setSuggestionCapital(v) {
+      incomeCapital = Math.max(1000, Number(v) || incomeCapital);
+      paintSuggestionConsole(); // position sizing only, no rescan needed
+    }
+
+    async function runSuggestionScan() {
+      if (incomeScan.busy) return;
+      const tf = document.getElementById('suggestion-tf');
+      if (tf) setSuggestionHorizon(tf.value, true);
+      const capEl = document.getElementById('suggestion-capital');
+      if (capEl) incomeCapital = Math.max(1000, Number(capEl.value) || incomeCapital);
+      incomeScan.at = 0;
+      const body = document.getElementById('suggestion-body');
+      if (body) body.innerHTML = `<tr><td colspan="9" style="padding:14px;color:var(--text-muted)">Scanning NSE, MCX and Delta for ${incomeDte}D condors…</td></tr>`;
+      await scanIncomeUniverse();
+    }
+
+    function paintSuggestionConsole() {
+      const host = document.getElementById('suggestion-console');
+      if (!host) return;
+      if (!document.getElementById('suggestion-shell')) host.innerHTML = suggestionShell();
+      const body = document.getElementById('suggestion-body');
+      if (!body) return;
+      const summary = document.getElementById('suggestion-summary');
+      const foot = document.getElementById('suggestion-foot');
+
+      if (incomeScan.busy) {
+        body.innerHTML = `<tr><td colspan="9" style="padding:14px;color:var(--text-muted)">Scanning NSE, MCX and Delta for ${incomeDte}D condors…</td></tr>`;
+        return;
+      }
+      if (!incomeScan.rows.length) {
+        body.innerHTML = `<tr><td colspan="9" style="padding:14px;color:var(--text-muted)">No scan yet — press Scan for Trades to rank the ${DAILY_INCOME_UNIVERSE.length} instruments against ${incomeCapital.toLocaleString('en-IN')} of capital.</td></tr>`;
+        if (summary) summary.textContent = '';
+        if (foot) foot.textContent = '';
+        return;
+      }
+
+      const qualifying = incomeScan.rows.filter(r => r.pop >= INCOME_POP_FLOOR && r.net > 0);
+      const sized = qualifying.map(r => {
+        // Defined risk: wing width minus the credit received.
+        const maxLossPerLot = Math.max(1, r.step * r.lot - r.grossCredit);
+        const lots = Math.min(5, Math.floor(incomeCapital / maxLossPerLot));
+        return {
+          ...r, maxLossPerLot, lots,
+          capital: maxLossPerLot * lots,
+          netTotal: r.net * lots,
+          thetaTotal: r.thetaPerDay * lots
+        };
+      }).filter(r => r.lots > 0)
+        .sort((a, b) => (b.netTotal / Math.max(1, b.capital)) - (a.netTotal / Math.max(1, a.capital)) || b.netTotal - a.netTotal);
+
+      if (!sized.length) {
+        body.innerHTML = `<tr><td colspan="9" style="padding:14px;color:var(--text-muted)">${qualifying.length} condor(s) qualify, but none is affordable on ${incomeCapital.toLocaleString('en-IN')} of capital at the stated max loss.</td></tr>`;
+        if (summary) summary.textContent = `${incomeCapital.toLocaleString('en-IN')} capital · ${incomeDte}D horizon · 0 affordable of ${qualifying.length} qualifying.`;
+      } else {
+        body.innerHTML = sized.slice(0, 5).map((r, i) => `
+          <tr>
+            <td><strong>${i + 1}</strong></td>
+            <td><span class="tag" style="background:${SEG_BADGE[r.segment].bg};color:${SEG_BADGE[r.segment].fg};">${r.segment}</span> <strong>${r.symbol}</strong><div class="card-sub">${r.cur}${r.ltp}</div></td>
+            <td style="font-family:var(--font-mono);font-size:11px">SELL ${r.shortPut} PE / ${r.shortCall} CE<div class="card-sub">hedge ${r.longPut}/${r.longCall} · max loss ${r.cur}${Math.round(r.maxLossPerLot).toLocaleString('en-IN')}/lot</div></td>
+            <td><strong>${r.pop.toFixed(1)}%</strong></td>
+            <td>${r.lots}</td>
+            <td>${r.cur}${Math.round(r.capital).toLocaleString('en-IN')}</td>
+            <td style="color:var(--success)">+${r.cur}${Math.round(r.thetaTotal).toLocaleString('en-IN')}/day</td>
+            <td><strong style="color:var(--success)">+${r.cur}${Math.round(r.netTotal).toLocaleString('en-IN')}</strong><div class="card-sub">${(r.netTotal / Math.max(1, r.capital) * 100).toFixed(2)}% on capital</div></td>
+            <td style="text-align:right"><button class="btn" data-take="${r.symbol}" data-seg="${r.segment}">Take Trade</button></td>
+          </tr>
+        `).join('');
+        const best = sized[0];
+        if (summary) {
+          summary.textContent = `${incomeCapital.toLocaleString('en-IN')} capital · ${incomeDte}D horizon · ${sized.length} affordable of ${qualifying.length} qualifying · top pick ${best.symbol} at ${(best.netTotal / Math.max(1, best.capital) * 100).toFixed(2)}% on capital over ${incomeDte}D.`;
+        }
+      }
+
+      body.querySelectorAll('button[data-take]').forEach(btn => {
+        btn.onclick = (ev) => {
+          ev.stopPropagation();
+          loadIncomeSetup(btn.getAttribute('data-take'), btn.getAttribute('data-seg'));
+        };
+      });
+
+      if (foot) {
+        const parts = [
+          `IV model: NSE ${(SEGMENT_MODEL.NSE.iv * 100).toFixed(0)}%, MCX ${(SEGMENT_MODEL.MCX.iv * 100).toFixed(0)}%, VDA ${(SEGMENT_MODEL.DELTA.iv * 100).toFixed(0)}%`,
+          `max 5 lots per idea`, `POP ≥ ${INCOME_POP_FLOOR}%`
+        ];
+        if (incomeScan.missing.length) parts.push(`no live feed: ${incomeScan.missing.join(', ')}`);
+        foot.textContent = parts.join(' · ');
+      }
+    }
+
     function scanTableHTML(rows) {
       const head = `<tr style="color:#94a3b8;border-bottom:1px solid #1f2937"><th style="text-align:left;padding:5px">#</th><th style="text-align:left;padding:5px">Symbol</th><th style="text-align:right;padding:5px">Price</th><th style="text-align:right;padding:5px">1D%</th><th style="text-align:right;padding:5px">1M%</th><th style="text-align:right;padding:5px">3M%</th><th style="text-align:right;padding:5px">vs 52W High</th><th style="text-align:right;padding:5px">200DMA</th><th style="text-align:right;padding:5px">Score</th></tr>`;
       const tone = v => (v >= 0 ? '#16a34a' : '#dc2626');
@@ -946,14 +1515,10 @@
       if (STATE.group === 'mcx') {
         // Contract multipliers differ per commodity; a single fallback mislabels the lot
         // and misstates the notional (NATURALGAS is 1250 mmBtu, not 30 kg).
-        const MCX_CONTRACTS = {
-          CRUDEOIL: { units: 100, label: '100 Barrels' },
-          GOLD: { units: 100, label: '1 Kg (100 × 10g)' },
-          SILVER: { units: 30, label: '30 Kg' },
-          NATURALGAS: { units: 1250, label: '1250 mmBtu' },
-          COPPER: { units: 2500, label: '2500 Kg' },
-          ALUMINIUM: { units: 5000, label: '5 MT' }
-        };
+        // Lot sizes come from MCX_CATALOG so minis, micros and indices are sized
+        // correctly instead of falling back to a single unit.
+        const MCX_CONTRACTS = {};
+        MCX_CATALOG.forEach(c => { MCX_CONTRACTS[c.symbol] = { units: c.lot, label: c.name }; });
         const contract = MCX_CONTRACTS[STATE.symbol] || { units: 1, label: '1 Unit' };
         const lotSize = contract.label;
         const units = contract.units;
@@ -971,9 +1536,9 @@
             </div>
             <div class="card">
               <div class="card-head"><div><div class="card-title">MCX Commodity Margin &amp; Risk Audit</div><div class="card-sub">Contract Lot: ${lotSize} | Expiry: ${expiry}</div></div></div>
-              <div class="verdict-banner ${STATE.panic ? 'wait' : 'buy'}">
-                <span>VERDICT: ${verdictText}</span>
-                <span>LTP: ${cur}${feed.ltp}</span>
+              <div class="verdict-banner ${verdictTone(verdictText)}" id="verdict-banner">
+                <span id="verdict-text">VERDICT: ${verdictText}</span>
+                <span id="verdict-ltp">LTP: ${hasPrice ? cur + feed.ltp : '--'}</span>
               </div>
               <div class="kv-grid">
                 <div class="kv"><span>Contract Expiry</span><strong>${expiry}</strong></div>
@@ -1053,15 +1618,16 @@
         const bsmNext = calculateBSM(feed.ltp, feed.ltp + 100, Math.max(1, dte - 1), 0.18, 'CALL');
         const thetaPerDay = bsmNext.price - bsm.price;
         mount.innerHTML = `
+          ${STATE.group === 'daily_income' && STATE.subtab === 'di-scan' ? '<div id="suggestion-console"></div>' : ''}
           <div class="split-2">
             <div class="card">
               <div class="card-head"><div><div class="card-title">${STATE.symbol} Real-Time Chart &amp; Technicals</div><div class="card-sub">Dual EMA (20/50) + Volume + RSI(14) Sub-Pane</div></div></div>
               <canvas id="inst-chart"></canvas>
             </div>
             <div class="card">                <div class="card-head"><div><div class="card-title">BSM Options Greeks &amp; Theta Engine</div><div class="card-sub">${dte} DTE Call/Put Skew Model</div></div></div>
-              <div class="verdict-banner ${STATE.panic ? 'wait' : 'buy'}">
-                <span>VERDICT: ${verdictText}</span>
-                <span>LTP: ${cur}${feed.ltp}</span>
+              <div class="verdict-banner ${verdictTone(verdictText)}" id="verdict-banner">
+                <span id="verdict-text">VERDICT: ${verdictText}</span>
+                <span id="verdict-ltp">LTP: ${hasPrice ? cur + feed.ltp : '--'}</span>
               </div>
               <div class="kv-grid">
                 <div class="kv"><span>BSM Delta (Δ)</span><strong>${bsm.delta.toFixed(3)}</strong></div>
@@ -1073,9 +1639,14 @@
             </div>
           </div>
           ${isVdaSymbol(STATE.symbol) ? vdaMarginCard(feed) : ''}
+          ${STATE.group === 'daily_income' && STATE.subtab !== 'di-scan' ? '<div id="cross-segment-board"></div>' : ''}
         `;
         drawCanvasChart('inst-chart', feed.ltp, (STATE.history && STATE.history.bars) || []);
+        if (STATE.group === 'daily_income' && STATE.subtab === 'di-scan') paintSuggestionConsole();
+        else if (STATE.group === 'daily_income') renderCrossSegmentIncomeBoard();
       }
+      // Single source for the banner's tone and price strings, whatever desk rendered.
+      updateVerdictBanner(verdictText, hasPrice ? `${cur}${feed.ltp}` : '--');
       startAutoRefresh();
     }
 
@@ -1169,7 +1740,10 @@
       const crumb = document.getElementById('breadcrumb');
       if (crumb && cur) crumb.innerText = `${cur.label} / ${(cur.subtabs.find(s => s.id === STATE.subtab) || cur.subtabs[0]).label}`;
 
-      if (STATE.group === 'crypto' || STATE.group === 'daily_income') loadDeltaCatalog();
+      if (STATE.group === 'crypto' || STATE.group === 'daily_income') {
+        loadDeltaCatalog();
+        loadAllDeltaIndiaInstruments();
+      }
       if (STATE.group === 'investing') loadNseUniverse();
       setupAutoSuggest();
       renderWorkspace();
@@ -1228,6 +1802,86 @@
         modal.classList.remove('active');
         renderWorkspace();
       };
+    });
+  </script>
+
+  <!-- ==================================================================== -->
+  <!-- Institutional Hedging & Manual Trade Book — full-screen drawer        -->
+  <!-- Hosts the Streamlit terminal (app.py) via ?embed=true.               -->
+  <!-- ==================================================================== -->
+  <div id="rescue-terminal-drawer" role="dialog" aria-modal="true" aria-label="Institutional Hedging and Trade Rescue Terminal"
+       style="display:none; position:fixed; inset:0; z-index:9999; background:var(--surface); flex-direction:column;">
+    <div style="display:flex; align-items:center; justify-content:space-between; gap:10px; padding:8px 12px; background:var(--surface-alt); border-bottom:1px solid var(--border); flex-wrap:wrap;">
+      <span style="font-size:11px; font-weight:800; letter-spacing:0.06em; text-transform:uppercase; color:var(--primary);">🛡️ Institutional Hedging &amp; Manual Trade Book</span>
+      <div style="display:flex; align-items:center; gap:6px;">
+        <a id="rescue-fullscreen" class="btn" href="#" target="_blank" rel="noopener noreferrer" style="text-decoration:none;">Full Screen ↗</a>
+        <button type="button" class="btn btn-danger" id="btn-close-rescue">✕ Back to Desks</button>
+      </div>
+    </div>
+    <div id="rescue-terminal-body" style="flex:1; min-height:0; background:var(--surface); overflow:auto;"></div>
+  </div>
+
+  <script>
+    // Streamlit Community Cloud app that hosts the terminal. Override at runtime
+    // with localStorage['LFC_RESCUE_URL'] instead of editing this file.
+    const RESCUE_TERMINAL_URL = 'https://YOUR-APP-NAME.streamlit.app';
+
+    function rescueTerminalUrl() {
+      let stored = '';
+      try { stored = localStorage.getItem('LFC_RESCUE_URL') || ''; } catch (_) {}
+      return (stored || RESCUE_TERMINAL_URL || '').replace(/\/+$/, '');
+    }
+
+    function closeRescueTerminal() {
+      const drawer = document.getElementById('rescue-terminal-drawer');
+      if (drawer) drawer.style.display = 'none';
+      document.body.style.overflow = '';
+    }
+
+    function toggleRescueTerminal() {
+      const drawer = document.getElementById('rescue-terminal-drawer');
+      const body = document.getElementById('rescue-terminal-body');
+      const link = document.getElementById('rescue-fullscreen');
+      if (!drawer || !body) return;
+
+      if (drawer.style.display === 'flex') { closeRescueTerminal(); return; }
+
+      drawer.style.display = 'flex';
+      document.body.style.overflow = 'hidden';
+
+      const base = rescueTerminalUrl();
+      const configured = /^https?:\/\//.test(base) && base.indexOf('YOUR-APP-NAME') === -1;
+
+      if (!configured) {
+        // Never render a broken iframe: say what is missing instead.
+        link.setAttribute('href', '#');
+        link.setAttribute('aria-disabled', 'true');
+        body.innerHTML = '<div style="max-width:640px;margin:48px auto;padding:18px 20px;border-left:4px solid #f59e0b;background:var(--surface-alt);border-radius:8px;font-size:13px;line-height:1.65;">'
+          + '<strong>The terminal URL is not configured yet.</strong><br/>'
+          + 'Set <code>RESCUE_TERMINAL_URL</code> near the bottom of <code>index.html</code> to your Streamlit app, or run '
+          + '<code>localStorage.setItem(\'LFC_RESCUE_URL\', \'https://&lt;your-app&gt;.streamlit.app\')</code> and reopen this drawer.'
+          + '<br/><br/>The terminal itself is <code>app.py</code> in the repository root.</div>';
+        return;
+      }
+
+      link.setAttribute('href', base);
+      link.removeAttribute('aria-disabled');
+
+      // Build the iframe once per page load so the portal stays light until opened.
+      if (!body.querySelector('iframe')) {
+        const frame = document.createElement('iframe');
+        frame.src = base + '/?embed=true';
+        frame.title = 'Institutional Hedging & Trade Rescue Terminal';
+        frame.setAttribute('allow', 'clipboard-write');
+        frame.style.cssText = 'width:100%;height:100%;border:0;display:block;';
+        body.appendChild(frame);
+      }
+    }
+
+    document.getElementById('btn-rescue-terminal')?.addEventListener('click', toggleRescueTerminal);
+    document.getElementById('btn-close-rescue').onclick = closeRescueTerminal;
+    document.addEventListener('keydown', function (event) {
+      if (event.key === 'Escape') closeRescueTerminal();
     });
   </script>
 </body>

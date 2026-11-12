@@ -137,7 +137,7 @@ CACHE_TTL_SECONDS = 45.0
 WATCHLIST = [
     "^NSEI", "^NSEBANK",
     "RELIANCE.NS", "TCS.NS", "INFY.NS", "HDFCBANK.NS",
-    "CL=F", "GC=F", "SI=F", "NG=F", "HG=F",
+    "CL=F", "GC=F", "SI=F", "NG=F", "HG=F", "USDINR=X",
 ]
 
 BASE_REFRESH_SECONDS = float(os.environ.get("PRICE_REFRESH_SECONDS", "30"))
@@ -153,19 +153,51 @@ _stop_event = threading.Event()
 _refresh_thread: Optional[threading.Thread] = None
 
 
-def _fetch_price(ticker_symbol: str) -> Optional[float]:
-    """One yfinance read; a success refreshes the cache entry."""
-    if not HAS_YFINANCE:
-        return None
+def _yahoo_chart_close(ticker_symbol: str) -> Optional[float]:
+    """Daily close straight from Yahoo's chart endpoint.
+
+    yfinance rate-limits (YFRateLimitError) and then every converted price falls
+    back to SNAPSHOT; the chart endpoint keeps answering for the same ticker.
+    """
     try:
-        hist = yf.Ticker(ticker_symbol).history(period="1d", interval="1m")
-        if hist is not None and not hist.empty:
-            price = _num(hist["Close"].iloc[-1])
-            if price > 0:
-                _PRICE_CACHE[ticker_symbol] = (price, time.time())
-                return price
+        from urllib.parse import quote
+        r = requests.get(
+            "https://query1.finance.yahoo.com/v8/finance/chart/" + quote(ticker_symbol, safe=""),
+            params={"range": "5d", "interval": "1d"},
+            headers={"User-Agent": "Mozilla/5.0", "Accept": "application/json"},
+            timeout=8,
+        )
+        if r.status_code != 200:
+            return None
+        payload = (r.json().get("chart") or {}).get("result") or []
+        if not payload:
+            return None
+        quote_blocks = (payload[0].get("indicators") or {}).get("quote") or [{}]
+        closes = [c for c in (quote_blocks[0].get("close") or []) if c]
+        if not closes:
+            return None
+        price = float(closes[-1])
+        return price if price > 0 else None
     except Exception:
-        pass
+        return None
+
+
+def _fetch_price(ticker_symbol: str) -> Optional[float]:
+    """yfinance read first, then the chart endpoint; a success refreshes the cache."""
+    if HAS_YFINANCE:
+        try:
+            hist = yf.Ticker(ticker_symbol).history(period="1d", interval="1m")
+            if hist is not None and not hist.empty:
+                price = _num(hist["Close"].iloc[-1])
+                if price > 0:
+                    _PRICE_CACHE[ticker_symbol] = (price, time.time())
+                    return price
+        except Exception:
+            pass
+    price = _yahoo_chart_close(ticker_symbol)
+    if price:
+        _PRICE_CACHE[ticker_symbol] = (price, time.time())
+        return price
     return None
 
 
@@ -360,15 +392,53 @@ def _mcx_scrape(commodity: str) -> Optional[dict[str, Any]]:
     }
 
 # yfinance futures → MCX contract conversion
-YF_MAP = {
-    "CRUDEOIL": ("CL=F", lambda usd: usd * USDINR),                    # USD/bbl → ₹/bbl
-    "GOLD": ("GC=F", lambda usd: usd / 31.1035 * 10 * USDINR),         # USD/oz → ₹/10g
-    "SILVER": ("SI=F", lambda usd: usd / 31.1035 * 1000 * USDINR),     # USD/oz → ₹/kg
-    "NATURALGAS": ("NG=F", lambda usd: usd * USDINR),                  # USD/mmBtu → ₹/mmBtu
-    "COPPER": ("HG=F", lambda usd: usd / 0.453592 * USDINR),           # USD/lb → ₹/kg
+MCX_PROXY_MAP = {
+    # (yfinance_ticker, unit_multiplier_to_mcx_quote_unit, duty_factor)
+    "CRUDEOIL":   ("CL=F", 1.0,               1.00),  # ₹ per barrel
+    "CRUDEOILM":  ("CL=F", 1.0,               1.00),  # ₹ per barrel
+    "NATURALGAS": ("NG=F", 1.0,               1.00),  # ₹ per mmBtu
+    "NATGASMINI": ("NG=F", 1.0,               1.00),  # ₹ per mmBtu
+    "GOLD":       ("GC=F", 10.0 / 31.1035,    1.06),  # Troy oz -> 10 grams + import duty
+    "GOLDM":      ("GC=F", 10.0 / 31.1035,    1.06),  # Troy oz -> 10 grams
+    "GOLDTEN":    ("GC=F", 10.0 / 31.1035,    1.06),  # Troy oz -> 10 grams
+    "SILVER":     ("SI=F", 1000.0 / 31.1035,  1.06),  # Troy oz -> 1 kg + import duty
+    "SILVERM":    ("SI=F", 1000.0 / 31.1035,  1.06),  # Troy oz -> 1 kg
+    "SILVERMIC":  ("SI=F", 1000.0 / 31.1035,  1.06),  # Troy oz -> 1 kg
+    "COPPER":     ("HG=F", 2.20462,           1.03),  # USD/lb -> ₹ per 1 kg
+    "ALUMINIUM":  ("ALI=F", 0.001,            1.03),  # USD/MT -> ₹ per 1 kg
 }
 
-MCX_DEFAULTS = {"CRUDEOIL": 6850.0, "GOLD": 75400.0, "SILVER": 92400.0}
+
+def _usdinr_rate() -> Optional[float]:
+    """Live USDINR.
+
+    The module constant is stale (86.50 against a ~94 spot), and an 8% FX error
+    moves every converted commodity by the same 8%.
+    """
+    live = _last_price("USDINR=X")
+    if live and live > 0:
+        return float(live)
+    return USDINR or None
+
+
+def get_mcx_converted_spot(symbol: str, usdinr: Optional[float] = None) -> Optional[float]:
+    """Convert a Yahoo futures close into the MCX quote unit.
+
+    Returns None — never a price — when the symbol is unmapped or the ticker has
+    no usable close. Defaulting an unknown symbol to CL=F would label crude oil
+    as zinc.
+    """
+    entry = MCX_PROXY_MAP.get(str(symbol or "").upper())
+    if not entry:
+        return None
+    ticker, unit_mult, duty = entry
+    rate = usdinr if usdinr and usdinr > 0 else _usdinr_rate()
+    if not rate:
+        return None
+    raw_usd = _last_price(ticker)
+    if not raw_usd or raw_usd <= 0:
+        return None
+    return round(raw_usd * rate * unit_mult * duty, 2)
 
 
 @app.api_route("/api/v1/mcx/live/{commodity}", methods=["GET", "POST"])
@@ -380,34 +450,26 @@ def get_mcx_commodity_quote(commodity: str) -> JSONResponse:
     if direct:
         return JSONResponse(direct)
 
-    # 2. yfinance commodity stream converted to INR
-    mapping = YF_MAP.get(comm_upper)
-    if mapping:
-        ticker_symbol, convert = mapping
-        usd = _last_price(ticker_symbol)
-        if usd and usd > 0:
-            inr_ltp = round(convert(usd), 2)
-            if inr_ltp > 0:
-                return JSONResponse({
-                    "symbol": comm_upper,
-                    "ltp": inr_ltp,
-                    "upper_circuit": round(inr_ltp * 1.04, 2),
-                    "lower_circuit": round(inr_ltp * 0.96, 2),
-                    "state": "SNAPSHOT",
-                    "feed_note": f"yfinance {ticker_symbol} converted at USDINR {USDINR}",
-                })
-
-    # 3. Known reference level only; unknown commodities are unavailable, not priced.
-    if comm_upper in MCX_DEFAULTS:
-        default_ltp = MCX_DEFAULTS[comm_upper]
+    # 2. Yahoo futures converted into the MCX quote unit (spot proxy, not the future)
+    inr_ltp = get_mcx_converted_spot(comm_upper)
+    if inr_ltp and inr_ltp > 0:
+        ticker_symbol, unit_mult, duty = MCX_PROXY_MAP[comm_upper]
+        rate = _usdinr_rate() or USDINR
         return JSONResponse({
             "symbol": comm_upper,
-            "ltp": default_ltp,
-            "upper_circuit": round(default_ltp * 1.04, 2),
-            "lower_circuit": round(default_ltp * 0.96, 2),
+            "ltp": inr_ltp,
+            "upper_circuit": round(inr_ltp * 1.04, 2),
+            "lower_circuit": round(inr_ltp * 0.96, 2),
             "state": "SNAPSHOT",
-            "feed_note": "static reference level",
+            "derived": True,
+            "feed_note": (
+                f"yfinance {ticker_symbol} x {unit_mult:.4g} x duty {duty:.2f} at USDINR "
+                f"{rate:.2f} - spot proxy, futures basis not included"
+            ),
         })
+
+    # 3. No static reference levels: a stale hard-coded price reads exactly like a quote.
+    #    Unmapped or unfetchable commodities report UNAVAILABLE.
 
     return JSONResponse({
         "symbol": comm_upper,
@@ -667,6 +729,42 @@ def delta_ticker(symbol: str) -> JSONResponse:
     })
 
 
+@app.get("/api/v1/delta/products")
+def get_delta_products():
+    url = "https://api.india.delta.exchange/v2/products"
+    params = {
+        "contract_types": "perpetual_futures,call_options,put_options",
+        "states": "live",
+        "page_size": 2000,
+    }
+    rows = []
+    cursor = None
+    error = None
+    try:
+        # The venue pages by cursor and its first page is pure options: at
+        # page_size=500 the response carried 500 options and zero perpetuals.
+        # Follow meta.after until the venue stops handing out a cursor.
+        for _ in range(5):
+            page_params = dict(params)
+            if cursor:
+                page_params["after"] = cursor
+            r = requests.get(url, params=page_params, headers={"Accept": "application/json"}, timeout=8)
+            r.raise_for_status()
+            body = r.json()
+            page = body.get("result") or []
+            rows.extend(page)
+            cursor = (body.get("meta") or {}).get("after")
+            if not cursor or not page:
+                break
+    except Exception as exc:
+        # A bare passthrough would 500 the desk on a venue hiccup; the portal loader
+        # treats an empty result as "use the fallback catalog".
+        error = str(exc)
+    if rows:
+        return JSONResponse({"result": rows, "state": "LIVE DELTA API", "count": len(rows)})
+    return JSONResponse({"result": [], "state": "UNAVAILABLE", "error": error})
+
+
 @app.get("/api/v1/delta/products/categorized")
 def get_delta_categorized() -> JSONResponse:
     try:
@@ -674,7 +772,10 @@ def get_delta_categorized() -> JSONResponse:
         if r.status_code == 200:
             cats: dict[str, list[dict[str, str]]] = {"Futures": [], "Options": [], "RWA Tokens": []}
             for p in r.json().get("result", []):
-                if p.get("state") != "active":
+                # Delta reports tradable products as state "live"; "active" was the
+                # old value. Accepting only "active" dropped all 1,201 products and
+                # left every crypto category empty.
+                if str(p.get("state", "")).lower() not in ("live", "active"):
                     continue
                 s = str(p.get("symbol", ""))
                 ct = str(p.get("contract_type", "")).lower()
@@ -684,6 +785,13 @@ def get_delta_categorized() -> JSONResponse:
                     cats["Options"].append({"id": s, "label": f"{s} (Option)"})
                 else:
                     cats["Futures"].append({"id": s, "label": f"{s} (Perp)"})
+            if not any(cats.values()):
+                # Never badge an empty catalog as LIVE: it reads as "nothing to trade".
+                return JSONResponse({
+                    "categories": cats,
+                    "state": "EMPTY",
+                    "feed_note": "venue returned no categorised products",
+                })
             return JSONResponse({"categories": cats, "state": "LIVE DELTA API"})
     except Exception:
         pass
