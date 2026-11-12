@@ -232,6 +232,8 @@
           </div>
           <div class="field"><label for="inp-cap">Capital (₹)</label><input type="number" id="inp-cap" value="150000" min="1000" step="1000" /></div>
           <div class="field"><label for="inp-risk">Max Risk %</label><input type="number" id="inp-risk" value="1.5" min="0.25" step="0.25" /></div>
+          <div class="field"><label for="inp-tp" title="Spreads: % of credit captured. MCX / equity: % move to target.">Exit Target %</label><input type="number" id="inp-tp" value="50" min="5" max="100" step="5" /></div>
+          <div class="field"><label for="inp-sl" title="Spreads: % of credit where the stop triggers. MCX / equity: % adverse move.">Exit Stop %</label><input type="number" id="inp-sl" value="200" min="20" max="500" step="10" /></div>
           <div class="field"><label for="inp-daily-target">Goal (₹)</label><input type="number" id="inp-daily-target" value="1500" min="0" step="100" /></div>
           <div class="field"><label>&nbsp;</label><button type="button" class="btn btn-primary" id="btn-run" style="width:100%;">⚡ Execute Engine</button></div>
         </section>
@@ -242,7 +244,20 @@
   </div>
 
   <script>
-    const STATE = { group: 'daily_income', subtab: 'di-board', mode: 'ADVISORY', panic: false, symbol: 'NIFTY', tf: '15m|1h', cap: 150000, risk: 1.5, history: null, realizedVol: null };
+    const STATE = {
+      group: 'daily_income', subtab: 'di-board', mode: 'ADVISORY', panic: false,
+      symbol: 'NIFTY', tf: '15m|1h', cap: 150000, risk: 1.5, history: null, realizedVol: null,
+      // Per-desk exit rules. Spreads read these as % of the credit collected;
+      // MCX and equity read them as % of price.
+      exits: {
+        daily_income: { tp: 50, sl: 200 },
+        stocks: { tp: 50, sl: 200 },
+        crypto: { tp: 50, sl: 200 },
+        mcx: { tp: 1.2, sl: 0.8 },
+        investing: { tp: 18, sl: 8 },
+        risk_tax: { tp: 50, sl: 200 },
+      },
+    };
     let refreshTimer = null, freshTimer = null, lastRenderAt = Date.now();
 
     // Feed base resolution:
@@ -471,6 +486,11 @@
     function mcxMarginPct(sym) {
       return MCX_MARGIN_PCT[String(sym || '').toUpperCase()] || 0.12;
     }
+    function exitSettings(desk) {
+      const d = STATE.exits[desk] || STATE.exits.daily_income;
+      return { tp: Number(d.tp) || 50, sl: Number(d.sl) || 200 };
+    }
+
     function capitalInput() {
       const el = document.getElementById('inp-cap');
       return Number(el ? el.value : 0) || 150000;
@@ -561,8 +581,9 @@
           const condorPlan = executionPlan(sym, step * 2, credit);
           const condorMaxProfit = credit * condorPlan.lotSize * condorPlan.lots;
           const condorMaxLoss = (step * 2 - credit) * condorPlan.lotSize * condorPlan.lots;
-          const condorTp = curSym + (credit * 0.5).toFixed(1);
-          const condorSl = curSym + (credit * 2).toFixed(1);
+          const condorExits = exitSettings(desk);
+          const condorTp = curSym + (credit * condorExits.tp / 100).toFixed(1);
+          const condorSl = curSym + (credit * condorExits.sl / 100).toFixed(1);
           return `
             <div class="trade-legs-container">
               <div class="trade-legs-title"><span>Recommended Options Legs (Iron Condor)</span><span class="pill">Step: ${step} pts</span></div>
@@ -589,15 +610,16 @@
               <div class="gate-item"><span>Max Profit / Lot (both wings expire OTM)</span><strong>+${curSym}${Math.round(credit * condorPlan.lotSize)}</strong></div>
               <div class="gate-item"><span>Max Loss / Lot (either wing breached)</span><strong>−${curSym}${Math.round((step * 2 - credit) * condorPlan.lotSize)}</strong></div>
               ${condorPlan.lots > 0 ? `<div class="gate-item"><span>Total at ${condorPlan.lots} lot(s)</span><strong>+${curSym}${Math.round(condorMaxProfit)} / −${curSym}${Math.round(condorMaxLoss)}</strong></div>` : ''}
-              <div class="gate-item"><span>Exit Plan</span><strong>Buy back at ${condorTp} (50% captured) · cut if premium ≥ ${condorSl} · close ${Math.max(1, dte - 2)} DTE</strong></div>
+              <div class="gate-item"><span>Exit Plan (${condorExits.tp}% / ${condorExits.sl}%)</span><strong>Buy back at ${condorTp} (${condorExits.tp}% captured) · cut if premium ≥ ${condorSl} · close ${Math.max(1, dte - 2)} DTE</strong></div>
             </div>`;
         }
 
         const plan = executionPlan(sym, step, credit);
         const maxProfit = credit * plan.lotSize * plan.lots;
         const maxLoss = (step - credit) * plan.lotSize * plan.lots;
-        const tpPremium = credit * 0.5;
-        const slPremium = credit * 2;
+        const spreadExits = exitSettings(desk);
+        const tpPremium = credit * spreadExits.tp / 100;
+        const slPremium = credit * spreadExits.sl / 100;
         return `
           <div class="trade-legs-container">
             <div class="trade-legs-title"><span>Recommended Options Legs (${strategyName})</span><span class="pill">Step: ${step} pts</span></div>
@@ -624,14 +646,15 @@
             <div class="gate-item"><span>Max Profit / Lot (full credit decay)</span><strong>+${curSym}${Math.round(credit * plan.lotSize)}</strong></div>
             <div class="gate-item"><span>Max Loss / Lot (short strike breached)</span><strong>−${curSym}${Math.round((step - credit) * plan.lotSize)}</strong></div>
             ${plan.lots > 0 ? `<div class="gate-item"><span>Total at ${plan.lots} lot(s)</span><strong>+${curSym}${Math.round(maxProfit)} / −${curSym}${Math.round(maxLoss)}</strong></div>` : ''}
-            <div class="gate-item"><span>Exit Plan</span><strong>Buy back at ${curSym}${tpPremium.toFixed(1)} (50% captured) · cut if premium ≥ ${curSym}${slPremium.toFixed(1)} · close ${Math.max(1, dte - 2)} DTE</strong></div>
+            <div class="gate-item"><span>Exit Plan (${spreadExits.tp}% / ${spreadExits.sl}%)</span><strong>Buy back at ${curSym}${tpPremium.toFixed(1)} (${spreadExits.tp}% captured) · cut if premium ≥ ${curSym}${slPremium.toFixed(1)} · close ${Math.max(1, dte - 2)} DTE</strong></div>
           </div>`;
       }
 
       if (desk === 'mcx') {
+        const mcxExits = exitSettings('mcx');
         const longEntry = Math.round(ltp * 0.998);
-        const sl = Math.round(ltp * 0.992);
-        const target = Math.round(ltp * 1.012);
+        const sl = Math.round(ltp * (1 - mcxExits.sl / 100));
+        const target = Math.round(ltp * (1 + mcxExits.tp / 100));
         const mcxUnits = { CRUDEOIL: 100, GOLD: 100, SILVER: 30, NATURALGAS: 1250, COPPER: 2500, ALUMINIUM: 5000 }[sym.toUpperCase()] || 1;
         const mcxProfit = Math.round((target - longEntry) * mcxUnits);
         const mcxLoss = Math.round((longEntry - sl) * mcxUnits);
@@ -657,9 +680,10 @@
       }
 
       if (desk === 'investing') {
-        const intrinsic = Math.round(ltp * 1.18);
+        const invExits = exitSettings('investing');
+        const intrinsic = Math.round(ltp * (1 + invExits.tp / 100));
         const buyCeiling = Math.round(intrinsic * 0.85);
-        const invStop = Math.round(buyCeiling * 0.92);
+        const invStop = Math.round(buyCeiling * (1 - invExits.sl / 100));
         const invReward = intrinsic - buyCeiling;
         const invRisk = buyCeiling - invStop;
         return `
@@ -946,7 +970,7 @@
         drawCanvasChart('inst-chart', feed.ltp, (STATE.history && STATE.history.bars) || []);
       } else if (STATE.group === 'investing') {
         // Render Piotroski & 2-Stage DCF Valuation Engine
-        const dcfIntrinsic = Number((feed.ltp * 1.18).toFixed(2));
+        const dcfIntrinsic = Number((feed.ltp * (1 + exitSettings('investing').tp / 100)).toFixed(2));
         const marginOfSafety = Number((((dcfIntrinsic - feed.ltp) / dcfIntrinsic) * 100).toFixed(1));
 
         mount.innerHTML = `
@@ -1131,6 +1155,23 @@
     document.addEventListener('DOMContentLoaded', () => {
       initUI();
       document.getElementById('btn-run').onclick = () => { STATE.symbol = document.getElementById('inp-symbol').value.toUpperCase(); renderWorkspace(); };
+
+      // Exit inputs are per-desk: they load the current desk's values and save back on change.
+      const tpEl = document.getElementById('inp-tp');
+      const slEl = document.getElementById('inp-sl');
+      if (tpEl && slEl) {
+        const ex = exitSettings(STATE.group);
+        tpEl.value = ex.tp;
+        slEl.value = ex.sl;
+        tpEl.onchange = slEl.onchange = () => {
+          const tp = Math.min(100, Math.max(5, Number(tpEl.value) || 50));
+          const sl = Math.max(20, Math.min(500, Number(slEl.value) || 200));
+          STATE.exits[STATE.group] = { tp, sl };
+          tpEl.value = tp;
+          slEl.value = sl;
+          renderWorkspace();
+        };
+      }
       document.getElementById('btn-panic').onclick = () => { STATE.panic = true; document.getElementById('panic-bar').classList.add('active'); renderWorkspace(); };
       document.getElementById('btn-disarm').onclick = () => { STATE.panic = false; document.getElementById('panic-bar').classList.remove('active'); renderWorkspace(); };
       document.getElementById('btn-theme').onclick = () => {
