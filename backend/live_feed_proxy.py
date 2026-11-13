@@ -112,12 +112,55 @@ async def private_network_access(request, call_next):
 # ---------------------------------------------------------------------------
 # helpers
 # ---------------------------------------------------------------------------
-def _num(value: Any, default: float = 0.0) -> float:
+_PRICE_CACHE: dict[str, tuple[float, float]] = {}
+CACHE_TTL_SECONDS = 45.0
+_DELTA_PRODUCT_CACHE: dict[str, tuple[float, dict[str, Any]], float] = {}
+_DELTA_PRODUCT_CACHE_TTL = 30.0
+@app.get("/api/v1/delta/product/{symbol}")
+def get_delta_product(symbol: str) -> JSONResponse:
+    """Contract specs for one Delta product - mirrors /api/v1/delta/product/* on the worker.
+
+    The portal clicks this while it renders a desk; every instrument switch used to
+    log a 404 in the console even though candles loaded fine. The venue's
+    /v2/products/{symbol} resolves one contract directly, so a click no longer has
+    to page through the whole book.
+    """
+    sym = (symbol or "").upper()
+    now = time.monotonic()
+
+    cached = _DELTA_PRODUCT_CACHE.get(sym)
+    if cached and (now - cached[2]) < _DELTA_PRODUCT_CACHE_TTL:
+        return JSONResponse(cached[1])
+
     try:
-        out = float(str(value).replace(",", "").strip())
-        return out if out == out else default  # reject NaN
-    except (TypeError, ValueError):
-        return default
+        r = requests.get(
+            f"https://api.india.delta.exchange/v2/products/{sym}",
+            headers={"Accept": "application/json"},
+            timeout=6,
+        )
+        if r.status_code == 200:
+            product = (r.json() or {}).get("result")
+            if isinstance(product, dict) and str(product.get("symbol", "")).upper() == sym:
+                body = {
+                    "state": "LIVE DELTA API",
+                    "symbol": product.get("symbol"),
+                    "description": product.get("short_description") or "",
+                    "initial_margin_pct": _num(product.get("initial_margin")),
+                    "maintenance_margin_pct": _num(product.get("maintenance_margin")),
+                    "max_leverage": _num(product.get("default_leverage")),
+                    "contract_value": _num(product.get("contract_value")),
+                    "contract_unit": product.get("contract_unit_currency") or "",
+                    "maker_fee": _num(product.get("maker_commission_rate")),
+                    "taker_fee": _num(product.get("taker_commission_rate")),
+                    "tick_size": _num(product.get("tick_size")),
+                    "position_limit": _num(product.get("position_size_limit")),
+                }
+                _DELTA_PRODUCT_CACHE[sym] = (body, time.monotonic() + _DELTA_PRODUCT_CACHE_TTL)
+                return JSONResponse(body)
+    except Exception:
+        pass
+
+    return JSONResponse({"state": "UNAVAILABLE", "symbol": sym})
 
 
 def _pick(row: dict[str, Any], *names: str) -> Any:
@@ -134,6 +177,8 @@ def _pick(row: dict[str, Any], *names: str) -> Any:
 # window degrades to slightly stale ticks instead of constant prices.
 _PRICE_CACHE: dict[str, tuple[float, float]] = {}
 CACHE_TTL_SECONDS = 45.0
+_DELTA_PRODUCT_CACHE: dict[str, tuple[float, dict[str, Any]], float] = {}
+_DELTA_PRODUCT_CACHE_TTL = 30.0
 
 WATCHLIST = [
     "^NSEI", "^NSEBANK",
@@ -795,12 +840,6 @@ def get_delta_product(symbol: str) -> JSONResponse:
     """
     sym = (symbol or "").upper()
 
-    def num(value: Any) -> Optional[float]:
-        try:
-            out = float(value)
-        except (TypeError, ValueError):
-            return None
-        return out if out == out and out not in (float("inf"), float("-inf")) else None
 
     try:
         # /v2/products ignores the ?symbols= filter (it still returns the whole
