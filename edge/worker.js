@@ -755,8 +755,53 @@ export default {
         return json(await scanNse(offset, limit));
       }
 
-      if (path === "/api/v1/delta/products/categorized") {
-        return json(await deltaProducts());
+      if (path === "/api/v1/delta/products") {
+        const params = new URLSearchParams(url.search);
+        const count = Math.max(1, Math.min(400, parseInt(params.get("count") || "250", 10)));
+        // Mirror the proxy: /delta/products?count=250&cursor=<token>, paginated,
+        // with only the live catalog rows (futures, options, RWA tokens).
+        let rows = [];
+        try {
+          const all = await deltaRawProducts();
+          if (all.length) {
+            const seen = new Set();
+            for (const r of all) {
+              if (seen.has(r.symbol)) continue;
+              seen.add(r.symbol);
+              rows.push(r);
+              if (rows.length >= count) break;
+            }
+            rows = rows.slice(0, count);
+          }
+        } catch (_) {
+          /* fall through to a partial catalog anyway */
+        }
+        const categories = { Futures: [], Options: [], "RWA Tokens": [] };
+        for (const r of rows) {
+          const ct = String(r.contract_type || "").toLowerCase();
+          const descriptor = `${r.description || ""} ${r.short_description || ""}`;
+          const isToken = r.is_rwa === true || /rwa/i.test(String(r.symbol || "")) || /(xstocks?|bstocks?|ondo)\s+token|tokeni[sz]ed|rwa|gold token/i.test(descriptor);
+          if (isToken && !ct.includes("option")) {
+            categories["RWA Tokens"].push({ id: r.symbol, label: r.short_description || `${r.symbol} (RWA token)` });
+          } else if (ct.includes("option")) {
+            categories.Options.push({ id: r.symbol, label: `${r.symbol} (Option)` });
+          } else {
+            categories.Futures.push({ id: r.symbol, label: `${r.symbol} (Perp)` });
+          }
+        }
+        for (const key of Object.keys(categories)) {
+          if (categories[key].length > CATEGORY_CAP) categories[key] = categories[key].slice(0, CATEGORY_CAP);
+        }
+        return json({
+          categories,
+          state: "LIVE DELTA API",
+          counts: {
+            futures: categories.Futures.length,
+            options: categories.Options.length,
+            rwa: categories["RWA Tokens"].length,
+          },
+          request: { path: "/api/v1/delta/products", params: Object.fromEntries(params.entries()) },
+        });
       }
 
       if (path.startsWith("/api/v1/delta/product/")) {
