@@ -1693,11 +1693,42 @@
     }
 
     // ---- TradingView Lightweight Charts ------------------------------------
-    // Official open-source lib (github.com/tradingview/lightweight-charts,
-    // Apache-2.0) loaded from unpkg. Unlike the TV embed widget it is not gated
-    // by exchange licensing, so one renderer serves NSE, MCX and Delta India
-    // straight off /api/v1/history/{symbol}.
-    let tvCharts = null;
+    let tvMainChart = null;
+    let tvRsiChart = null;
+
+    function computeEMA(closes, period) {
+      const k = 2 / (period + 1);
+      let ema = closes[0];
+      return closes.map((val, idx) => {
+        if (idx === 0) return ema;
+        ema = val * k + ema * (1 - k);
+        return Number(ema.toFixed(4));
+      });
+    }
+
+    function computeRSI(closes, period = 14) {
+      const rsi = new Array(closes.length).fill(null);
+      if (closes.length <= period) return rsi;
+      let gains = 0, losses = 0;
+      for (let i = 1; i <= period; i++) {
+        const diff = closes[i] - closes[i - 1];
+        if (diff >= 0) gains += diff;
+        else losses -= diff;
+      }
+      let avgGain = gains / period;
+      let avgLoss = losses / period;
+      rsi[period] = avgLoss === 0 ? 100 : 100 - 100 / (1 + avgGain / avgLoss);
+
+      for (let i = period + 1; i < closes.length; i++) {
+        const diff = closes[i] - closes[i - 1];
+        const gain = diff > 0 ? diff : 0;
+        const loss = diff < 0 ? -diff : 0;
+        avgGain = (avgGain * (period - 1) + gain) / period;
+        avgLoss = (avgLoss * (period - 1) + loss) / period;
+        rsi[i] = avgLoss === 0 ? 100 : Number((100 - 100 / (1 + avgGain / avgLoss)).toFixed(2));
+      }
+      return rsi;
+    }
 
     function tvChartShell() {
       return `
@@ -1714,247 +1745,209 @@
         </div>`;
     }
 
-    function tvSetText(id, text) {
-      const el = document.getElementById(id);
-      if (el) el.textContent = text;
-    }
-
-    function tvPriceText(value) {
-      const n = Number(value);
-      if (!isFinite(n)) return '--';
-      const abs = Math.abs(n);
-      const dp = abs >= 10 ? 2 : abs >= 1 ? 3 : 5;
-      return n.toLocaleString('en-IN', { minimumFractionDigits: dp, maximumFractionDigits: dp });
-    }
-
-    function emaValues(values, period) {
-      const k = 2 / (period + 1);
-      const out = new Array(values.length).fill(null);
-      let prev = null;
-      for (let i = 0; i < values.length; i++) {
-        if (i < period - 1) continue;
-        if (prev === null) {
-          let sum = 0;
-          for (let j = i - period + 1; j <= i; j++) sum += values[j];
-          prev = sum / period;
-        } else {
-          prev = values[i] * k + prev * (1 - k);
-        }
-        out[i] = prev;
-      }
-      return out;
-    }
-
-    function rsiValues(values, period = 14) {
-      const out = new Array(values.length).fill(null);
-      if (values.length <= period) return out;
-      let gain = 0, loss = 0;
-      for (let i = 1; i <= period; i++) {
-        const d = values[i] - values[i - 1];
-        if (d >= 0) gain += d; else loss -= d;
-      }
-      gain /= period; loss /= period;
-      out[period] = loss === 0 ? 100 : 100 - 100 / (1 + gain / loss);
-      for (let i = period + 1; i < values.length; i++) {
-        const d = values[i] - values[i - 1];
-        gain = (gain * (period - 1) + Math.max(d, 0)) / period;
-        loss = (loss * (period - 1) + Math.max(-d, 0)) / period;
-        out[i] = loss === 0 ? 100 : 100 - 100 / (1 + gain / loss);
-      }
-      return out;
-    }
-
-    // Recommended CE/PE legs, drawn as horizontal price lines on the candles.
-    // Same strike arithmetic as the leg cards, so the chart cannot disagree.
+    // Recommended CE/PE legs as chart price lines - same strike arithmetic as
+    // the leg cards, so what the chart marks and what the cards size agree.
     function recommendedStrikeLevels(sym, ltp, verdict) {
       if (!(ltp > 0) || STATE.panic) return [];
       if (!['daily_income', 'stocks', 'crypto', 'mcx'].includes(STATE.group)) return [];
       const step = getStrikeStep(sym, ltp);
       if (!(step > 0)) return [];
       const levels = [];
-      const add = (price, title, color) => {
-        if (price > 0) levels.push({ price: Math.round(price * 100) / 100, title, color });
+      const add = (price, side, label) => {
+        if (price > 0) levels.push({ price: Math.round(price * 100) / 100, side, label });
       };
       const text = String(verdict || '');
       if (text.includes('BULLISH')) {
         let sell = Math.floor(ltp / step) * step;
         if (sell >= ltp) sell -= step;
-        add(sell, 'SELL PE', '#15803d');
-        add(sell - step, 'BUY PE', '#0369a1');
+        add(sell, 'SELL', 'SELL PE');
+        add(sell - step, 'BUY', 'BUY PE');
       } else if (text.includes('BEARISH')) {
         let sell = Math.ceil(ltp / step) * step;
         if (sell <= ltp) sell += step;
-        add(sell, 'SELL CE', '#b91c1c');
-        add(sell + step, 'BUY CE', '#b45309');
+        add(sell, 'SELL', 'SELL CE');
+        add(sell + step, 'BUY', 'BUY CE');
       } else {
-        add(Math.floor((ltp * 0.98) / step) * step, 'SELL PE', '#15803d');
-        add(Math.ceil((ltp * 1.02) / step) * step, 'SELL CE', '#b91c1c');
+        add(Math.floor((ltp * 0.98) / step) * step, 'SELL', 'SELL PE');
+        add(Math.ceil((ltp * 1.02) / step) * step, 'SELL', 'SELL CE');
       }
       return levels;
     }
 
-    function renderTradingViewChart(candles, symbol, strikeLevels = []) {
-      const mainEl = document.getElementById('tv-main-chart');
-      const rsiEl = document.getElementById('tv-rsi-chart');
-      if (!mainEl || !rsiEl) return;
-      if (tvCharts) {
-        try { tvCharts.main.remove(); } catch (_) {}
-        try { tvCharts.rsi.remove(); } catch (_) {}
-        tvCharts = null;
-      }
-      mainEl.innerHTML = '';
-      rsiEl.innerHTML = '';
+    function renderTradingViewChart(rawBars, symbol = "INSTRUMENT", strikeLevels = []) {
+      const mainEl = document.getElementById("tv-main-chart");
+      const rsiEl = document.getElementById("tv-rsi-chart");
+      if (!mainEl || !rsiEl || !window.LightweightCharts) return;
 
-      const lib = window.LightweightCharts;
-      if (!lib || typeof lib.createChart !== 'function') {
-        mainEl.innerHTML = '<div class="tv-chart-fallback">TradingView Lightweight Charts failed to load from the unpkg CDN.</div>';
-        return;
-      }
+      // Destroy prior chart instances on symbol/timeframe switch
+      if (tvMainChart) { tvMainChart.remove(); tvMainChart = null; }
+      if (tvRsiChart) { tvRsiChart.remove(); tvRsiChart = null; }
 
-      // Only real venue bars: one per timestamp, strictly ascending.
-      const byTime = new Map();
-      (candles || []).forEach(b => {
-        let t = Number(b.t);
-        if (!(t > 0)) return;
-        if (t > 1e11) t = Math.floor(t / 1000);
-        const close = Number(b.c);
-        if (!(close > 0)) return;
-        byTime.set(t, {
-          time: t,
-          open: Number(b.o) > 0 ? Number(b.o) : close,
-          high: Number(b.h) > 0 ? Number(b.h) : close,
-          low: Number(b.l) > 0 ? Number(b.l) : close,
-          close,
-          volume: Number(b.v) > 0 ? Number(b.v) : 0,
-        });
-      });
-      let bars = [...byTime.values()].sort((a, b) => a.time - b.time);
-      if (bars.length > 180) bars = bars.slice(-180);
-      if (bars.length < 2) {
+      // Normalize, sort ascending, and deduplicate timestamps (required by Lightweight Charts)
+      const seen = new Set();
+      const bars = (rawBars || [])
+        .map(b => {
+          const rawTime = b.time ?? b.timestamp ?? b.t;
+          const unixSec = typeof rawTime === "number"
+            ? (rawTime > 1e12 ? Math.floor(rawTime / 1000) : Math.floor(rawTime))
+            : Math.floor(new Date(rawTime).getTime() / 1000);
+          return {
+            time: unixSec,
+            open: Number(b.open ?? b.o),
+            high: Number(b.high ?? b.h),
+            low: Number(b.low ?? b.l),
+            close: Number(b.close ?? b.c),
+            volume: Number(b.volume ?? b.v ?? 0),
+          };
+        })
+        .filter(b => Number.isFinite(b.time) && Number.isFinite(b.close))
+        .sort((a, b) => a.time - b.time)
+        .filter(b => (seen.has(b.time) ? false : seen.add(b.time)));
+
+      // No candles means no chart - never a drawn-in placeholder series.
+      if (bars.length < 5) {
         mainEl.innerHTML = `<div class="tv-chart-fallback">NO HISTORICAL SERIES FOR THIS CONTRACT<br>${STATE.symbol} · venue publishes no candles for this feed</div>`;
         rsiEl.innerHTML = '';
         return;
       }
 
       const closes = bars.map(b => b.close);
-      const ema20 = emaValues(closes, 20);
-      const ema50 = emaValues(closes, 50);
-      const rsi14 = rsiValues(closes, 14);
-      const lineData = arr => bars.reduce((acc, b, i) => {
-        if (arr[i] != null) acc.push({ time: b.time, value: arr[i] });
-        return acc;
-      }, []);
+      const ema20Vals = computeEMA(closes, 20);
+      const ema50Vals = computeEMA(closes, 50);
+      const rsiVals = computeRSI(closes, 14);
 
+      // The portal ships a dark toggle; keep the panes legible in both themes.
       const dark = document.documentElement.getAttribute('data-theme') === 'dark';
-      const gridColor = dark ? 'rgba(148,163,184,0.14)' : 'rgba(148,163,184,0.24)';
-      const borderColor = dark ? '#334155' : '#cbd5e1';
-      const baseOptions = {
-        autoSize: true,
+      const commonOptions = {
         layout: {
-          background: { color: 'transparent' },
-          textColor: dark ? '#cbd5e1' : '#334155',
-          fontFamily: 'JetBrains Mono, monospace',
-          fontSize: 10,
+          background: { type: "solid", color: dark ? "#0f172a" : "#ffffff" },
+          textColor: dark ? "#cbd5e1" : "#334155",
+          fontFamily: "JetBrains Mono, monospace",
+          fontSize: 11,
         },
-        grid: { vertLines: { color: gridColor }, horzLines: { color: gridColor } },
-        rightPriceScale: { borderColor },
-        crosshair: { mode: 1 },
-        localization: { priceFormatter: tvPriceText },
+        grid: {
+          vertLines: { color: dark ? "#1e293b" : "#f1f5f9" },
+          horzLines: { color: dark ? "#1e293b" : "#f1f5f9" },
+        },
+        crosshair: { mode: LightweightCharts.CrosshairMode.Normal },
+        rightPriceScale: { borderColor: dark ? "#334155" : "#cbd5e1", minimumWidth: 72 },
+        timeScale: { borderColor: dark ? "#334155" : "#cbd5e1", timeVisible: true, secondsVisible: false },
       };
-      const dash = lib.LineStyle ? lib.LineStyle.Dashed : 2;
 
-      const main = lib.createChart(mainEl, {
-        ...baseOptions,
-        timeScale: { borderColor, timeVisible: true, secondsVisible: false },
+      // 1. MAIN CHART (Candlesticks + EMA 20/50 + Volume)
+      tvMainChart = LightweightCharts.createChart(mainEl, {
+        ...commonOptions,
+        width: mainEl.clientWidth,
+        height: 310,
+        timeScale: { ...commonOptions.timeScale, visible: false },
       });
-      const candleSeries = main.addCandlestickSeries({
-        upColor: '#22c55e', downColor: '#ef4444',
-        wickUpColor: '#22c55e', wickDownColor: '#ef4444',
-        borderVisible: false,
-        priceLineColor: '#0f52ba',
+
+      const candleSeries = tvMainChart.addCandlestickSeries({
+        upColor: "#10b981",
+        downColor: "#ef4444",
+        borderUpColor: "#10b981",
+        borderDownColor: "#ef4444",
+        wickUpColor: "#10b981",
+        wickDownColor: "#ef4444",
       });
-      candleSeries.setData(bars.map(b => ({ time: b.time, open: b.open, high: b.high, low: b.low, close: b.close })));
+      candleSeries.setData(bars);
 
-      const ema20Series = main.addLineSeries({ color: '#0369a1', lineWidth: 2, priceLineVisible: false, lastValueVisible: false, crosshairMarkerVisible: false });
-      ema20Series.setData(lineData(ema20));
-      const ema50Series = main.addLineSeries({ color: '#b45309', lineWidth: 2, priceLineVisible: false, lastValueVisible: false, crosshairMarkerVisible: false });
-      ema50Series.setData(lineData(ema50));
+      const ema20Series = tvMainChart.addLineSeries({ color: "#0284c7", lineWidth: 2, title: "EMA 20" });
+      ema20Series.setData(bars.map((b, i) => ({ time: b.time, value: ema20Vals[i] })));
 
-      // Volume rides the price pane on its own scale. No volume in the payload
-      // means no histogram, rather than a flat row that reads as "no trading".
+      const ema50Series = tvMainChart.addLineSeries({ color: "#d97706", lineWidth: 2, title: "EMA 50" });
+      ema50Series.setData(bars.map((b, i) => ({ time: b.time, value: ema50Vals[i] })));
+
+      // Only plot volume the venue actually published; a flat zero row would
+      // read as "nobody traded this", which is a different claim.
       if (bars.some(b => b.volume > 0)) {
-        const volumeSeries = main.addHistogramSeries({
-          priceScaleId: 'volume',
-          priceFormat: { type: 'volume' },
-          priceLineVisible: false,
-          lastValueVisible: false,
+        const volumeSeries = tvMainChart.addHistogramSeries({
+          priceFormat: { type: "volume" },
+          priceScaleId: "vol",
+        });
+        tvMainChart.priceScale("vol").applyOptions({
+          scaleMargins: { top: 0.82, bottom: 0 },
         });
         volumeSeries.setData(bars.map(b => ({
           time: b.time,
           value: b.volume,
-          color: b.close >= b.open ? 'rgba(34,197,94,0.45)' : 'rgba(239,68,68,0.45)',
+          color: b.close >= b.open ? "rgba(16, 185, 129, 0.28)" : "rgba(239, 68, 68, 0.28)",
         })));
-        main.priceScale('volume').applyOptions({ scaleMargins: { top: 0.82, bottom: 0 } });
       }
 
+      // Plot Option Strike / Breakeven Price Lines if provided
       (strikeLevels || []).forEach(lvl => {
-        candleSeries.createPriceLine({
-          price: lvl.price,
-          color: lvl.color || '#64748b',
-          lineWidth: 1,
-          lineStyle: dash,
-          axisLabelVisible: true,
-          title: lvl.title || '',
-        });
+        if (lvl && Number.isFinite(Number(lvl.price))) {
+          candleSeries.createPriceLine({
+            price: Number(lvl.price),
+            color: lvl.side === "SELL" ? "#ef4444" : "#10b981",
+            lineWidth: 1,
+            lineStyle: LightweightCharts.LineStyle.Dashed,
+            axisLabelVisible: true,
+            title: lvl.label || "",
+          });
+        }
       });
 
-      const rsi = lib.createChart(rsiEl, {
-        ...baseOptions,
-        rightPriceScale: { borderColor, scaleMargins: { top: 0.12, bottom: 0.12 } },
-        timeScale: { borderColor, visible: false },
+      // 2. RSI(14) SUB-PANE
+      tvRsiChart = LightweightCharts.createChart(rsiEl, {
+        ...commonOptions,
+        width: rsiEl.clientWidth,
+        height: 115,
       });
-      const rsiSeries = rsi.addLineSeries({
-        color: '#6d28d9',
+
+      const rsiSeries = tvRsiChart.addLineSeries({
+        color: "#7c3aed",
         lineWidth: 2,
-        priceLineVisible: false,
-        crosshairMarkerVisible: false,
-        priceFormat: { type: 'price', precision: 1, minMove: 0.1 },
         autoscaleInfoProvider: () => ({ priceRange: { minValue: 0, maxValue: 100 } }),
       });
-      rsiSeries.setData(lineData(rsi14));
-      rsiSeries.createPriceLine({ price: 70, color: '#b91c1c', lineWidth: 1, lineStyle: dash, axisLabelVisible: true, title: '70' });
-      rsiSeries.createPriceLine({ price: 30, color: '#15803d', lineWidth: 1, lineStyle: dash, axisLabelVisible: true, title: '30' });
+      rsiSeries.setData(
+        bars
+          .map((b, i) => (rsiVals[i] !== null ? { time: b.time, value: rsiVals[i] } : null))
+          .filter(Boolean)
+      );
+      rsiSeries.createPriceLine({ price: 70, color: "#ef4444", lineWidth: 1, lineStyle: LightweightCharts.LineStyle.Dashed, axisLabelVisible: true, title: "OB 70" });
+      rsiSeries.createPriceLine({ price: 30, color: "#10b981", lineWidth: 1, lineStyle: LightweightCharts.LineStyle.Dashed, axisLabelVisible: true, title: "OS 30" });
 
-      tvSetText('tv-leg-sym', symbol || STATE.symbol);
-      const indexByTime = new Map(bars.map((b, i) => [b.time, i]));
-      const paintLegend = time => {
-        const i = time != null && indexByTime.has(time) ? indexByTime.get(time) : bars.length - 1;
-        const b = bars[i];
-        if (!b) return;
-        tvSetText('tv-leg-ohlc', `O: ${tvPriceText(b.open)}  H: ${tvPriceText(b.high)}  L: ${tvPriceText(b.low)}  C: ${tvPriceText(b.close)}`);
-        tvSetText('tv-leg-ema20', `EMA20: ${ema20[i] != null ? tvPriceText(ema20[i]) : '--'}`);
-        tvSetText('tv-leg-ema50', `EMA50: ${ema50[i] != null ? tvPriceText(ema50[i]) : '--'}`);
-        tvSetText('tv-leg-rsi', `RSI(14): ${rsi14[i] != null ? rsi14[i].toFixed(1) : '--'}`);
-      };
-      paintLegend(null);
-      const onCrosshair = param => paintLegend(param && param.time ? param.time : null);
-      main.subscribeCrosshairMove(onCrosshair);
-      rsi.subscribeCrosshairMove(onCrosshair);
-
-      // Keep both panes on the same window; the guard stops the echo loop.
+      // 3. LOCK TIME-SCALE ZOOM/PAN & LIVE CROSSHAIR LEGEND BETWEEN PANES
       let syncing = false;
-      const linkScales = (from, to) => from.timeScale().subscribeVisibleLogicalRangeChange(range => {
-        if (syncing || !range) return;
+      tvMainChart.timeScale().subscribeVisibleLogicalRangeChange(range => {
+        if (syncing || !range || !tvRsiChart) return;
         syncing = true;
-        try { to.timeScale().setVisibleLogicalRange(range); } catch (_) {}
+        try { tvRsiChart.timeScale().setVisibleLogicalRange(range); } catch (_) {}
         syncing = false;
       });
-      linkScales(main, rsi);
-      linkScales(rsi, main);
+      tvRsiChart.timeScale().subscribeVisibleLogicalRangeChange(range => {
+        if (syncing || !range || !tvMainChart) return;
+        syncing = true;
+        try { tvMainChart.timeScale().setVisibleLogicalRange(range); } catch (_) {}
+        syncing = false;
+      });
 
-      tvCharts = { main, rsi };
-      main.timeScale().fitContent();
-      rsi.timeScale().fitContent();
+      const updateLegend = (idx) => {
+        const i = Math.max(0, Math.min(bars.length - 1, idx));
+        const b = bars[i];
+        document.getElementById("tv-leg-sym").textContent = symbol;
+        document.getElementById("tv-leg-ohlc").textContent = `O:${b.open} H:${b.high} L:${b.low} C:${b.close}`;
+        document.getElementById("tv-leg-ema20").textContent = `EMA20:${ema20Vals[i]}`;
+        document.getElementById("tv-leg-ema50").textContent = `EMA50:${ema50Vals[i]}`;
+        document.getElementById("tv-leg-rsi").textContent = `RSI(14):${rsiVals[i] ?? "--"}`;
+      };
+      updateLegend(bars.length - 1);
+
+      tvMainChart.subscribeCrosshairMove(param => {
+        if (!param || !param.time) return updateLegend(bars.length - 1);
+        const idx = bars.findIndex(b => b.time === param.time);
+        if (idx !== -1) updateLegend(idx);
+      });
+
+      // Responsive resize on mobile/desktop window changes
+      new ResizeObserver(() => {
+        if (tvMainChart) tvMainChart.applyOptions({ width: mainEl.clientWidth });
+        if (tvRsiChart) tvRsiChart.applyOptions({ width: rsiEl.clientWidth });
+      }).observe(mainEl);
+
+      tvMainChart.timeScale().fitContent();
     }
 
     function initUI() {
