@@ -1,0 +1,12 @@
+{
+  "entrypoint": "worker.js",
+  "compatibilityDate": "2026-11-12",
+  "modules": [
+    {
+      "name": "worker.js",
+      "type": "esm",
+      "path": "./edge/worker.js"
+    }
+  ],
+  "assetsDirectory": "./dist-portal"
+}
