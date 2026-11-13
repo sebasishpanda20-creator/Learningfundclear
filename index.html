@@ -934,6 +934,15 @@
             <div class="gate-item"><span>Statutory Cost Gate</span><span class="tag ${plan.pass ? 'pass' : 'fail'}">${plan.pass ? 'PASSED' : 'FAILED'} · E_net ${plan.net >= 0 ? '+' : ''}${curSym}${Math.round(plan.net)}</span></div>
             <div class="gate-item"><span>Max Profit / Lot (full credit decay)</span><strong>+${curSym}${Math.round(credit * plan.lotSize)}</strong></div>
             <div class="gate-item"><span>Max Loss / Lot (short strike breached)</span><strong>−${curSym}${Math.round((step - credit) * plan.lotSize)}</strong></div>
+            <div class="gate-item" style="color:var(--danger);font-weight:bold;font-family:var(--font-mono);"><span>Stop-Loss (SL) Trigger</span>
+              <span id="sl-trigger"></span>
+              <span class="pill">RED — EXPLICIT SCOPE</span></div>
+            <div class="gate-item" style="color:var(--danger);font-weight:bold;font-family:var(--font-mono);"><span>Underlying Spot SL</span>
+              <span id="sl-trigger"></span>
+              <span class="pill">RED — EXPLICIT SCOPE</span></div>
+            <div class="gate-item" style="color:var(--danger);font-weight:bold;font-family:var(--font-mono);"><span>Spread Premium SL</span>
+              <span id="sl-trigger">Cut if spread ≥ ${curSym}${slPremium.toFixed(1)} (Max Loss −${curSym}${Math.round((step - credit) * plan.lotSize))}</span>
+              <span class="pill">RED — EXPLICIT SCOPE</span></div>
             ${plan.lots > 0 ? `<div class="gate-item"><span>Total at ${plan.lots} lot(s)</span><strong>+${curSym}${Math.round(maxProfit)} / −${curSym}${Math.round(maxLoss)}</strong></div>` : ''}
             <div class="gate-item"><span>Exit Plan (${spreadExits.tp}% / ${spreadExits.sl}%)</span><strong>Buy back at ${curSym}${tpPremium.toFixed(1)} (${spreadExits.tp}% captured) · cut if premium ≥ ${curSym}${slPremium.toFixed(1)} · close ${Math.max(1, dte - 2)} DTE</strong></div>
           </div>`;
