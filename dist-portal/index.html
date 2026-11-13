@@ -322,28 +322,60 @@
       { symbol: "ALUMINI",    name: "Aluminium Mini (1 MT)",             exchange: "MCX", step: 2.5, lot: 1000 },
       { symbol: "LEAD",       name: "Lead Futures (5 MT | per 1kg)",     exchange: "MCX", step: 2.5, lot: 5000 },
       { symbol: "LEADMINI",   name: "Lead Mini (1 MT | per 1kg)",        exchange: "MCX", step: 2.5, lot: 1000 },
-      { symbol: "NICKEL",     name: "Nickel Futures (250 kg)",           exchange: "MCX", step: 10,  lot: 250 },
-      { symbol: "MCXBULLDEX", name: "MCX Bullion Index Futures",         exchange: "MCX", step: 100, lot: 30 },
-      { symbol: "MCXMETLDEX", name: "MCX Base Metal Index Futures",      exchange: "MCX", step: 100, lot: 40 }
+      { symbol: "NICKEL",     name: "Nickel Futures (250 kg)",           exchange: "MCX", step: 10,  lot: 250 }
     ];
+
+    // Index products (MCXBULLDEX, MCXMETLDEX) are deliberately absent: the venue
+    // never publishes a market-watch row for them, and proxying them off GOLD /
+    // COPPER quoted a level the exchange had not printed. Live rows now decide
+    // what the dropdown may offer.
+    const MCX_LIVE_SYMBOLS = new Set();
+
+    function mcxCatalog() {
+      // Before the market-watch payload arrives - or if it cannot be read - the
+      // curated list stands as-is; once it is known, only quoted contracts stay.
+      return MCX_LIVE_SYMBOLS.size
+        ? MCX_CATALOG.filter(c => MCX_LIVE_SYMBOLS.has(c.symbol))
+        : MCX_CATALOG;
+    }
+
+    function setMcxLiveSymbols(list) {
+      MCX_LIVE_SYMBOLS.clear();
+      (list || []).forEach(s => {
+        const key = String(s || '').toUpperCase();
+        if (key) MCX_LIVE_SYMBOLS.add(key);
+      });
+      catalogByDesk.mcx = mcxCatalog().map(c => ({ s: c.symbol, n: c.name, e: 'MCX' }));
+    }
+
+    async function loadMcxLiveSymbols() {
+      try {
+        const res = await fetch(`${getProxyBaseUrl()}/api/v1/mcx/symbols`, { signal: AbortSignal.timeout(8000) });
+        if (!res.ok) return;
+        const data = await res.json();
+        if (Array.isArray(data.symbols) && data.symbols.length) setMcxLiveSymbols(data.symbols);
+      } catch (err) {
+        // Keep the curated catalog rather than emptying the dropdown.
+      }
+    }
 
     // Show all MCX instruments on focus even when default "CRUDEOIL" is pre-filled
     function renderMcxSuggestions(query = "", isFocusEvent = false) {
       const q = isFocusEvent ? "" : String(query || '').trim().toUpperCase();
-      return MCX_CATALOG.filter(
+      return mcxCatalog().filter(
         item => !q || item.symbol.includes(q) || item.name.toUpperCase().includes(q)
       );
     }
 
     // The MCX desk's autosuggest reads the same catalog, so the desk default
-    // (CRUDEOIL) no longer hides the 19 other listed contracts.
-    catalogByDesk.mcx = MCX_CATALOG.map(c => ({ s: c.symbol, n: c.name, e: 'MCX' }));
+    // (CRUDEOIL) no longer hides the other listed contracts.
+    catalogByDesk.mcx = mcxCatalog().map(c => ({ s: c.symbol, n: c.name, e: 'MCX' }));
 
     // Minis, micros and index products inherit their parent contract's margin band.
     const MCX_PARENT = {
       CRUDEOILM: 'CRUDEOIL', NATGASMINI: 'NATURALGAS', GOLDM: 'GOLD', GOLDTEN: 'GOLD',
       SILVERM: 'SILVER', SILVERMIC: 'SILVER', ZINCMINI: 'ZINC', ALUMINI: 'ALUMINIUM',
-      LEADMINI: 'LEAD', MCXBULLDEX: 'GOLD', MCXMETLDEX: 'COPPER'
+      LEADMINI: 'LEAD'
     };
 
     // Multi-asset universe for the Daily Income desk: NSE F&O, MCX and Delta VDA.
@@ -1745,12 +1777,14 @@
         loadAllDeltaIndiaInstruments();
       }
       if (STATE.group === 'investing') loadNseUniverse();
+      if (STATE.group === 'mcx') loadMcxLiveSymbols();
       setupAutoSuggest();
       renderWorkspace();
     }
 
     document.addEventListener('DOMContentLoaded', () => {
       initUI();
+      loadMcxLiveSymbols();
       document.getElementById('btn-run').onclick = () => { STATE.symbol = document.getElementById('inp-symbol').value.toUpperCase(); renderWorkspace(); };
 
       // Exit inputs are per-desk: they load the current desk's values and save back on change.

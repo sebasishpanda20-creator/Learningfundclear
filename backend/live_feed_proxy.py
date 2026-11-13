@@ -442,6 +442,26 @@ def get_mcx_converted_spot(symbol: str, usdinr: Optional[float] = None) -> Optio
     return round(raw_usd * rate * unit_mult * duty, 2)
 
 
+@app.get("/api/v1/mcx/symbols")
+def get_mcx_symbols() -> JSONResponse:
+    """Contracts the venue is quoting right now, from the market-watch payload.
+
+    The portal offers only these in the MCX dropdown: an index product such as
+    MCXBULLDEX never appears in the watch list, so it has no live feed to show.
+    """
+    rows = _mcx_watch_rows()
+    if not rows:
+        return JSONResponse({"symbols": [], "state": "UNAVAILABLE"})
+    symbols = sorted({
+        str(r.get("Symbol") or r.get("symbol") or "").strip().upper()
+        for r in rows
+        if isinstance(r, dict)
+    } - {""})
+    if not symbols:
+        return JSONResponse({"symbols": [], "state": "UNAVAILABLE"})
+    return JSONResponse({"symbols": symbols, "state": "LIVE MCX", "count": len(symbols)})
+
+
 @app.api_route("/api/v1/mcx/live/{commodity}", methods=["GET", "POST"])
 def get_mcx_commodity_quote(commodity: str) -> JSONResponse:
     comm_upper = commodity.upper()

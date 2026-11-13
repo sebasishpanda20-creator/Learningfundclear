@@ -718,6 +718,16 @@ export default {
       if ((m = /^\/api\/v1\/mcx\/live\/([A-Za-z0-9&._-]+)$/.exec(path))) {
         return json(await mcxLive(m[1]));
       }
+      if (path === "/api/v1/mcx/symbols") {
+        // Same contract as the local proxy: only what the watch payload quotes.
+        const rows = await mcxRows();
+        const symbols = [...new Set((rows || [])
+          .map(r => String(r.Symbol || r.symbol || "").toUpperCase())
+          .filter(Boolean))].sort();
+        return json(symbols.length
+          ? { symbols, state: "LIVE MCX", count: symbols.length }
+          : { symbols: [], state: "UNAVAILABLE" });
+      }
       if ((m = /^\/api\/v1\/delta\/ticker\/([A-Za-z0-9&._-]+)$/.exec(path))) {
         return json(await deltaLive(m[1]));
       }
