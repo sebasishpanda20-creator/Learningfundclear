@@ -889,6 +889,7 @@ def _yahoo_bars(ticker_symbol: str, resolution: str) -> list[dict[str, Any]]:
     highs = quote_block.get("high") or []
     lows = quote_block.get("low") or []
     closes = quote_block.get("close") or []
+    volumes = quote_block.get("volume") or []
     bars: list[dict[str, Any]] = []
     for i, stamp in enumerate(stamps):
         close = closes[i] if i < len(closes) else None
@@ -900,6 +901,8 @@ def _yahoo_bars(ticker_symbol: str, resolution: str) -> list[dict[str, Any]]:
             "h": highs[i] if i < len(highs) and isinstance(highs[i], (int, float)) else close,
             "l": lows[i] if i < len(lows) and isinstance(lows[i], (int, float)) else close,
             "c": close,
+            # The volume pane plots this; absent volume stays 0 rather than invented.
+            "v": volumes[i] if i < len(volumes) and isinstance(volumes[i], (int, float)) else 0,
         })
     return bars
 
@@ -945,7 +948,8 @@ def get_history(symbol: str, market: str = "auto", resolution: str = "1d") -> JS
                 candles = r.json().get("result") or []
                 bars = [
                     {"t": c.get("time"), "o": c.get("open"), "h": c.get("high"),
-                     "l": c.get("low"), "c": c.get("close")}
+                     "l": c.get("low"), "c": c.get("close"),
+                     "v": c.get("volume") if isinstance(c.get("volume"), (int, float)) else 0}
                     for c in candles
                     if isinstance(c.get("close"), (int, float))
                 ]
@@ -973,7 +977,8 @@ def get_history(symbol: str, market: str = "auto", resolution: str = "1d") -> JS
                     factor = rate * unit_mult * duty
                     bars = [
                         {"t": b["t"], "o": b["o"] * factor, "h": b["h"] * factor,
-                         "l": b["l"] * factor, "c": b["c"] * factor}
+                         "l": b["l"] * factor, "c": b["c"] * factor,
+                         "v": b.get("v", 0)}
                         for b in raw
                     ]
                     state = "PROXY YFINANCE"

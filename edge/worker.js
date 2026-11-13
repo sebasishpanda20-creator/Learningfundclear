@@ -512,7 +512,8 @@ async function historyFor(symbol, market) {
       if (res.ok) {
         const body = await res.json();
         bars = (body.result || [])
-          .map(c => ({ t: c.time, o: c.open, h: c.high, l: c.low, c: c.close }))
+          .map(c => ({ t: c.time, o: c.open, h: c.high, l: c.low, c: c.close,
+                       v: typeof c.volume === "number" ? c.volume : 0 }))
           .filter(b => typeof b.c === "number" && isFinite(b.c))
           .reverse();
         if (bars.length) state = "LIVE DELTA API";
@@ -534,7 +535,8 @@ async function historyFor(symbol, market) {
         const ts = result.timestamp || [];
         const quote = (((result.indicators || {}).quote || [{}])[0]) || {};
         bars = ts
-          .map((t, i) => ({ t, o: quote.open && quote.open[i], h: quote.high && quote.high[i], l: quote.low && quote.low[i], c: quote.close && quote.close[i] }))
+          .map((t, i) => ({ t, o: quote.open && quote.open[i], h: quote.high && quote.high[i], l: quote.low && quote.low[i], c: quote.close && quote.close[i],
+                            v: (quote.volume && typeof quote.volume[i] === "number") ? quote.volume[i] : 0 }))
           .filter(b => typeof b.c === "number" && isFinite(b.c));
         if (bars.length) state = "REAL-TIME YFINANCE";
       }
