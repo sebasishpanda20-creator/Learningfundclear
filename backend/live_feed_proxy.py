@@ -766,6 +766,54 @@ def get_delta_products():
     return JSONResponse({"result": [], "state": "UNAVAILABLE", "error": error})
 
 
+@app.get("/api/v1/delta/product/{symbol}")
+def get_delta_product(symbol: str) -> JSONResponse:
+    """Contract specs for one Delta product - mirrors /api/v1/delta/product/* on the worker.
+
+    The portal calls this while it renders a desk; without it every instrument
+    switch logged a 404 in the console even though candles loaded fine.
+    """
+    sym = (symbol or "").upper()
+
+    def num(value: Any) -> Optional[float]:
+        try:
+            out = float(value)
+        except (TypeError, ValueError):
+            return None
+        return out if out == out and out not in (float("inf"), float("-inf")) else None
+
+    try:
+        # /v2/products ignores the ?symbols= filter (it still returns the whole
+        # book), but /v2/products/{symbol} resolves one product directly - so a
+        # desk click no longer has to page through 5 MB of contracts.
+        r = requests.get(
+            f"https://api.india.delta.exchange/v2/products/{sym}",
+            headers={"Accept": "application/json"},
+            timeout=6,
+        )
+        if r.status_code == 200:
+            product = (r.json() or {}).get("result")
+            if isinstance(product, dict) and str(product.get("symbol", "")).upper() == sym:
+                return JSONResponse({
+                    "state": "LIVE DELTA API",
+                    "symbol": product.get("symbol"),
+                    "description": product.get("short_description") or "",
+                    "initial_margin_pct": num(product.get("initial_margin")),
+                    "maintenance_margin_pct": num(product.get("maintenance_margin")),
+                    "max_leverage": num(product.get("default_leverage")),
+                    "contract_value": num(product.get("contract_value")),
+                    "contract_unit": product.get("contract_unit_currency") or "",
+                    "maker_fee": num(product.get("maker_commission_rate")),
+                    "taker_fee": num(product.get("taker_commission_rate")),
+                    "tick_size": num(product.get("tick_size")),
+                    "position_limit": num(product.get("position_size_limit")),
+                })
+    except Exception:
+        pass
+
+    return JSONResponse({"state": "UNAVAILABLE", "symbol": sym})
+
+
 # ---------------------------------------------------------------------------
 # History / candles
 # ---------------------------------------------------------------------------
