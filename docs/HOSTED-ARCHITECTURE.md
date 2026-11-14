@@ -64,8 +64,10 @@ poll at 1/min for 6.5 h is ~390 requests, far inside the free allowance. See
 `docs/FREE-TIER-BUDGET.md`.
 
 Evidence: `qa/fyers-worker.test.mjs` includes concurrent callbacks (exactly one session), replay,
-wrong sid, expired state, user isolation, expiry, logout and no-token-leak assertions. It uses a
-fake provider and fake portal session; live FYERS is **NOT RUN**.
+wrong sid, expired state, user isolation, expiry, logout and no-token-leak assertions. A local
+`wrangler dev` run of a minimal SQLite Durable Object returned one state record and one null for
+two simultaneous `consumeState` calls (2026-11-14). The tests use a fake provider and fake portal
+session; live FYERS is **NOT RUN**.
 
 ## 3. Free-tier budget and scheduler design
 
