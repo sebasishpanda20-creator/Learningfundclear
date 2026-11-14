@@ -166,9 +166,9 @@ check("FYERS state and sessions use the Durable Object vault", () => {
   const vault = read("server/fyers-vault.mjs");
   assert(/"new_sqlite_classes"\s*:\s*\[\s*"FyersVault"/.test(wrangler), "DO migration missing");
   assert(/"class_name"\s*:\s*"FyersVault"/.test(wrangler), "DO binding missing");
-  assert(/consumeState/.test(vault) && /storage\.delete/.test(vault), "atomic consumption missing");
+  assert(/consumeState/.test(vault) && /DELETE FROM vault .*RETURNING value/.test(vault), "atomic SQL consumption missing");
   assert(/sealToken/.test(read("server/fyers-routes.mjs")), "token sealing missing");
-  return "durable_object_sqlite";
+  return "durable_object_sqlite: delete returning";
 });
 
 check("audit documents state the corrected design and inventory", () => {

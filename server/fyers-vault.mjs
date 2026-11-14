@@ -16,11 +16,57 @@ export class MemoryStorage {
   async get(key) { return this.map.get(key); }
   async put(key, value) { this.map.set(key, value); }
   async delete(key) { return this.map.delete(key); }
+  // One synchronous step: no other callback can observe the value between the
+  // read and the delete.
+  take(key) {
+    const value = this.map.get(key);
+    if (value === undefined) return undefined;
+    this.map.delete(key);
+    return value;
+  }
   async list({ prefix } = {}) {
     const out = new Map();
     for (const [key, value] of this.map) {
       if (!prefix || key.startsWith(prefix)) out.set(key, value);
     }
+    return out;
+  }
+}
+
+// SQLite storage for the Durable Object. `take` is a single DELETE … RETURNING,
+// so two concurrent callbacks cannot both read the same row. Separate get and
+// delete calls would leave a gap even inside a Durable Object.
+export class SqlStorage {
+  constructor(sql) {
+    this.sql = sql;
+    this.sql.exec('CREATE TABLE IF NOT EXISTS vault (key TEXT PRIMARY KEY, value TEXT NOT NULL)');
+  }
+  async get(key) {
+    const rows = this.sql.exec('SELECT value FROM vault WHERE key = ?', key).toArray();
+    return rows.length ? JSON.parse(rows[0].value) : undefined;
+  }
+  async put(key, value) {
+    this.sql.exec(
+      'INSERT INTO vault (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value',
+      key,
+      JSON.stringify(value),
+    );
+  }
+  async delete(key) {
+    return this.sql.exec('DELETE FROM vault WHERE key = ?', key).rowsWritten > 0;
+  }
+  take(key) {
+    const rows = this.sql.exec('DELETE FROM vault WHERE key = ? RETURNING value', key).toArray();
+    return rows.length ? JSON.parse(rows[0].value) : undefined;
+  }
+  async list({ prefix = '' } = {}) {
+    const rows = this.sql.exec(
+      'SELECT key, value FROM vault WHERE substr(key, 1, ?) = ?',
+      prefix.length,
+      prefix,
+    ).toArray();
+    const out = new Map();
+    for (const row of rows) out.set(row.key, JSON.parse(row.value));
     return out;
   }
 }
@@ -49,10 +95,8 @@ export class VaultCore {
   // carries the portal user the state was issued to, which the callback uses to
   // bind the broker session without trusting a browser-supplied identity.
   async consumeState(stateHash, sid) {
-    const key = this.stateKey(stateHash);
-    const record = await this.storage.get(key);
+    const record = await this.storage.take(this.stateKey(stateHash));
     if (!record) return null;
-    await this.storage.delete(key);
     if (record.sid !== sid) return null;
     if (!(record.expiresAt > this.now())) return null;
     return record;
@@ -109,7 +153,7 @@ export class FyersVault {
   constructor(state, env) {
     this.state = state;
     this.env = env;
-    this.core = new VaultCore(state.storage);
+    this.core = new VaultCore(new SqlStorage(state.storage.sql));
   }
 
   async fetch(request) {

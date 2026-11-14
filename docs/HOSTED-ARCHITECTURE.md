@@ -40,10 +40,12 @@ concurrent callbacks.
 
 `FyersVault` is a SQLite-backed Durable Object (`new_sqlite_classes`):
 
-- One named instance (`fyers-owner`) serializes operations. Durable Object input gates prevent
-  interleaving between the storage `get` and `delete` inside one request.
-- `consumeState(hash, sid)` reads, deletes, then validates. A wrong sid, wrong user binding or
-  expired record is burned and returns `null`; a captured state cannot be replayed.
+- One named instance (`fyers-owner`). State consumption is a single SQL
+  `DELETE FROM vault WHERE key = ? RETURNING value`, not a separate read and delete, so two
+  concurrent callbacks cannot both receive the same state record.
+- `consumeState(hash, sid)` deletes and returns in one statement, then validates. A wrong sid,
+  wrong user binding or expired record is burned and returns `null`; a captured state cannot be
+  replayed.
 - State is stored only as `sha256(state)` with `{sid, userId, expiresAt}`; the raw state never
   reaches storage.
 - Sessions store `{sid, userId, sealed, expiresAt, connectedAt, clientId}`. The broker token is

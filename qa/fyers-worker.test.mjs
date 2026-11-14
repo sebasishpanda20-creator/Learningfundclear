@@ -22,7 +22,7 @@ import {
   sessionCookie,
   sha256Hex,
 } from '../server/fyers-core.mjs';
-import { MemoryStorage, VaultCore } from '../server/fyers-vault.mjs';
+import { MemoryStorage, SqlStorage, VaultCore } from '../server/fyers-vault.mjs';
 import { handleFyers } from '../server/fyers-routes.mjs';
 
 const KEY = Buffer.alloc(32, 7).toString('base64');
@@ -319,6 +319,22 @@ test('callback replay, invalid state and missing cookie are refused', async () =
 
   const wrong = await callback({ sid: 'nope', state: 'nope', vault, fetchImpl: p.fetchImpl });
   assert.match(wrong.headers.get('location'), /reason=invalid_state/);
+});
+
+test('SQLite take consumes state in one DELETE ... RETURNING statement', async () => {
+  const statements = [];
+  const fakeSql = {
+    exec(query, ...args) {
+      statements.push({ query, args });
+      if (/^DELETE/.test(query)) return { toArray: () => [{ value: JSON.stringify({ sid: 's', userId: 'u', expiresAt: Date.now() + 1000 }) }], rowsWritten: 1 };
+      return { toArray: () => [], rowsWritten: 0 };
+    },
+  };
+  const storage = new SqlStorage(fakeSql);
+  const record = await storage.take('state:abc');
+  assert.equal(record.sid, 's');
+  assert.match(statements.at(-1).query, /^DELETE FROM vault .*RETURNING value$/);
+  assert.equal(statements.at(-1).args[0], 'state:abc');
 });
 
 test('concurrent callbacks with the same state produce exactly one session', async () => {
