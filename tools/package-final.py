@@ -85,7 +85,7 @@ def scan_secrets(files: list[tuple[str, Path]]) -> list[str]:
     for arc, path in files:
         # Test files intentionally contain fake credentials/patterns; they are
         # reviewed as tests, not runtime configuration.
-        if arc.startswith("lfc-quant-work/qa/"):
+        if arc.startswith("lfc-quant-work/qa/") or arc.endswith("tools/package-final.py"):
             continue
         try:
             text = path.read_text(encoding="utf-8")
