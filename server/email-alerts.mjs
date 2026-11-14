@@ -23,18 +23,43 @@ export async function serveAlerts(request,env,config,fetcher=fetch){
  const plan=body.plan;await env.ALERTS_KV.put(key,JSON.stringify(old||{email:u.email,id:crypto.randomUUID(),plan,sent:{},origin:new URL(request.url).origin}),{expirationTtl:36000});return json({configured:true,enabled:true,email:u.email,expiresAt:plan.timeExit});
  }catch{return json({error:'Alert service unavailable; no delivery confirmed'},503);}
 }
-export async function runAlerts(env,fetcher=fetch){
- if(!ready(env))return;let cursor;
- do{const page=await env.ALERTS_KV.list({prefix:'plan:',limit:100,cursor});for(const key of page.keys){try{
- const item=await env.ALERTS_KV.get(key.name,'json');if(!item)continue;const p=item.plan;let event='PLAN SAVED';
- if(item.sent[event]){
- if(Date.now()>=p.timeExit)event='TIME EXIT';else{
- const asset=p.long.split('-')[1];const r=await fetcher('https://api.india.delta.exchange/v2/tickers?contract_types=call_options,put_options&underlying_asset_symbols='+asset,{signal:AbortSignal.timeout(12000)});if(!r.ok)continue;const j=await r.json();if(!j.success)continue;const m=globalThis.LfcCryptoDesk.monitor(p,j.result);event=m.status;if(!['STOP WATCH','TARGET WATCH'].includes(event))continue;
- }}
- if(item.sent[event])continue;
- const response=await fetcher('https://api.resend.com/emails',{method:'POST',headers:{Authorization:'Bearer '+env.RESEND_API_KEY,'Content-Type':'application/json','Idempotency-Key':item.id+'-'+event.replaceAll(' ','-')},body:JSON.stringify({from:env.ALERT_FROM,to:[item.email],subject:'LearningFundClear · '+event,text:'Paper spread watch: '+event+'\nBuy '+p.quantity+' contracts '+p.long+'\nSell '+p.quantity+' contracts '+p.short+'\nStop spread price: '+p.stopSpread+' USD\nTarget spread price: '+p.targetSpread+' USD\nClose-by time: '+new Date(p.timeExit).toISOString()+'\n\nResearch alert only. Quotes and email can be delayed. No exchange order or stop has been placed. Check both legs on Delta.\nManage or disable this watch: '+item.origin+'/crypto-options.html'}),signal:AbortSignal.timeout(12000)});
- if(!response.ok)continue;item.sent[event]=true;await env.ALERTS_KV.put(key.name,JSON.stringify(item),{expirationTtl:36000});if(event==='TIME EXIT')await env.ALERTS_KV.delete(key.name);
- }catch{/* Retry next scheduled run; never mark an unsuccessful send as delivered. */}}
- cursor=page.list_complete?undefined:page.cursor;
+const EVAL_KEY='meta:alerts-eval';
+function intEnv(value,fallback){
+ const n=Number(value);return Number.isFinite(n)&&n>0?Math.floor(n):fallback;
+}
+export async function runAlerts(env,fetcher=fetch,opts={}){
+ if(!ready(env))return {skipped:true,reason:'not_configured'};
+ const now=opts.now||Date.now();
+ const intervalMinutes=intEnv(env.ALERT_EVAL_MINUTES,5);
+ const maxPages=intEnv(env.ALERT_MAX_PAGES,5);
+ // A one-minute cron must not mean one full listing per minute. The marker
+ // gates the expensive work and is written only when a run is due.
+ try{
+  const last=await env.ALERTS_KV.get(EVAL_KEY,'json');
+  if(last&&Number.isFinite(last.at)&&now-last.at<intervalMinutes*60000)
+   return {skipped:true,reason:'interval',nextAt:last.at+intervalMinutes*60000};
+ }catch{return {error:'kv_read_failed'};}
+ try{await env.ALERTS_KV.put(EVAL_KEY,JSON.stringify({at:now}),{expirationTtl:86400});}
+ catch{return {error:'kv_write_failed'};}
+ let cursor,pages=0,evaluated=0,sent=0,errors=0,truncated=false;
+ do{
+  let page;
+  try{page=await env.ALERTS_KV.list({prefix:'plan:',limit:100,cursor});}
+  catch{return {error:'kv_list_failed',pages,evaluated,sent,errors};}
+  pages++;
+  for(const key of page.keys){evaluated++;try{
+   const item=await env.ALERTS_KV.get(key.name,'json');if(!item)continue;const p=item.plan;let event='PLAN SAVED';
+   if(item.sent&&item.sent[event]){
+    if(now>=p.timeExit)event='TIME EXIT';else{
+     const asset=p.long.split('-')[1];const r=await fetcher('https://api.india.delta.exchange/v2/tickers?contract_types=call_options,put_options&underlying_asset_symbols='+asset,{signal:AbortSignal.timeout(12000)});if(!r.ok){errors++;continue;}const j=await r.json();if(!j.success){errors++;continue;}const m=globalThis.LfcCryptoDesk.monitor(p,j.result);event=m.status;if(!['STOP WATCH','TARGET WATCH'].includes(event))continue;
+    }
+   }
+   if(item.sent&&item.sent[event])continue;
+   const response=await fetcher('https://api.resend.com/emails',{method:'POST',headers:{Authorization:'Bearer '+env.RESEND_API_KEY,'Content-Type':'application/json','Idempotency-Key':item.id+'-'+event.replaceAll(' ','-')},body:JSON.stringify({from:env.ALERT_FROM,to:[item.email],subject:'LearningFundClear · '+event,text:['Paper spread watch: '+event,'Buy '+p.quantity+' contracts '+p.long,'Sell '+p.quantity+' contracts '+p.short,'Stop spread price: '+p.stopSpread+' USD','Target spread price: '+p.targetSpread+' USD','Close-by time: '+new Date(p.timeExit).toISOString(),'','Research alert only. Quotes and email can be delayed. No exchange order or stop has been placed. Check both legs on Delta.','Manage or disable this watch: '+item.origin+'/crypto-options.html'].join(String.fromCharCode(10))}),signal:AbortSignal.timeout(12000)});
+   if(!response.ok){errors++;continue;}item.sent[event]=true;await env.ALERTS_KV.put(key.name,JSON.stringify(item),{expirationTtl:36000});if(event==='TIME EXIT')await env.ALERTS_KV.delete(key.name);sent++;
+  }catch{errors++;/* Retry next scheduled run; never mark an unsuccessful send as delivered. */}}
+  cursor=page.list_complete?undefined:page.cursor;
+  if(cursor&&pages>=maxPages){truncated=true;cursor=undefined;}
  }while(cursor);
+ return {evaluated,sent,errors,pages,truncated,intervalMinutes};
 }

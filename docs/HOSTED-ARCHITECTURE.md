@@ -1,192 +1,176 @@
-# Hosted architecture for laptop-independent operation
+# Hosted architecture — source audit and design only
 
-Status: **design + readiness audit only. Nothing is deployed. Deployment requires explicit approval.**
+**Status: source-audit / hosted-design milestone. Nothing is deployed. The portal is not
+laptop-independent and is not production-ready.** Deployment requires explicit approval.
 
-Definitions used throughout:
+Definitions:
 
-- **A — mobile page works with the laptop off.** Every byte the phone loads and every
-  request the page makes resolves to a public HTTPS host. No laptop process, file, database,
-  tunnel or LAN address is involved.
-- **B — scheduled scanning/alerts work with all user browsers closed.** A server-side
-  scheduler performs the work; no open tab, no laptop cron and no browser timer is required.
+- **A — mobile page with the laptop off.** Every request the phone makes resolves to a public
+  HTTPS host with no laptop process, file, database, tunnel or LAN address.
+- **B — scheduled work with all browsers closed.** A server-side scheduler performs the work.
 
-## 1. Verified current state (source, not assumptions)
+Neither A nor B has been demonstrated end-to-end. Static checks, clean-extraction tests and a
+local Worker run are evidence for the source, not for the deployed service.
 
-| Component | Where it runs now | Evidence |
-|---|---|---|
-| Portal HTML/JS/CSS | Cloudflare Worker static assets (`dist/client`, binding `ASSETS`) | `wrangler.jsonc` `assets`, `server/worker.mjs` `env.ASSETS.fetch` |
-| Portal auth + records | Hosted Supabase (`https://<ref>.supabase.co`) | `assets/js/config.js`, `server/config.mjs` build output |
-| `/api/market/yahoo`, `/api/market/mfapi` | Cloudflare Worker → Yahoo/mfapi | `server/worker.mjs:31-32`, `server/market-proxy.mjs` |
-| `/api/email-alerts` | Worker + KV `ALERTS_KV` + Resend | `server/email-alerts.mjs` |
-| Cron `*/1 * * * *` | Worker `scheduled()` → crypto email watches + daemon health | `wrangler.jsonc`, `server/worker.mjs` |
-| `/api/v1/*`, `/quant-terminal/*` | Reverse-proxied to `https://quant-daemon-a9m2.onrender.com` | `wrangler.jsonc` `vars.QUANT_API_ORIGIN`, `server/quant-proxy.mjs` |
-| FYERS auth/quote | Python `Learningfundclear/backend/live_feed_proxy.py` — **not in this Worker** | no `fyers` route in `server/*.mjs`; Worker would only reach it through `QUANT_API_ORIGIN` |
-| FYERS sessions | In-process Python dict (lost on restart/sleep/multi-instance) | `live_feed_proxy.py` `_fyers_sessions` |
+## 1. Current source state
 
-There are **no loopback URLs in shipped runtime code** (verified by `qa/hosting-readiness.cjs`).
-The only laptop-local dependency left is operational: FYERS currently exists only in the local
-Python service, and its sessions are not durable.
-
-## 2. Target topology
-
-```
- Phone (mobile data)                      Public HTTPS only
-        │
-        ▼
- Cloudflare Worker  <portal>.workers.dev  (or portal.example.com)
-   ├── static assets (ASSETS)
-   ├── /api/market/**        → Yahoo / mfapi          [A]
-   ├── /api/fyers/**         → api-t1.fyers.in        [A, new]
-   ├── /api/email-alerts     → KV + Resend            [B: delivery]
-   ├── scheduled() cron      → alert checks, scan job [B]
-   └── /api/v1/**            → hosted quant service (Render)  [optional]
-        │
-        ├── Supabase (hosted): auth, app_users, ideas, audit
-        ├── Workers KV: FYERS sessions/states, alert plans
-        └── Resend: transactional email for alerts
-```
-
-The Worker is the **only public origin**. Supabase, KV and Resend are managed services reached
-with server-side credentials. Render is optional and only needed for the quant daemon endpoints;
-it is never on the laptop.
-
-## 3. Hosted FYERS design (decision required)
-
-Two viable paths; both remove the laptop and both keep tokens server-side.
-
-### Option 1 — move FYERS into the Worker (recommended)
-
-- Routes: `/api/fyers/config-status|login|callback|disconnect|quote`, same protocol as the
-  Python implementation (auth-code, `appIdHash = sha256("<client_id>:<secret>")`,
-  `Authorization: <client_id>:<access_token>`, `/data/quotes`, `/api/v3/logout`).
-- Session store: Workers KV.
-  - `fyers:state:<random>` → `{sid, createdAt}` TTL 600 s, single use, bound to cookie.
-  - `fyers:sess:<sid>` → `{access_token, expires_at}` TTL = next 06:30 IST.
-  - Cookie: `lfc_fyers_session=<sid>; HttpOnly; Secure; SameSite=Lax; Path=/`.
-- Secrets: `FYERS_CLIENT_ID`, `FYERS_SECRET_ID`, `FYERS_REDIRECT_URI` via `wrangler secret put`.
-  `FYERS_REDIRECT_URI` is the deployed HTTPS callback, e.g.
-  `https://<portal-host>/api/fyers/callback`.
-- Portal authentication: `quote` also requires a valid Supabase session, so the route cannot be
-  used as an open relay.
-- Why recommended: one origin, no cold start, no second host, sessions survive Worker restarts.
-- Cost to implement: new `server/fyers.mjs`, ~8 route tests, KV binding reuse (`ALERTS_KV` with
-  `fyers:` prefix) or a dedicated namespace.
-
-### Option 2 — host the existing Python service
-
-- Deploy `Learningfundclear/backend` to Render **Starter ($7/mo, no sleep)**; free tier sleeps
-  after 15 min idle (~1 min cold start) and is explicitly not for production.
-- Sessions must move out of the process dict into Supabase Postgres or Redis (Render Key Value
-  $10/mo); otherwise every restart/sleep signs the user out and multi-instance breaks isolation.
-- `FYERS_REDIRECT_URI` must be the Render HTTPS callback; the Worker proxies `/api/v1/fyers/*`.
-- Faster to ship (tested code), but adds a host, a cold-start surface and duplicate auth checks.
-
-**No FYERS credentials are configured in this workspace, so no hosted FYERS login has been
-tested. Until one of the options above is deployed with secrets, FYERS is a laptop dependency.**
-
-## 4. Session storage and persistent records
-
-| Data | Store | Survives restart | Notes |
+| Component | Source / runtime target | Evidence | Deployed? |
 |---|---|---|---|
-| Portal login | Supabase Auth (JWT) | yes | refresh handled by the client SDK |
-| Users/ideas/audit | Supabase Postgres | yes | RLS policies already in the schema |
-| FYERS state/session | Workers KV (Option 1) or Postgres/Redis (Option 2) | yes | TTL-bound, single-use state |
-| Alert plans + send flags | KV `ALERTS_KV` | yes | 10 h TTL already applied |
-| Daemon health counters | KV | yes | best-effort |
-| Scan results (proposed B) | KV or D1 | yes | not implemented |
-| Python FYERS sessions today | process memory | **no** | lost on restart, sleep, redeploy |
+| Portal HTML/JS/CSS | Cloudflare Worker static assets | `wrangler.jsonc` `assets`, `server/worker.mjs` `env.ASSETS.fetch` | no |
+| Portal auth + records | Hosted Supabase | `assets/js/config.js`, `server/config.mjs` | existing service; deployment of this Worker not run |
+| `/api/market/yahoo`, `/api/market/mfapi` | Worker → Yahoo/mfapi | `server/market-proxy.mjs` | no |
+| `/api/fyers/**` | Worker → FYERS v3 | `server/fyers-routes.mjs`, `server/fyers-core.mjs` | no |
+| FYERS state/session | SQLite-backed Durable Object `FyersVault` | `server/fyers-vault.mjs`, `wrangler.jsonc` migrations | no |
+| `/api/email-alerts` | Worker + KV `ALERTS_KV` + Resend | `server/email-alerts.mjs` | no |
+| Cron `*/1 * * * *` | Worker `scheduled()`; evaluation gated to 5 min by default | `wrangler.jsonc`, `server/worker.mjs`, `server/email-alerts.mjs` | no |
+| `/api/v1/*`, `/quant-terminal/*` | Reverse proxy to Render quant daemon | `wrangler.jsonc` `vars.QUANT_API_ORIGIN` | daemon existing; Worker not deployed |
+| Nightly EOD scan | GitHub Actions `signal-scan.yml` → `tools/signal-scan.js` → Supabase `signal_events` | workflow + script | existing workflow; latest local lookup 2026-11-10 |
+| Intraday/web scan | Browser `scanner.html` + `scanner-logic.js` | `scanner-auto.js` | browser-only |
+| Alert watches / health | Worker cron | `server/email-alerts.mjs`, `server/daemon-watch.mjs` | no |
 
-## 5. A/B capability matrix (today)
+The legacy Python FYERS service (`Learningfundclear/backend/live_feed_proxy.py`) still exists but is
+no longer the production FYERS path in this source tree. Its in-memory sessions are legacy and
+must not be described as durable.
 
-| Requirement | A: laptop off | B: browsers closed | State |
+## 2. FYERS storage — transactional Durable Object
+
+Workers KV is **not** used for OAuth state or sessions. KV has no atomic check-and-delete across
+locations and is eventually consistent; a TTL or a delete is not single-use consumption under
+concurrent callbacks.
+
+`FyersVault` is a SQLite-backed Durable Object (`new_sqlite_classes`):
+
+- One named instance (`fyers-owner`) serializes operations. Durable Object input gates prevent
+  interleaving between the storage `get` and `delete` inside one request.
+- `consumeState(hash, sid)` reads, deletes, then validates. A wrong sid, wrong user binding or
+  expired record is burned and returns `null`; a captured state cannot be replayed.
+- State is stored only as `sha256(state)` with `{sid, userId, expiresAt}`; the raw state never
+  reaches storage.
+- Sessions store `{sid, userId, sealed, expiresAt, connectedAt, clientId}`. The broker token is
+  AES-GCM sealed with `FYERS_TOKEN_KEY`; ciphertext and IV only. The key is a Worker secret and
+  never reaches the browser or logs.
+- Callback binding: the sid cookie plus the state record's `userId`; the callback does not trust a
+  browser-supplied identity and does not need a Bearer header on a top-level navigation.
+- Logout/revocation: provider `/api/v3/logout` is attempted, then the local session is deleted and
+  the cookie expired. Provider success is reported separately; local deletion always happens.
+- Responses use `Cache-Control: no-store`, `Vary: Cookie, Authorization`; the owner allowlist
+  (`FYERS_OWNER_EMAILS`) gates every non-callback route.
+
+Quota basis (Workers Free): 100,000 Durable Object requests/day, 5M SQLite rows read/day,
+100,000 rows written/day, 5 GB stored. A login uses a handful of requests and writes; a daily quote
+poll at 1/min for 6.5 h is ~390 requests, far inside the free allowance. See
+`docs/FREE-TIER-BUDGET.md`.
+
+Evidence: `qa/fyers-worker.test.mjs` includes concurrent callbacks (exactly one session), replay,
+wrong sid, expired state, user isolation, expiry, logout and no-token-leak assertions. It uses a
+fake provider and fake portal session; live FYERS is **NOT RUN**.
+
+## 3. Free-tier budget and scheduler design
+
+The Worker trigger remains every minute for daemon keep-warm, but alert evaluation is gated:
+
+- `ALERT_EVAL_MINUTES` (default 5): a KV marker is read each tick; the plan listing runs only when
+  the interval has elapsed. A skipped tick performs one read, not a listing.
+- `ALERT_MAX_PAGES` (default 5): at most 500 plans per evaluation; a truncated run is reported.
+- No full listing when alerts are unconfigured or the interval has not elapsed.
+- KV read/write/list/delete failures return a status and do not throw or retry in a loop.
+- Resend is called only on a state change, with an idempotency key; failures are not marked sent.
+- Alert latency is disclosed as up to the evaluation interval (default 5 min), not real-time.
+
+Free quotas (checked 2026-11): Workers 100k requests/day; KV 100k reads/day, 1,000 writes/day,
+1,000 deletes/day, 1,000 list requests/day, 1 GB; Durable Objects as above; Resend 3,000/month and
+100/day; GitHub Actions 2,000 minutes/month (private). No paid plan is enabled or required for the
+pilot. Full arithmetic: `docs/FREE-TIER-BUDGET.md`.
+
+## 4. A/B capability matrix — status
+
+| Requirement | A (laptop off) | B (browsers closed) | Status |
 |---|---|---|---|
-| Portal pages, navigation, auth | yes, once Worker is deployed | n/a | ready |
-| Market data (`/api/market/yahoo`) | yes | n/a | ready (needs Supabase session) |
-| Scanner/chart/details in the page | yes | n/a | ready |
-| Crypto email watches | yes | yes | cron + KV + Resend already implemented |
-| Daemon health alerting | yes | yes | implemented |
-| FYERS login/callback/quote | **only if** a hosted FYERS service with secrets exists | n/a | **blocked / undecided** |
-| Scheduled symbol scanning | n/a | **no server-side scanner** | **missing** |
-| Quote/stream push | no streaming; polling only | no | documented limitation |
+| Portal pages/navigation/auth | code ready, not deployed | n/a | **NOT VERIFIED** |
+| Market data `/api/market/yahoo` | code ready; needs portal session | n/a | **NOT VERIFIED** |
+| Scanner/chart/details | browser route exists | n/a | **NOT VERIFIED** |
+| FYERS login/callback/quote | code + tests ready | n/a | **LIVE NOT RUN** |
+| Crypto email watches | n/a | code + tests | **NOT DEPLOYED** |
+| Daemon health alerting | n/a | code | **NOT DEPLOYED** |
+| Nightly EOD symbol scan | n/a | GitHub Actions + Supabase | existing workflow; last local evidence 2026-11-10 |
+| Intraday server-side scan | n/a | no Worker scan job | **NOT IMPLEMENTED** |
+| Streaming | none anywhere | none | polling only |
 
-## 6. B: scheduled scanning design (not implemented)
+## 5. Scanner inventory (summary)
 
-Needed for “scanning works with all browsers closed”:
+Full table: `docs/SCANNER-INVENTORY.md`. In short:
 
-1. Cron every 5–15 min (not every minute; see KV limits below).
-2. Watchlist + rules stored in KV or D1 (server-owned, not `localStorage`).
-3. Shared pure module for zone/GTF computation (extracted from `scanner-logic.js`) so the Worker
-   and the browser use identical logic.
-4. Fetch completed candles from the market proxy (internal call or shared function).
-5. Persist the latest result per symbol/timeframe with `fetchedAt`, `candleAt`, counts and gaps.
-6. Send email/push via Resend only on state change, with idempotency keys.
-7. Surface results in the portal from the persisted store, not from a browser rescan.
+- `tools/signal-scan.js` — nightly EOD, GitHub Actions `signal-scan.yml` (12:30 UTC), legacy pivot
+  default, GTF-Pro opt-in, writes Supabase `signal_events` via `tv-webhook`.
+- `scanner.html` + `scanner-logic.js` — browser demand/supply-zone scan, automatic every 15 min
+  while visible; not a server job.
+- `server/email-alerts.mjs` — watches open crypto paper plans, gated evaluation, email delivery.
+- `server/daemon-watch.mjs` — Render health probe on the Worker cron.
+- `scan-watchdog.yml` — recovery dispatcher, not a scanner.
 
-Until this exists, B is **partial**: alert delivery is server-side, symbol scanning is not.
+There is **no duplicate Worker scanner**. The readiness gap is now worded as “no server-side
+intraday scan in the Worker”, not “no scan exists”.
 
-## 7. Cost (list prices checked 2026-11)
+## 6. Cost table (free vs paid)
 
-| Service | Free | Paid | What the free tier cannot do |
+| Service | Free allowance | Paid starting point | Pilot consequence |
 |---|---|---|---|
-| Cloudflare Workers | 100k req/day, 10 ms CPU/request | $5/mo Workers Paid | 1-minute cron + KV writes quickly exceed free limits |
-| Workers KV | 100k reads/day, **1,000 writes+lists/day**, 1 GB | included in Paid | every-minute `list()` alone is 1,440/day → over the free cap |
-| Supabase | 500 MB DB, 50k MAU; **pauses after ~7 days idle** | $25/mo Pro | pause needs manual resume; no daily backups on free |
-| Render web service | $0, sleeps after 15 min, ~1 min wake | $7/mo Starter (no sleep) | free tier is documented as not for production |
-| Render Postgres | 1 GB, **expires 30 days** | $6/mo | expiry deletes the database |
-| Resend | ~3,000 emails/mo (verify current) | usage-based | — |
-| Domain (optional) | workers.dev subdomain | ~$10–15/yr | — |
+| Workers | 100k req/day, 10 ms CPU | $5/mo | static + API traffic fits; cron requests count |
+| KV reads | 100k/day | $5/mo Workers Paid | 1/min marker = 1,440/day |
+| KV writes | 1,000/day | same | 5-min evaluation = 288 marker writes/day |
+| KV deletes | 1,000/day | same | only on TIME EXIT |
+| KV lists | 1,000/day | same | 288/day at 5 min for one page |
+| Durable Objects | 100k req/day, 5M reads, 100k writes, 5 GB | Workers Paid | FYERS login/quote well inside |
+| Supabase | 500 MB, pauses after ~7 days idle | $25/mo | pause risk, no paid plan enabled |
+| Render | sleeps after 15 min, ~1 min wake | $7/mo | optional daemon only |
+| Resend | 3,000/mo, 100/day | usage-based | alerts only on state change |
+| GitHub Actions | 2,000 min/mo private | — | nightly scan minutes |
 
-Realistic minimum for A + B with 1-minute alert cron: **Cloudflare Workers Paid $5/mo**, Supabase
-free (with low-activity pause risk) or Pro $25/mo, Render only if the quant daemon is needed
-($7/mo to avoid cold starts). A domain is optional.
+No paid service is enabled. A paid plan is not approved by this document.
 
-## 8. Sleep, cold start and rate behaviour
+## 7. Sleep, consistency and failure behaviour
 
-- **Cloudflare Worker:** no sleep; first request after deploy may be marginally slower; 10 ms CPU
-  (free) is tight for a scan job — move scanning to cron or paid plan.
-- **Workers KV:** eventually consistent across PoPs (up to ~60 s); do not use it as a lock or for
-  read-after-write correctness in the same second.
-- **Supabase free:** project pauses after ~7 days of low activity; resume is manual in the
-  dashboard. Auth and DB return errors while paused.
-- **Render free:** 15 min idle → spin down; next request shows a loading page for ~1 min; local
-  filesystem is ephemeral. This loses in-memory FYERS sessions and slows `/api/v1/*`.
-- **Resend:** per-second rate limits; alerts are idempotent per plan+event already.
+- **Worker:** no sleep; 10 ms CPU per free request. Cron invocations count as requests.
+- **KV:** eventually consistent; not used as a lock. Marker may be stale across PoPs, which is
+  acceptable for a 5-minute evaluation gate; it is not used for OAuth state.
+- **Durable Object:** single-writer per instance; survives restarts; SQLite storage.
+- **Supabase free:** project pause after inactivity; auth/DB errors until resumed.
+- **Render free:** 15 min idle, ~1 min wake; local filesystem ephemeral.
+- **Resend:** daily/monthly caps; a 429 is treated as a failed send, retried next evaluation.
+- **GitHub Actions:** scheduled runs can be delayed or dropped; `scan-watchdog.yml` dispatches a
+  recovery run and opens an issue. That is best-effort, not a guarantee.
 
-## 9. Streaming limitations
+## 8. Streaming limitations
 
-- No WebSocket/SSE anywhere in the portal. Charts and quotes are request/response with polling and
-  short caches (60–300 s at the edge for Yahoo).
-- Email alerts are the only push channel and are minute-granular at best.
-- With the laptop off, nothing streams from the laptop; absence of streaming is a product
-  limitation, not a hosting dependency.
+No WebSocket/SSE. Quotes, OI and charts are request/polling based with short caches. Email is the
+only push channel and is interval-bound. “Streaming” is not claimed.
 
-## 10. Restart and recovery
+## 9. Restart and recovery
 
 | Event | Effect | Recovery |
 |---|---|---|
-| Worker redeploy | in-flight requests drain; previous version can be rolled back | `wrangler rollback` |
-| Worker isolate recycle | no state lost (all state is KV/Supabase) | automatic |
-| KV outage | sessions/alerts unavailable | retry; users sign in again |
-| Supabase pause/outage | auth + DB fail | resume project / wait; no data loss |
-| Render restart/sleep | Python sessions and in-memory caches lost | re-login; move sessions to durable store |
-| FYERS daily expiry (06:30 IST) | `connected:false` | sign in again (refresh needs PIN, not implemented) |
-| Cron failure | missed alert tick | next tick reconciles from KV state; no duplicate emails |
+| Worker redeploy | in-flight drain | rollback previous version |
+| Isolate recycle | DO/KV state persists | automatic |
+| DO storage error | FYERS state/session unavailable | sign in again; no token plaintext |
+| KV quota/outage | alerts skip/error | next evaluation |
+| Supabase pause | auth/records fail | resume project |
+| Render sleep | daemon cold start; no FYERS state (now in DO) | wait/re-login |
+| FYERS 06:30 IST expiry | `connected:false` | sign in again |
+| Scan cron missed | no new `signal_events` | watchdog dispatch or manual run |
 
-## 11. Security requirements
+## 10. Security
 
-- Secrets only in Worker/Render environment (`wrangler secret put`); never in `assets/`, `dist/`,
-  git or chat.
-- FYERS tokens never reach the browser: HttpOnly cookie only; responses expose status/expiry.
-- Callback URL must be the deployed HTTPS origin; no localhost fallback (already enforced in
-  Python and verified by tests).
-- `quote` and any broker action require a portal session; no anonymous relay.
-- Orders: none. This architecture is read-only market data and paper records.
+- Secrets only in Worker secrets/environment; never in `assets/`, `dist/`, git or chat.
+- FYERS tokens sealed server-side; never in browser storage, URLs or logs.
+- Callback must be the deployed HTTPS `/api/fyers/callback`.
+- Owner-only FYERS routes; portal session required for status/quote/disconnect.
+- No orders, no execution. Read-only quotes.
 
-## 12. Deployment gates (approval required)
+## 11. Deployment gates
 
-1. Choose FYERS hosting option (Worker port vs Render Python) and whether Render is paid.
-2. Approve the public origin (workers.dev subdomain or custom domain).
-3. Approve secret creation and KV namespace(s).
-4. Approve first deployment (preview) and then production.
-5. After deployment, run the laptop-off / mobile-data verification in
-   `docs/DEPLOYMENT-RUNBOOK.md`. **Laptop independence is not claimed until that passes.**
+1. Approve hosted FYERS (Worker + DO) and the public origin.
+2. Configure `FYERS_CLIENT_ID`, `FYERS_SECRET_ID`, `FYERS_REDIRECT_URI`, `FYERS_TOKEN_KEY`,
+   `FYERS_OWNER_EMAILS`; register the exact callback with FYERS.
+3. Approve preview deployment, then production.
+4. Run the laptop-off/mobile-data protocol in `docs/DEPLOYMENT-RUNBOOK.md`.
+5. Only after that may A or B be claimed. This document does not claim either.

@@ -40,6 +40,7 @@ fi
 # Mobile-first is a release criterion, not a styling preference:
 # docs/MOBILE-FIRST-RELEASE-CRITERIA.md (MF-1 … MF-14).
 run_check node --test qa/fyers-worker.test.mjs
+run_check node --test qa/free-tier-budget.test.mjs
 run_check node --test qa/source-files.test.mjs
 run_check node --test qa/market-context.test.mjs
 run_check node qa/market-context-ui.cjs

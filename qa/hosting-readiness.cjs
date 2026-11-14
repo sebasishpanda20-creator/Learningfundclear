@@ -1,219 +1,227 @@
 /**
- * Hosting readiness audit.
+ * Hosting static audit.
  *
- * Fails on a laptop-bound production dependency (loopback URL, tunnel origin, file://).
- * Reports known gaps that the architecture doc tracks (hosted FYERS, durable sessions,
- * server-side scanning, free-tier cron limits) without pretending they are solved.
+ * This is a STATIC source audit. Passing it does not show that a deployed page
+ * works with the laptop off, that FYERS accepts a login, or that a phone on
+ * mobile data can reach the service. Those are reported as NOT RUN.
+ *
+ * Scans first-party runtime files, generated Worker configuration and the
+ * build output. Third-party vendor bundles are scanned separately with an
+ * explicit allowlist for their inert defaults (for example Supabase's
+ * localhost:9999 fallback).
  */
 const fs = require("fs");
 const path = require("path");
 
 const results = [];
-const gaps = [];
+const checksFailed = [];
 const blockers = [];
+const setupGaps = [];
+
 function check(name, fn) {
   try {
     const detail = fn();
     results.push({ name, pass: true, detail: detail ?? null });
   } catch (e) {
     results.push({ name, pass: false, error: String(e.message || e) });
-    blockers.push(name + ": " + e.message);
+    checksFailed.push(name + ": " + e.message);
   }
 }
 const assert = (c, m) => { if (!c) throw new Error(m || "assertion failed"); };
 const read = (p) => fs.readFileSync(p, "utf8");
 
-const RUNTIME_GLOBS = [];
-function walk(dir, out = []) {
+const SKIP_DIRS = new Set(["node_modules", "qa", "docs", "tools", ".git", ".wrangler", ".dryrun-prod", "visual-qa-artifacts", "market-data", "__pycache__"]);
+function walk(dir, out = [], { vendor = false } = {}) {
   if (!fs.existsSync(dir)) return out;
   for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
     const p = path.join(dir, entry.name);
     if (entry.isDirectory()) {
-      if (["node_modules", "qa", "docs", "dist", "tools", ".git", "visual-qa-artifacts"].includes(entry.name)) continue;
-      walk(p, out);
-    } else if (/\.(js|mjs|html|jsonc|json)$/.test(entry.name)) out.push(p);
+      if (SKIP_DIRS.has(entry.name)) continue;
+      if (entry.name === "vendor" && !vendor) continue;
+      walk(p, out, { vendor: vendor || entry.name === "vendor" });
+    } else if (/\.(js|mjs|html|jsonc|toml|json)$/.test(entry.name)) out.push(p);
   }
   return out;
 }
 
-const runtimeFiles = [
+const firstParty = [
   ...walk("server"),
   ...walk("assets/js"),
   ...walk("funds/assets/js"),
   ...walk("supabase/functions"),
+  ...walk("dist/server"),
+  ...walk("dist/client"),
   ...fs.readdirSync(".").filter((f) => f.endsWith(".html")).map((f) => path.join(".", f)),
-  path.join("assets", "js", "config.js"),
   "auth-guard.js",
   "scanner-logic.js",
   "wrangler.jsonc",
+  "assets/js/config.js",
 ].filter((f) => fs.existsSync(f));
 
-const LOCAL_RE = /\b(localhost|127\.0\.0\.1|127\.0\.0\.2|0\.0\.0\.0|\[::1\])\b/;
-const TUNNEL_RE = /ngrok-free\.(app|dev)|loca\.lt|trycloudflare\.com|serveo\.net/i;
+const vendorFiles = [
+  ...walk("assets/vendor"),
+  ...walk("dist/client/assets/vendor"),
+].filter((f) => fs.existsSync(f));
 
-check("no loopback addresses in shipped runtime code", () => {
-  const hits = [];
-  for (const f of runtimeFiles) {
-    const text = read(f);
+const LOCAL_RE = /\b(?:localhost(?:\.[a-z0-9-]+)*|127\.\d{1,3}\.\d{1,3}\.\d{1,3}|0\.0\.0\.0|\[::1\]|::ffff:127\.\d{1,3}\.\d{1,3}\.\d{1,3})\b/i;
+const TUNNEL_RE = /(ngrok-free\.(?:app|dev)|ngrok\.io|loca\.lt|localtunnel\.me|trycloudflare\.com|serveo\.net|cloudflared)/i;
+
+function hits(files, regex) {
+  const found = [];
+  for (const f of files) {
+    let text;
+    try { text = read(f); } catch { continue; }
     text.split(/\r?\n/).forEach((line, i) => {
-      if (LOCAL_RE.test(line)) hits.push(`${f}:${i + 1}: ${line.trim().slice(0, 120)}`);
+      if (regex.test(line)) found.push(`${f}:${i + 1}: ${line.trim().slice(0, 140)}`);
     });
   }
-  assert(hits.length === 0, "loopback references: " + hits.slice(0, 5).join(" | "));
-  return `${runtimeFiles.length} runtime files scanned`;
+  return found;
+}
+
+check("first-party runtime has no loopback aliases or 127.0.0.0/8", () => {
+  const found = hits(firstParty, LOCAL_RE);
+  assert(found.length === 0, found.slice(0, 5).join(" | "));
+  return `${firstParty.length} first-party runtime files`;
 });
 
-check("no configured tunnel URL in shipped runtime code", () => {
-  const hits = runtimeFiles.filter((f) => /https?:\/\/[^"'\s]*(?:ngrok-free\.(?:app|dev)|loca\.lt|trycloudflare\.com|serveo\.net)/i.test(read(f)));
-  assert(hits.length === 0, "tunnel URLs: " + hits.join(", "));
+check("third-party bundles only contain allowlisted inert loopback defaults", () => {
+  const found = hits(vendorFiles, LOCAL_RE);
+  const allowed = found.filter((h) => /supabase\.js/.test(h));
+  assert(found.length === allowed.length, found.filter((h) => !allowed.includes(h)).slice(0, 3).join(" | "));
+  const localhostCount = vendorFiles
+    .filter((f) => f.endsWith("supabase.js"))
+    .reduce((n, f) => n + (read(f).match(/http:\/\/localhost:9999/g) || []).length, 0);
+  assert(localhostCount <= 2, `unexpected Supabase loopback count ${localhostCount}`);
+  return `${vendorFiles.length} vendor files, Supabase inert localhost:9999 default only`;
 });
 
-check("no file:// asset or API references", () => {
-  const hits = runtimeFiles.filter((f) => /(?:src|href|fetch\()\s*["']file:\/\//.test(read(f)));
-  assert(hits.length === 0, hits.join(", "));
+check("no configured tunnel origin in runtime code or config", () => {
+  const nonProxy = [...firstParty, ...vendorFiles].filter((f) => !/quant-proxy\.mjs$/.test(f));
+  const found = hits(nonProxy, TUNNEL_RE);
+  assert(found.length === 0, found.slice(0, 5).join(" | "));
+  const proxyHits = hits(firstParty, TUNNEL_RE);
+  assert(proxyHits.every((h) => /quant-proxy\.mjs/.test(h)), "tunnel host outside quant-proxy");
+  return "no configured tunnel; quant-proxy origin allowlist recorded as blocker";
 });
 
-const wrangler = read("wrangler.jsonc");
-check("Worker has a deployed entrypoint and static assets", () => {
-  assert(/"main"\s*:\s*"[^"]+"/.test(wrangler), "missing main");
-  assert(/"assets"\s*:/.test(wrangler) && /"binding"\s*:\s*"ASSETS"/.test(wrangler), "missing ASSETS binding");
-  assert(/"run_worker_first"\s*:\s*\[[^\]]*\/api\/\*/.test(wrangler), "API routes not worker-first");
+check("no file:// runtime references", () => {
+  const found = hits(firstParty, /(?:src|href|fetch\()\s*["']file:\/\//);
+  assert(found.length === 0, found.join(", "));
 });
 
-check("cron trigger is configured and the Worker exports scheduled()", () => {
-  assert(/"triggers"\s*:\s*\{[^}]*"crons"/s.test(wrangler), "no crons");
-  const worker = read(path.join("server", "worker.mjs"));
-  assert(/async\s+scheduled\s*\(/.test(worker), "no scheduled() handler");
-});
-
-check("upstream quant origin is public HTTPS, not loopback", () => {
-  const m = wrangler.match(/"QUANT_API_ORIGIN"\s*:\s*"([^"]+)"/);
-  assert(m, "QUANT_API_ORIGIN not set");
-  const url = new URL(m[1]);
-  assert(url.protocol === "https:", "not https: " + m[1]);
-  assert(!LOCAL_RE.test(m[1]) && !TUNNEL_RE.test(m[1]), "local/tunnel origin: " + m[1]);
-  return m[1];
-});
-
-check("client configuration points at hosted HTTPS services", () => {
-  const cfg = read(path.join("assets", "js", "config.js"));
-  const m = cfg.match(/url:\s*"(https:\/\/[^"]+)"/);
-  assert(m, "Supabase URL missing");
-  assert(!LOCAL_RE.test(m[1]), "loopback Supabase URL");
-  return m[1].replace(/https:\/\/([^.]+)\.supabase\.co/, "https://$1.supabase.co");
-});
-
-check("production deploy path exists in package scripts", () => {
-  const pkg = JSON.parse(read("package.json"));
-  assert(/wrangler deploy/.test(pkg.scripts?.["deploy:cloudflare"] || ""), "no deploy script");
-  assert(/wrangler/.test(Object.keys(pkg.devDependencies || {}).join(",")), "wrangler not pinned");
-});
-
-check("FYERS callback is env-configured, never a hardcoded host", () => {
-  const py = read(path.resolve("..", "Learningfundclear", "backend", "live_feed_proxy.py"));
-  assert(/FYERS_REDIRECT_URI/.test(py), "callback env var missing");
-  assert(!/http:\/\/(localhost|127\.0\.0\.1)/.test(py), "loopback callback default");
-  return "env-driven";
-});
-
-check("FYERS auth and quotes are served by the Worker", () => {
-  const routes = read("server/fyers-routes.mjs");
+check("runtime URL overrides are public HTTPS", () => {
+  const wrangler = read("wrangler.jsonc");
+  const urls = [...wrangler.matchAll(/"(QUANT_API_ORIGIN|WEBHOOK_URL|PORTAL_ORIGIN)"\s*:\s*"([^"]+)"/g)];
+  for (const [, key, value] of urls) {
+    assert(!LOCAL_RE.test(value) && !TUNNEL_RE.test(value), `${key} is local/tunnel: ${value}`);
+    assert(value.startsWith("https://"), `${key} is not HTTPS: ${value}`);
+  }
   const worker = read("server/worker.mjs");
-  assert(/\/api\/fyers\//.test(worker), "worker route missing");
-  assert(/validate-authcode/.test(routes), "token exchange missing");
-  assert(/FYERS_OWNER_EMAILS/.test(routes), "owner gate missing");
-  assert(/sealToken/.test(routes), "token sealing missing");
-  assert(/login_url/.test(routes), "login URL missing");
-  return "owner-gated, sealed tokens";
+  assert(!/process\.env\.[A-Z_]*(?:URL|ORIGIN)[^\n]*localhost/i.test(worker), "Worker env override points at localhost");
+  return urls.map((m) => m[1]).join(", ") || "no URL vars";
 });
 
-check("FYERS state and sessions use a Durable Object", () => {
+check("Worker entrypoint, assets and API-first routing are configured", () => {
+  const wrangler = read("wrangler.jsonc");
+  assert(/"main"\s*:\s*"[^"]+"/.test(wrangler), "missing main");
+  assert(/"binding"\s*:\s*"ASSETS"/.test(wrangler), "missing ASSETS binding");
+  assert(/"run_worker_first"\s*:\s*\[[^\]]*\/api\/\*/.test(wrangler), "API not worker-first");
+});
+
+check("cron has a bounded evaluation design", () => {
+  const wrangler = read("wrangler.jsonc");
+  const worker = read("server/worker.mjs");
+  const alerts = read("server/email-alerts.mjs");
+  assert(/"crons"/.test(wrangler), "no cron trigger");
+  assert(/async\s+scheduled\s*\(/.test(worker), "no scheduled() handler");
+  assert(/ALERT_EVAL_MINUTES/.test(alerts), "alert evaluation interval missing");
+  assert(/ALERT_MAX_PAGES/.test(alerts), "bounded pagination missing");
+  assert(/list\(\{prefix:'plan:',limit:100/.test(alerts), "listing limit missing");
+});
+
+check("hosted origins and client config are public HTTPS", () => {
+  const wrangler = read("wrangler.jsonc");
+  const m = wrangler.match(/"QUANT_API_ORIGIN"\s*:\s*"([^"]+)"/);
+  assert(m, "QUANT_API_ORIGIN missing");
+  assert(m[1].startsWith("https://") && !LOCAL_RE.test(m[1]) && !TUNNEL_RE.test(m[1]), m[1]);
+  const cfg = read("assets/js/config.js");
+  const u = cfg.match(/url:\s*"(https:\/\/[^"]+)"/);
+  assert(u, "Supabase URL missing");
+  assert(!LOCAL_RE.test(u[1]), "loopback Supabase URL");
+  return `${m[1]} · ${u[1].replace(/https:\/\/([^.]+)\.supabase\.co/, "https://$1.supabase.co")}`;
+});
+
+check("generated Worker config matches source and stays hosted", () => {
+  const source = read("server/config.mjs");
+  const generatedPath = "dist/server/config.mjs";
+  assert(fs.existsSync(generatedPath), "built dist/server/config.mjs missing");
+  const generated = read(generatedPath);
+  assert(generated === source, "generated config differs from server/config.mjs");
+  assert(!LOCAL_RE.test(generated), "generated config has loopback");
+  return "dist/server/config.mjs identical";
+});
+
+check("FYERS state and sessions use the Durable Object vault", () => {
+  const wrangler = read("wrangler.jsonc");
+  const vault = read("server/fyers-vault.mjs");
   assert(/"new_sqlite_classes"\s*:\s*\[\s*"FyersVault"/.test(wrangler), "DO migration missing");
-  assert(/FYERS_VAULT/.test(wrangler), "DO binding missing");
-  assert(/consumeState/.test(read("server/fyers-vault.mjs")), "one-time state consumption missing");
+  assert(/"class_name"\s*:\s*"FyersVault"/.test(wrangler), "DO binding missing");
+  assert(/consumeState/.test(vault) && /storage\.delete/.test(vault), "atomic consumption missing");
+  assert(/sealToken/.test(read("server/fyers-routes.mjs")), "token sealing missing");
   return "durable_object_sqlite";
 });
 
-check("architecture and runbook documents exist with required sections", () => {
-  const doc = read(path.join("docs", "HOSTED-ARCHITECTURE.md"));
-  const run = read(path.join("docs", "DEPLOYMENT-RUNBOOK.md"));
-  for (const t of ["Cost", "Sleep", "Streaming", "Restart", "A — mobile page", "B — scheduled"]) {
-    assert(new RegExp(t, "i").test(doc), "architecture missing: " + t);
+check("audit documents state the corrected design and inventory", () => {
+  const arch = read("docs/HOSTED-ARCHITECTURE.md");
+  for (const term of ["not laptop-independent", "Durable Object", "NOT RUN", "list requests"]) {
+    assert(new RegExp(term.replace(/ /g, "\\s+"), "i").test(arch), "architecture missing: " + term);
   }
-  for (const t of ["laptop", "mobile data", "wrangler deploy"]) {
-    assert(new RegExp(t, "i").test(run), "runbook missing: " + t);
+  const budget = read("docs/FREE-TIER-BUDGET.md");
+  for (const term of ["ALERT_EVAL_MINUTES", "list requests", "1,000", "Resend"]) {
+    assert(new RegExp(term, "i").test(budget), "budget missing: " + term);
   }
+  const inventory = read("docs/SCANNER-INVENTORY.md");
+  for (const term of ["signal-scan.js", "scan-watchdog", "scanner-logic.js", "Nightly"]) {
+    assert(new RegExp(term, "i").test(inventory), "inventory missing: " + term);
+  }
+  return "architecture + budget + inventory";
 });
 
-// ---- tracked gaps (reported, not silently passed) ------------------------
-const workerSrc = ["server/worker.mjs", "server/market-proxy.mjs", "server/quant-proxy.mjs", "server/terminal-gate.mjs", "server/fyers-routes.mjs"].map(read).join("\n");
+// ---- separate outcomes ----------------------------------------------------
+const wrangler = read("wrangler.jsonc");
 if (!/"FYERS_OWNER_EMAILS"/.test(wrangler)) {
-  gaps.push({
-    id: "FYERS_OWNER_EMAILS_UNSET",
-    severity: "setup",
-    detail:
-      "Set FYERS_OWNER_EMAILS to the portal account allowed to connect the broker; without it every FYERS route answers 503 by design.",
-  });
+  setupGaps.push("FYERS_OWNER_EMAILS is not configured; every FYERS route answers 503 by design.");
 }
 if (!/FYERS_TOKEN_KEY/.test(wrangler)) {
-  gaps.push({
-    id: "FYERS_SECRETS_PENDING",
-    severity: "setup",
-    detail:
-      "FYERS_CLIENT_ID, FYERS_SECRET_ID and FYERS_TOKEN_KEY must be Worker secrets (FYERS_TOKEN_KEY = 32 random bytes, base64). They are intentionally absent from source.",
-  });
+  setupGaps.push("FYERS_CLIENT_ID, FYERS_SECRET_ID and FYERS_TOKEN_KEY must be Worker secrets before a live login.");
 }
-if (/"crons"\s*:\s*\[\s*"\*\/1 \* \* \* \*"\s*\]/.test(wrangler)) {
-  gaps.push({
-    id: "CRON_EVERY_MINUTE_VS_KV_FREE",
-    severity: "cost",
-    detail:
-      "Every-minute cron lists alert keys: ~1,440 KV list ops/day exceed the Workers KV free allowance (1,000/day). Use Workers Paid ($5/mo) or a slower cron.",
-  });
+if (!/scheduled[\s\S]{0,2000}(scan|scanner|computeZones)/i.test(read("server/worker.mjs"))) {
+  blockers.push("No Worker-hosted intraday scan. The nightly EOD scan runs in GitHub Actions (docs/SCANNER-INVENTORY.md); it is not a Worker job.");
 }
-if (!/scheduled[\s\S]{0,4000}(scan|scanner|computeZones)/i.test(workerSrc)) {
-  gaps.push({
-    id: "NO_SERVER_SIDE_SCAN_JOB",
-    severity: "capability",
-    detail:
-      "B is partial: cron sends email watches and checks daemon health, but no server-side scanner computes/persists symbol scans with browsers closed.",
-  });
-}
-if (!/WebSocket|EventSource|text\/event-stream/.test(runtimeFiles.map(read).join("\n"))) {
-  gaps.push({
-    id: "NO_STREAMING",
-    severity: "product",
-    detail: "No WebSocket/SSE. Quotes and charts are polling/request-based; email is the only push channel.",
-  });
-}
-if (/ngrok-free|loca\.lt|trycloudflare/i.test(workerSrc)) {
-  gaps.push({
-    id: "TUNNEL_SUPPORT_IN_PROXY",
-    severity: "risk",
-    detail:
-      "server/quant-proxy.mjs still supports ngrok-style origins. QUANT_API_ORIGIN is not a tunnel today; keep it on a managed HTTPS host and remove tunnel fallbacks once the daemon is stable.",
-  });
-}
-if (/"QUANT_API_ORIGIN"\s*:\s*"https:\/\/[^"]*onrender\.com"/.test(wrangler)) {
-  gaps.push({
-    id: "RENDER_COLD_START",
-    severity: "availability",
-    detail:
-      "The quant daemon is hosted on Render; on the free plan it sleeps after 15 min and wakes in ~1 min. Confirm the paid plan or accept the first-request delay.",
-  });
+if (/ngrok|localtunnel|trycloudflare/i.test(read("server/quant-proxy.mjs"))) {
+  blockers.push("The quant proxy still accepts tunnel-style origins; QUANT_API_ORIGIN is not a tunnel today, but the fallback must be removed before any laptop-independence claim.");
 }
 
 const out = {
-  runtime_files_scanned: runtimeFiles.length,
-  checks: results.length,
-  failed: results.filter((r) => !r.pass).length,
-  failed_checks: results.filter((r) => !r.pass),
-  gaps,
-  verdict: blockers.length ? "BLOCKED" : "READY_WITH_GAPS",
-  a_mobile_laptop_off: blockers.length
-    ? "not yet: resolve failed checks"
-    : "Worker code hosts pages, auth, market proxy, owner-gated FYERS auth/quote and alerts; deployment plus the laptop-off mobile-data test are still pending",
-  b_browsers_closed: "partial: alert delivery yes, scheduled symbol scanning no",
+  milestone: "SOURCE_AUDIT_HOSTED_DESIGN",
+  static_audit: {
+    pass: checksFailed.length === 0,
+    checks: results.length,
+    passed: results.filter((r) => r.pass).length,
+    failed: results.filter((r) => !r.pass).length,
+    failures: results.filter((r) => !r.pass),
+    first_party_files: firstParty.length,
+    vendor_files: vendorFiles.length,
+    generated_config_included: fs.existsSync("dist/server/config.mjs"),
+  },
+  hosting_blockers: blockers,
+  setup_gaps: setupGaps,
+  deployment: "NOT RUN",
+  live_fyers: "NOT RUN",
+  laptop_off_mobile_test: "NOT RUN",
+  laptop_independence_claimed: false,
+  production_ready: false,
+  verdict: checksFailed.length ? "STATIC_AUDIT_FAILED" : "STATIC_AUDIT_PASS_BLOCKERS_REMAIN",
 };
 console.log(JSON.stringify(out, null, 2));
-process.exit(blockers.length ? 1 : 0);
+process.exit(checksFailed.length ? 1 : 0);
