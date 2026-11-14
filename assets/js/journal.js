@@ -2,6 +2,15 @@ const sb = LfcAuth.client,
   me = await LfcAuth.ready,
   isAdmin = !!me.is_admin,
   $ = (id) => document.getElementById(id);
+const JOURNAL_UI = !!document.getElementById("saveIdea");
+function wire(id, handler) {
+  const el = document.getElementById(id);
+  if (!el) {
+    console.info(`[journal] skipped #${id}: not present on this page`);
+    return;
+  }
+  el.onclick = handler;
+}
 let ideas = [],
   watch = new Set(),
   editing = null,
@@ -350,20 +359,22 @@ function clearForm() {
     "adminNotes",
   ].forEach((id) => ($(id).value = ""));
 }
-$("saveIdea").onclick = saveIdea;
-$("clearIdea").onclick = clearForm;
-$("closeIdeaBtn").onclick = closeResearch;
-$("adminSearch").oninput = renderAdmin;
-$("retryIdeas").onclick = loadIdeas;
-$("retryJournal").onclick = loadIdeas;
-$("perfYear").onchange = renderPerf;
-["search", "rating", "status", "timeFrame", "watchFilter"].forEach(
-  (id) => ($(id).oninput = renderIdeas),
-);
-$("toggleWatch").onclick = () => {
+wire("saveIdea", saveIdea);
+wire("clearIdea", clearForm);
+wire("closeIdeaBtn", closeResearch);
+wire("retryJournal", loadIdeas);
+wire("toggleWatch", () => {
   $("watchHead").classList.toggle("hidden");
   renderIdeas();
-};
+});
+if (JOURNAL_UI) {
+  $("adminSearch").oninput = renderAdmin;
+  $("retryIdeas").onclick = loadIdeas;
+  $("perfYear").onchange = renderPerf;
+  ["search", "rating", "status", "timeFrame", "watchFilter"].forEach(
+    (id) => ($(id).oninput = renderIdeas),
+  );
+}
 document.querySelectorAll("[data-period]").forEach(
   (b) =>
     (b.onclick = () => {
@@ -383,14 +394,17 @@ document.addEventListener("click", (e) => {
   const dl = e.target.closest("[data-delete]");
   if (dl) deleteIdea(dl.dataset.delete);
 });
-$("ticker").oninput = () => {
-  const x = symbols.find(
-    (a) =>
-      String(a.symbol).toUpperCase() === $("ticker").value.trim().toUpperCase(),
-  );
-  $("name").value = x?.name || "";
-};
+if (JOURNAL_UI) {
+  $("ticker").oninput = () => {
+    const x = symbols.find(
+      (a) =>
+        String(a.symbol).toUpperCase() === $("ticker").value.trim().toUpperCase(),
+    );
+    $("name").value = x?.name || "";
+  };
+}
 async function symbolsLoad() {
+  if (!$("symbols")) return;
   try {
     const r = await fetch("india_symbols.json");
     if (!r.ok) throw new Error("india_symbols.json HTTP " + r.status);
@@ -404,21 +418,25 @@ async function symbolsLoad() {
     console.error(e);
   }
 }
-symbolsLoad();
-if (location.hash === "#admin" && isAdmin) location.replace("admin.html");
-if (location.hash === "#performance") location.replace("performance.html");
-const requested = document.body.dataset.page;
-show(
-  requested === "performance"
-    ? "perf"
-    : requested === "admin" && isAdmin
-      ? "admin"
-      : "dash",
-);
-if (requested === "admin" && !isAdmin) location.replace("index.html");
-await Promise.all([loadIdeas(), loadWatch()]);
-if (isAdmin) {
-  await Promise.all([loadUsers(), loadAudit()]);
+if (JOURNAL_UI) {
+  symbolsLoad();
+  if (location.hash === "#admin" && isAdmin) location.replace("admin.html");
+  if (location.hash === "#performance") location.replace("performance.html");
+  const requested = document.body.dataset.page;
+  show(
+    requested === "performance"
+      ? "perf"
+      : requested === "admin" && isAdmin
+        ? "admin"
+        : "dash",
+  );
+  if (requested === "admin" && !isAdmin) location.replace("index.html");
+  await Promise.all([loadIdeas(), loadWatch()]);
+  if (isAdmin) {
+    await Promise.all([loadUsers(), loadAudit()]);
+  }
+} else {
+  console.info("[journal] no journal form on this page; module idle");
 }
 
 async function loadUsers() {
@@ -448,7 +466,8 @@ async function loadAudit() {
     )
     .join("");
 }
-$("createUser").onclick = async () => {
+if ($("createUser"))
+  $("createUser").onclick = async () => {
   if (!isAdmin) return alert("Admin access is required");
   const username = $("newUsername").value.trim(),
     display_name = $("newDisplayName").value.trim(),

@@ -1,6 +1,6 @@
 "use strict";
 const {chromium}=require("playwright");
-const {fixture,origin}=require("./fixtures.cjs");
+const {fixture,origin,port}=require("./fixtures.cjs");
 const fs=require("fs"),path=require("path"),http=require("http"),assert=require("node:assert/strict");
 const formatExpiry=()=>{const d=new Date(Date.now()+48*3600000);return String(d.getUTCDate()).padStart(2,"0")+String(d.getUTCMonth()+1).padStart(2,"0")+String(d.getUTCFullYear()).slice(-2);};
 const bars=(minutes,asset)=>{
@@ -22,7 +22,7 @@ const server=http.createServer((req,res)=>{
  }catch{res.writeHead(404);res.end("Missing");}
 });
 (async()=>{
- await new Promise(resolve=>server.listen(8000,"127.0.0.1",resolve));
+ await new Promise(resolve=>server.listen(port,"127.0.0.1",resolve));
  const browser=await chromium.launch({headless:true,executablePath:process.env.TEST_BROWSER_PATH||undefined,args:["--no-sandbox","--disable-dev-shm-usage","--disable-gpu"]});
  const results=[];
  try {

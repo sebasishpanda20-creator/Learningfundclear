@@ -1,6 +1,9 @@
 const test=require('node:test'),assert=require('node:assert/strict'),c=require('crypto'),z=require('zlib');
+// decryptSnapshot stamps every payload with the nsemine circuit-swap flag (false when
+// nothing needed fixing), so round-trip expectations carry it too.
+const sealed=d=>({...d,_nsemine_circuit_swap:false});
 function seal(d,pub){const key=c.randomBytes(32),iv=c.randomBytes(12),aes=c.createCipheriv('aes-256-gcm',key,iv);return {key:c.publicEncrypt({key:pub,oaepHash:'sha256'},key).toString('base64'),iv:iv.toString('base64'),data:Buffer.concat([aes.update(z.gzipSync(JSON.stringify(d))),aes.final(),aes.getAuthTag()]).toString('base64')};}
-test('private snapshots round-trip; tampering rejected; unauthenticated requests rejected',async()=>{const {decryptSnapshot,serveNifty}=await import('../server/nifty-api.mjs');const keys=c.generateKeyPairSync('rsa',{modulusLength:2048,publicKeyEncoding:{type:'spki',format:'pem'},privateKeyEncoding:{type:'pkcs8',format:'pem'}});const d={version:1,mode:'eod',rows:[{symbol:'TEST',price:10}],total:1,available:1};const e=seal(d,keys.publicKey);assert.deepEqual(await decryptSnapshot(e,keys.privateKey),d);await assert.rejects(decryptSnapshot({...e,data:e.data.slice(0,-8)+'AAAAAAAA'},keys.privateKey));let calls=0;const mock=async u=>{calls++;return Response.json(u.includes('/user')?{id:'user'}:u.includes('app_users')?[{is_active:true}]:e);};const cfg={url:'https://auth.local',anonKey:'public'};assert.equal((await serveNifty(new Request('https://portal/api/nifty500'),{},cfg,mock)).status,401);assert.equal(calls,0);const r=await serveNifty(new Request('https://portal/api/nifty500?mode=eod',{headers:{Authorization:'Bearer test'}}),{NIFTY_FEED_PRIVATE_KEY:keys.privateKey},cfg,mock);assert.equal(r.status,200);assert.deepEqual((await r.json()).latest,d);assert.equal(r.headers.get('Cache-Control'),'private, no-store');});
+test('private snapshots round-trip; tampering rejected; unauthenticated requests rejected',async()=>{const {decryptSnapshot,serveNifty}=await import('../server/nifty-api.mjs');const keys=c.generateKeyPairSync('rsa',{modulusLength:2048,publicKeyEncoding:{type:'spki',format:'pem'},privateKeyEncoding:{type:'pkcs8',format:'pem'}});const d={version:1,mode:'eod',rows:[{symbol:'TEST',price:10}],total:1,available:1};const e=seal(d,keys.publicKey);assert.deepEqual(await decryptSnapshot(e,keys.privateKey),sealed(d));await assert.rejects(decryptSnapshot({...e,data:e.data.slice(0,-8)+'AAAAAAAA'},keys.privateKey));let calls=0;const mock=async u=>{calls++;return Response.json(u.includes('/user')?{id:'user'}:u.includes('app_users')?[{is_active:true}]:e);};const cfg={url:'https://auth.local',anonKey:'public'};assert.equal((await serveNifty(new Request('https://portal/api/nifty500'),{},cfg,mock)).status,401);assert.equal(calls,0);const r=await serveNifty(new Request('https://portal/api/nifty500?mode=eod',{headers:{Authorization:'Bearer test'}}),{NIFTY_FEED_PRIVATE_KEY:keys.privateKey},cfg,mock);assert.equal(r.status,200);assert.deepEqual((await r.json()).latest,sealed(d));assert.equal(r.headers.get('Cache-Control'),'private, no-store');});
 test('inactive account cannot retrieve ciphertext or prices',async()=>{const {serveNifty}=await import('../server/nifty-api.mjs');let calls=0;const r=await serveNifty(new Request('https://portal/api/nifty500',{headers:{Authorization:'Bearer test'}}),{}, {url:'https://auth.local'},async u=>{calls++;return Response.json(u.includes('/user')?{id:'id'}:[{is_active:false}]);});assert.equal(r.status,403);assert.equal(calls,2);});
 test('collector envelope supports old host and new Cloudflare recipient without exposing keys',async()=>{
  const fs=require('fs'),os=require('os'),path=require('path'),{execFileSync}=require('child_process');
@@ -16,9 +19,9 @@ test('collector envelope supports old host and new Cloudflare recipient without 
  fs.writeFileSync(path.join(dir,'in.json'),JSON.stringify(data));
  execFileSync(process.execPath,[path.resolve(__dirname,'../tools/nifty500-encrypt.cjs'),'in.json','out.json'],{cwd:dir});
  const e=JSON.parse(fs.readFileSync(path.join(dir,'out.json')));
- assert.deepEqual(await decryptSnapshot(e,fresh.privateKey),data);
- assert.deepEqual(await decryptSnapshot({...e,cloudflareKey:undefined},old.privateKey),data);
- assert.deepEqual(await decryptSnapshot(e,old.privateKey),data);
+ assert.deepEqual(await decryptSnapshot(e,fresh.privateKey),sealed(data));
+ assert.deepEqual(await decryptSnapshot({...e,cloudflareKey:undefined},old.privateKey),sealed(data));
+ assert.deepEqual(await decryptSnapshot(e,old.privateKey),sealed(data));
  await assert.rejects(decryptSnapshot(e,wrong.privateKey));
  await assert.rejects(decryptSnapshot({...e,data:e.data.slice(0,-8)+'AAAAAAAA'},fresh.privateKey));
  assert.ok(!JSON.stringify(e).includes('PRIVATE KEY'));
@@ -32,5 +35,22 @@ test('legacy fallback does not hide a valid latest snapshot for the new recipien
  const latest=seal(data,fresh.publicKey),previous=seal(data,old.publicKey);
  const fetcher=async u=>Response.json(u.includes('/user')?{id:'u'}:u.includes('app_users')?[{is_active:true}]:u.includes('last-usable')?previous:latest);
  const response=await serveNifty(new Request('https://portal/api/nifty500',{headers:{Authorization:'Bearer test'}}),{NIFTY_FEED_PRIVATE_KEY:fresh.privateKey},{url:'https://auth.local'},fetcher);
- assert.equal(response.status,200);assert.deepEqual(await response.json(),{latest:data,previous:null});
+ assert.equal(response.status,200);assert.deepEqual(await response.json(),{latest:sealed(data),previous:null});
+});
+test('swapped circuits are corrected and the swap flag is set',async()=>{
+ const {decryptSnapshot}=await import('../server/nifty-api.mjs');
+ const options={modulusLength:2048,publicKeyEncoding:{type:'spki',format:'pem'},privateKeyEncoding:{type:'pkcs8',format:'pem'}};
+ const keys=c.generateKeyPairSync('rsa',options);
+ // Row 0 is the nsemine defect: upper_circuit < lower_circuit. Row 1 is healthy, so a
+ // blanket correction (or a blanket flag) cannot pass this test.
+ const swapped={version:1,mode:'eod',rows:[
+  {symbol:'SWAP',price:10,upper_circuit:90,lower_circuit:110},
+  {symbol:'CLEAN',price:20,upper_circuit:130,lower_circuit:110}],total:2,available:2};
+ const out=await decryptSnapshot(seal(swapped,keys.publicKey),keys.privateKey);
+ assert.equal(out._nsemine_circuit_swap,true);
+ assert.deepEqual(out.rows[0],{symbol:'SWAP',price:10,upper_circuit:110,lower_circuit:90,_circuit_swap:true});
+ assert.deepEqual(out.rows[1],{symbol:'CLEAN',price:20,upper_circuit:130,lower_circuit:110});
+ assert.equal(out.total,2);
+ assert.equal(out.available,2);
+ assert.equal(out.mode,'eod');
 });

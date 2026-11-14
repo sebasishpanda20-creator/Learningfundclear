@@ -1,6 +1,6 @@
-const {chromium}=require('playwright');const {fixture,origin}=require('./fixtures.cjs');const path=require('path'),fs=require('fs'),assert=require('assert'),http=require('http');
+const {chromium}=require('playwright');const {fixture,origin,port}=require('./fixtures.cjs');const path=require('path'),fs=require('fs'),assert=require('assert'),http=require('http');
 (async()=>{
- const server=http.createServer((req,res)=>{let file=path.resolve('.','.'+new URL(req.url,origin).pathname);if(file.endsWith('/'))file+='index.html';try{res.setHeader('Content-Type',file.endsWith('.js')?'text/javascript':file.endsWith('.css')?'text/css':file.endsWith('.json')?'application/json':'text/html');res.end(fs.readFileSync(file));}catch(e){res.statusCode=404;res.end('Missing')}});await new Promise(r=>server.listen(8000,'127.0.0.1',r));
+ const server=http.createServer((req,res)=>{let file=path.resolve('.','.'+new URL(req.url,origin).pathname);if(file.endsWith('/'))file+='index.html';try{res.setHeader('Content-Type',file.endsWith('.js')?'text/javascript':file.endsWith('.css')?'text/css':file.endsWith('.json')?'application/json':'text/html');res.end(fs.readFileSync(file));}catch(e){res.statusCode=404;res.end('Missing')}});await new Promise(r=>server.listen(port,'127.0.0.1',r));
  const browser=await chromium.launch({headless:true,executablePath:process.env.TEST_BROWSER_PATH || undefined,args:['--no-sandbox','--disable-dev-shm-usage','--disable-gpu']});const results=[];
  async function run(name,fn){try{await fn();results.push({name,status:'PASS'});}catch(e){results.push({name,status:'FAIL',error:e.message});}console.log(results.at(-1));}
  for(const width of [1440,390]){

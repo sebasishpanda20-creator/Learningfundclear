@@ -19,3 +19,20 @@ visual-qa-artifacts/
 
 __pycache__/
 *.pyc
+
+# build/runtime artefacts and generated validation output
+node_modules/
+.wrangler/
+.dryrun*/
+.clean-check*/
+.clean-check-*/
+*.zip
+PATCH-MANIFEST.json
+SHA256SUMS.txt
+CLEAN-INSTALL.log
+*.log
+qa/logs/
+qa/tmp-*
+qa/*-results.json
+qa/page-audit.json
+qa/mobile-first.json

@@ -33,7 +33,8 @@
   if(!all.has(symbol))throw new Error('No imported history for '+symbol);
   const original=all.get(symbol);const bars=original.filter(b=>LfcMarketData.endTime(b.timestamp,'1d',symbol,{})*1000+60000<=now);
   if(!bars.length)throw new Error('No completed daily candles in the file');
-  return {symbol,bars,source:'Local CSV · unadjusted unless supplied adjusted',fetchedAt:now,candleAt:bars.at(-1).timestamp*1000,timezone:'Asia/Kolkata',gaps:0,discarded:0,incomplete:original.length-bars.length,stale:LfcMarketData.stale(bars,'1d',symbol,now)};
+  const incomplete=original.length-bars.length;
+  return {symbol,bars,source:'Local CSV · unadjusted unless supplied adjusted',mode:'imported · not live',live:false,fetchedAt:now,candleAt:bars.at(-1).timestamp*1000,timezone:'Asia/Kolkata',supplied:original.length,gaps:0,discarded:0,incomplete,excludedFuture:incomplete,stale:LfcMarketData.stale(bars,'1d',symbol,now)};
  }
  root.LfcCsvHistory={parse,history};
 })(typeof window!=='undefined'?window:globalThis);

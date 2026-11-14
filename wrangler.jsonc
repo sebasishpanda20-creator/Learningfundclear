@@ -7,8 +7,19 @@
   "triggers": {"crons": ["*/1 * * * *"]},
   "preview_urls": false,
   "vars": {
-    "QUANT_API_ORIGIN": "https://treat-eradicate-spendable.ngrok-free.dev"
+    "QUANT_API_ORIGIN": "https://quant-daemon-a9m2.onrender.com",
+    "OPEN_TERMINAL": "true"
   },
+
+  "durable_objects": {
+    "bindings": [{ "name": "FYERS_VAULT", "class_name": "FyersVault" }]
+  },
+  "migrations": [
+    { "tag": "v1", "new_sqlite_classes": ["FyersVault"] }
+  ],
+  "kv_namespaces": [
+    { "binding": "ALERTS_KV", "id": "1946f3a2bf8447be9277516ae4ff4b4a" }
+  ],
   "build": {
     "command": "node scripts/build.mjs --cloudflare"
   },

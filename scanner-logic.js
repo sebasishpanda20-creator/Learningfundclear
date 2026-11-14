@@ -480,7 +480,10 @@
       timeSquareHigh: timeSquareHigh,       // major swing sits on a Gann cycle count (Rules 17/18)
       narrowRangeLong: narrowRangeLong,
       narrowRangeShort: narrowRangeShort,   // doji-at-extreme on volume (Rule 72)
-      lastVol: last.volume
+      lastVol: last.volume,
+      // Base-candle (GTF) setup for this symbol: real base bar, entry/stop/
+      // target, risk-based size and retest state. Null when no base qualifies.
+      gtf: gtfSetup(bars, opts)
     };
   }
 
@@ -523,8 +526,91 @@
     return score >= 5 ? "A+" : score >= 3 ? "A" : score === 2 ? "B" : "C";
   }
 
+  // ── GTF base-candle zone ───────────────────────────────────────────────────
+  // Ported from the owner's GitHub live-data sketch, with one deliberate fix:
+  // the Python version derived the "historical" base candle by scaling today's
+  // quote (open*0.992, low*0.985…), which invents levels the market never
+  // printed. Here the base candle is a REAL completed bar.
+  //
+  // A base candle has a body at most 45% of its range (indecision at a level).
+  // Demand zone: proximal = body top (entry trigger), distal = bar low (hard
+  // stop). Status mirrors the sketch: FRESH RETEST inside the entry band,
+  // AWAITING PULLBACK above it, ZONE VIOLATED once price closes through distal.
+  // Position size is risk-based: ₹risk / (proximal - buffered stop).
+  function gtfSetup(bars, opts) {
+    opts = opts || {};
+    var bodyMaxPct = Number.isFinite(opts.bodyMaxPct) ? opts.bodyMaxPct : 0.45;
+    var rr = Number.isFinite(opts.rr) ? opts.rr : 2;
+    var riskInr = Number.isFinite(opts.riskPerTradeInr) ? opts.riskPerTradeInr : 5000;
+    var bufferPct = Number.isFinite(opts.stopBufferPct) ? opts.stopBufferPct : 0.2;
+    var lookback = Number.isInteger(opts.lookback) ? opts.lookback : 120;
+    var entryBand = Number.isFinite(opts.entryBandPct) ? opts.entryBandPct : 1.5;
+
+    if (!Array.isArray(bars) || bars.length < 3) return null;
+    var last = bars[bars.length - 1];
+    var price = last.close;
+    if (!Number.isFinite(price) || price <= 0) return null;
+
+    var base = null, baseIndex = -1;
+    var from = Math.max(0, bars.length - 1 - lookback);
+    for (var i = bars.length - 2; i >= from; i--) {
+      var b = bars[i];
+      if (!b || ![b.open, b.high, b.low, b.close].every(Number.isFinite)) continue;
+      var range = b.high - b.low;
+      if (!(range > 0)) continue;
+      if (Math.abs(b.close - b.open) / range > bodyMaxPct) continue;
+      // A zone dies when price closes through its distal line: skip it.
+      if (price < b.low) continue;
+      base = b; baseIndex = i; break;
+    }
+    if (!base) return null;
+
+    var proximal = Math.max(base.open, base.close);
+    var distal = base.low;
+    var height = proximal - distal;
+    if (!(height > 0)) return null;
+
+    var stop = distal * (1 - bufferPct / 100);
+    var riskPerShare = proximal - stop;
+    var qty = riskPerShare > 0 ? Math.floor(riskInr / riskPerShare) : 0;
+    var target = proximal + height * rr;
+    var band = proximal * (1 + entryBand / 100);
+
+    var status;
+    if (price < distal) status = "ZONE VIOLATED";
+    else if (price <= band) status = "FRESH RETEST";
+    else status = "AWAITING PULLBACK";
+
+    // Completed bars since the base that closed back inside the zone.
+    var retests = 0;
+    for (var j = baseIndex + 1; j < bars.length - 1; j++) {
+      if (bars[j].close <= proximal && bars[j].close >= distal) retests++;
+    }
+
+    return {
+      found: true,
+      baseDate: base.date || null,
+      baseIndex: baseIndex,
+      barsSinceBase: bars.length - 1 - baseIndex,
+      proximal: proximal,
+      distal: distal,
+      height: height,
+      stop: stop,
+      target: target,
+      rr: rr,
+      riskPerShare: riskPerShare,
+      qty: qty,
+      capitalRequired: qty * proximal,
+      entryBandTop: band,
+      status: status,
+      retests: retests,
+      price: price
+    };
+  }
+
   global.LfcScanner = {
     computeZones: computeZones,
+    gtfSetup: gtfSetup,
     includeRow: includeRow,
     confluenceScore: confluenceScore,
     confluenceTag: confluenceTag,

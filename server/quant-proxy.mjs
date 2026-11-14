@@ -60,6 +60,10 @@ export async function proxyToDaemon(request, env, pathSuffix, search) {
     headers.set(key, value);
   }
   if (isNgrokFree(raw)) headers.set('ngrok-skip-browser-warning', 'learningfundclear-portal');
+  // The daemon refuses anything that did not arrive through this worker, so the
+  // public tunnel origin can no longer serve the portal or its API directly.
+  const portalSecret = String((env && env.PORTAL_PROXY_SECRET) || '').trim();
+  if (portalSecret) headers.set('x-portal-proxy', portalSecret);
 
   const init = { method: request.method, headers, redirect: 'manual' };
   if (!['GET', 'HEAD'].includes(request.method.toUpperCase())) {

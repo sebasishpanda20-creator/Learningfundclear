@@ -28,6 +28,8 @@
       .quant-fallback { padding: 18px; }
       @media (max-width: 760px) { .quant-frame { height: calc(100vh - 260px); min-height: 480px; } }
     </style>
+      <link rel="stylesheet" href="assets/css/mobile-first.css" />
+      <script src="assets/js/mobile-first.js"></script>
   </head>
   <body data-page="dashboard">
     <main id="main">
@@ -355,6 +357,41 @@
       </section>
 
       <section
+        id="opsStatus"
+        class="card"
+        aria-label="Quant stack status"
+        style="margin-top: 22px"
+        data-ops-status
+      >
+        <div class="section-title">Stack status</div>
+        <p class="sub" style="margin-bottom: 12px">
+          Reported by the watchdog on the host machine each minute: the daemon, the
+          reserved tunnel and how often it has had to restart the stack.
+        </p>
+        <div
+          style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px 18px"
+        >
+          <div style="display: flex; flex-direction: column; gap: 4px">
+            <span style="font-size: .72rem; text-transform: uppercase; letter-spacing: .06em; opacity: .7">State</span>
+            <span class="quant-status" data-state="pending" data-ops-state role="status">Checking…</span>
+          </div>
+          <div style="display: flex; flex-direction: column; gap: 4px">
+            <span style="font-size: .72rem; text-transform: uppercase; letter-spacing: .06em; opacity: .7">Last check</span>
+            <span data-ops-checked>—</span>
+          </div>
+          <div style="display: flex; flex-direction: column; gap: 4px">
+            <span style="font-size: .72rem; text-transform: uppercase; letter-spacing: .06em; opacity: .7">Online for</span>
+            <span data-ops-uptime>—</span>
+          </div>
+          <div style="display: flex; flex-direction: column; gap: 4px">
+            <span style="font-size: .72rem; text-transform: uppercase; letter-spacing: .06em; opacity: .7">Restarts (1 h)</span>
+            <span data-ops-restarts>—</span>
+          </div>
+        </div>
+        <p class="quant-note" data-ops-detail style="margin-top: 10px"></p>
+      </section>
+
+      <section
         id="quantTerminal"
         class="card"
         data-quant-embed
@@ -412,6 +449,7 @@
       </section>
     </main>
     <script src="assets/js/quant-embed.js"></script>
+    <script src="assets/js/ops-status.js"></script>
     <script src="assets/js/shell.js"></script>
     <script type="module" src="assets/js/journal.js"></script>
   </body>

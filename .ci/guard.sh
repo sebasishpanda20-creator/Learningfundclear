@@ -4,7 +4,7 @@
 
 set -euo pipefail
 
-PAGES=(index.html signin.html performance.html scanner.html setups.html gex.html crypto.html crypto-options.html crypto-funding.html admin.html)
+PAGES=(index.html signin.html performance.html scanner.html setups.html gex.html crypto.html crypto-options.html crypto-funding.html admin.html lfc_terminal_v6.html)
 FAIL=0
 
 run_check() {
@@ -36,6 +36,22 @@ else
     fi
   done
 fi
+
+# Mobile-first is a release criterion, not a styling preference:
+# docs/MOBILE-FIRST-RELEASE-CRITERIA.md (MF-1 … MF-14).
+run_check node --test qa/fyers-worker.test.mjs
+run_check node --test qa/source-files.test.mjs
+run_check node --test qa/market-context.test.mjs
+run_check node qa/market-context-ui.cjs
+run_check node qa/hosting-readiness.cjs
+run_check node qa/scanner-api-ab.cjs
+run_check node qa/data-propagation.cjs
+run_check node qa/mock-boundary.cjs
+run_check node qa/market-data-boundaries.cjs
+run_check node qa/strategy-regressions.cjs
+run_check node qa/mobile-first.cjs
+run_check node qa/terminal-smoke.cjs
+run_check python -m unittest discover -s ../Learningfundclear/backend/tests -p test_fyers_auth.py
 
 run_check node tools/test-signal-guards.js
 run_check node tools/test-weekly-line.js

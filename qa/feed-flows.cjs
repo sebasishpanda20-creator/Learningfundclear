@@ -1,12 +1,13 @@
-const {chromium}=require('playwright'),{fixture,origin}=require('./fixtures.cjs');
+const {chromium}=require('playwright'),{fixture,origin,port}=require('./fixtures.cjs');
 const fs=require('fs'),path=require('path'),http=require('http'),assert=require('assert');
 (async()=>{
- const server=http.createServer((req,res)=>{try{const file=path.resolve('.','.'+new URL(req.url,origin).pathname);res.setHeader('Content-Type',file.endsWith('.js')?'text/javascript':file.endsWith('.css')?'text/css':'text/html');res.end(fs.readFileSync(file));}catch{res.writeHead(404);res.end();}});await new Promise(r=>server.listen(8000,'127.0.0.1',r));
+ const server=http.createServer((req,res)=>{try{const file=path.resolve('.','.'+new URL(req.url,origin).pathname);res.setHeader('Content-Type',file.endsWith('.js')?'text/javascript':file.endsWith('.css')?'text/css':'text/html');res.end(fs.readFileSync(file));}catch{res.writeHead(404);res.end();}});await new Promise(r=>server.listen(port,'127.0.0.1',r));
  const browser=await chromium.launch({executablePath:process.env.TEST_BROWSER_PATH,headless:true,args:['--no-sandbox','--disable-dev-shm-usage','--disable-gpu']});const results=[];
  try {for(const width of [1440,390]){
  const ctx=await browser.newContext({viewport:{width,height:1000}});await fixture(ctx);const page=await ctx.newPage(),errors=[];page.on('pageerror',e=>errors.push(e.message));
  let requests=0,old=false;
- await ctx.route(/query1\.finance\.yahoo\.com/,route=>{
+ await ctx.route(/\/api\/market\/yahoo\?/,route=>{
+  assert.equal(route.request().headers().authorization,'Bearer test-only-access-token');
   requests++;let t=Math.floor(Date.now()/86400000)*86400-86400-(old?10*86400:0);
   const rows=Array.from({length:260},(_,i)=>({t:t-(259-i)*86400,o:100,h:104,l:96,c:101,v:1000}));rows[255].l=90;rows[259]={...rows[259],o:98,h:100,l:92,c:94};
   return route.fulfill({json:{chart:{result:[{meta:{gmtoffset:19800},timestamp:rows.map(x=>x.t),indicators:{quote:[{open:rows.map(x=>x.o),high:rows.map(x=>x.h),low:rows.map(x=>x.l),close:rows.map(x=>x.c),volume:rows.map(x=>x.v)}]}}]}}});

@@ -1,9 +1,9 @@
 'use strict';
-const {chromium}=require('playwright'),{fixture,origin}=require('./fixtures.cjs');
+const {chromium}=require('playwright'),{fixture,origin,port}=require('./fixtures.cjs');
 const fs=require('fs'),path=require('path'),http=require('http'),a=require('node:assert/strict');
 const server=http.createServer((req,res)=>{try{const file=path.resolve('.','.'+new URL(req.url,origin).pathname);res.setHeader('Content-Type',file.endsWith('.js')?'text/javascript':file.endsWith('.css')?'text/css':'text/html');res.end(fs.readFileSync(file));}catch{res.writeHead(404);res.end();}});
 (async()=>{
- await new Promise(r=>server.listen(8000,'127.0.0.1',r));
+ await new Promise(r=>server.listen(port,'127.0.0.1',r));
  const browser=await chromium.launch({executablePath:process.env.TEST_BROWSER_PATH||undefined,args:['--no-sandbox','--disable-dev-shm-usage','--disable-gpu']});
  try{for(const width of [1440,390]){
   const ctx=await browser.newContext({viewport:{width,height:960}});await fixture(ctx);

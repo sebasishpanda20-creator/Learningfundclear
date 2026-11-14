@@ -58,7 +58,7 @@
         if (bars[i].date.slice(0,10)===bars[i-1].date.slice(0,10) && bars[i].timestamp-bars[i-1].timestamp>seconds[interval]*1.5) gaps++;
       }
     }
-    return {symbol,bars,source:'Yahoo historical · may be delayed',fetchedAt:now,candleAt:bars[bars.length-1].timestamp*1000,gaps,timezone:meta.exchangeTimezoneName || 'Exchange time',discarded,incomplete,stale:stale(bars,interval,symbol,now)};
+    return {symbol,bars,source:'Yahoo historical · may be delayed',mode:'historical · delayed · not live',live:false,fetchedAt:now,candleAt:bars[bars.length-1].timestamp*1000,gaps,timezone:meta.exchangeTimezoneName || 'Exchange time',supplied:r.timestamp.length,discarded,incomplete,excludedFuture:incomplete,stale:stale(bars,interval,symbol,now)};
   }
   function cacheValid(entry, interval, now=Date.now()) {
     return !!(entry && entry.version===2 && entry.data && entry.data.bars?.length && now>=entry.saved && now-entry.saved<ttl(interval) && !stale(entry.data.bars,interval,entry.data.symbol,now));

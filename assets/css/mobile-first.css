@@ -1,0 +1,548 @@
+/* ---------------------------------------------------------------------------
+   MOBILE-FIRST-RELEASE-CRITERIA.md — shared implementation layer.
+   Loaded by every portal page after tokens.css and the per-page stylesheet.
+
+   This file only *adds* to the design system. It must never be the only thing
+   keeping the layout usable, and it must not change desktop presentation other
+   than where the criteria require it.
+   --------------------------------------------------------------------------- */
+
+:root {
+  /* Chrome heights, written by mobile-first.js so fixed/sticky surfaces and
+     the scroll container cannot disagree about how much space is reserved.
+     MF-12 */
+  --mf-sticky-top: 0px;
+  --mf-sticky-bottom: 0px;
+
+  /* Safe-area aliases (MF-11). Zero on devices without notches. */
+  --mf-safe-top: env(safe-area-inset-top, 0px);
+  --mf-safe-right: env(safe-area-inset-right, 0px);
+  --mf-safe-bottom: env(safe-area-inset-bottom, 0px);
+  --mf-safe-left: env(safe-area-inset-left, 0px);
+
+  /* MF-3 */
+  --mf-tap: 44px;
+}
+
+/* MF-1 — contain wide content instead of letting the document stretch.
+   Scrollers are allowed; they must be explicit and focusable. */
+html {
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
+body {
+  overflow-x: clip; /* keeps position:sticky working, unlike hidden */
+}
+
+.mf-scroll-x,
+.table-scroll,
+.table-wrap,
+[role="region"][aria-label*="Scrollable"] {
+  max-width: 100%;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Long unbroken identifiers (options symbols, URLs, hashes) must wrap. */
+.mf-break,
+td,
+th,
+.mono,
+code {
+  overflow-wrap: anywhere;
+}
+
+/* MF-11 — dynamic viewport units with a static fallback. */
+.mf-screen {
+  min-height: 100vh;
+  min-height: 100dvh;
+}
+
+/* MF-12 — reserve the space fixed chrome occupies. */
+.mf-reserve-bottom {
+  padding-bottom: calc(var(--mf-sticky-bottom) + var(--mf-safe-bottom) + 8px);
+}
+
+.mf-reserve-top {
+  padding-top: calc(var(--mf-sticky-top) + var(--mf-safe-top));
+}
+
+[data-mf-chrome="top"] {
+  padding-top: var(--mf-safe-top);
+}
+
+[data-mf-chrome="bottom"] {
+  padding-bottom: var(--mf-safe-bottom);
+}
+
+/* Anchors and focused controls never land under sticky chrome. */
+:target,
+[id] {
+  scroll-margin-top: calc(var(--mf-sticky-top) + var(--mf-safe-top) + 12px);
+  scroll-margin-bottom: calc(var(--mf-sticky-bottom) + var(--mf-safe-bottom) + 12px);
+}
+
+/* --------------------------------------------------------------------- MF-5 */
+/* One visible focus treatment for every focusable control, including ones the
+   per-page stylesheet forgot. */
+a:focus-visible,
+button:focus-visible,
+[role="button"]:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible,
+summary:focus-visible,
+[tabindex]:focus-visible {
+  /* !important: a page rule such as `#id:focus { outline: none }` must never be
+     able to delete the focus indicator (MF-5). */
+  outline: 2px solid var(--lfc-primary, #087e8b) !important;
+  outline-offset: 2px;
+  border-radius: var(--lfc-radius-sm, 8px);
+  box-shadow: 0 0 0 1px var(--lfc-surface, #fff) !important;
+}
+
+/* --------------------------------------------------------------------- MF-3 */
+/* Coarse pointers only: desktop mouse layouts keep their compact density. */
+/* MF-2 / MF-3 — touch devices. The portal's own components ship 38-42 px
+   controls, so this layer is the one place that raises them to the 44 px
+   minimum; !important is deliberate and scoped to coarse pointers only. */
+@media (pointer: coarse) {
+  button,
+  [role="button"],
+  .btn,
+  .button,
+  .chip,
+  .tab,
+  select,
+  summary,
+  a.skip,
+  a.skip-link,
+  .skip-link,
+  .menu-toggle,
+  a.navlink,
+  nav a,
+  .desk-tabs a,
+  .fund-tabs a,
+  .tabs a,
+  button[aria-label],
+  #portalNav a,
+  #portalNav button,
+  .sidebar a,
+  .sidebar button,
+  input:not([type="hidden"]):not([type="checkbox"]):not([type="radio"]),
+  textarea,
+  [data-mf-tap],
+  [tabindex]:not([tabindex="-1"]) {
+    min-height: var(--mf-tap) !important;
+  }
+
+  .menu-toggle,
+  .chip,
+  button,
+  [data-mf-tap="square"] {
+    min-width: var(--mf-tap) !important;
+  }
+
+  input[type="checkbox"],
+  input[type="radio"] {
+    width: 22px !important;
+    height: 22px !important;
+    min-height: 22px !important;
+  }
+
+  /* The label is the real tap target for a checkbox row. */
+  label:has(> input[type="checkbox"]),
+  label:has(> input[type="radio"]) {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    min-height: var(--mf-tap);
+  }
+
+  /* Visible hit area of 44 px without changing the visual box. */
+  .mf-hit-44 {
+    position: relative;
+  }
+
+  .mf-hit-44::after {
+    content: "";
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: var(--mf-tap);
+    height: var(--mf-tap);
+    transform: translate(-50%, -50%);
+    min-width: 100%;
+    min-height: 100%;
+  }
+
+  /* MF-2 — 16 px form text stops iOS from zooming the whole page on focus. */
+  input,
+  select,
+  textarea {
+    font-size: 16px !important;
+  }
+}
+
+/* --------------------------------------------------------------------- MF-4 */
+/* Hover styling is opt-in for devices that actually hover. */
+@media (hover: none), (pointer: coarse) {
+  .mf-hover-only {
+    opacity: 1 !important;
+    visibility: visible !important;
+    pointer-events: auto !important;
+  }
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .mf-reveal {
+    opacity: 0;
+    transition: opacity 0.15s ease;
+  }
+
+  .mf-reveal-host:hover .mf-reveal,
+  .mf-reveal-host:focus-within .mf-reveal {
+    opacity: 1;
+  }
+}
+
+/* Anything revealed only on hover must still appear on keyboard focus. */
+.mf-reveal-host:focus-within .mf-reveal {
+  opacity: 1;
+}
+
+/* --------------------------------------------------------------------- MF-9 */
+/* Detail surfaces ------------------------------------------------------- */
+
+.mf-sheet-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgb(9 20 28 / 48%);
+  z-index: 90;
+}
+
+.mf-sheet {
+  position: fixed;
+  z-index: 91;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  flex-direction: column;
+  max-height: calc(100dvh - var(--mf-safe-top) - 8px);
+  background: var(--lfc-surface, #fff);
+  color: var(--lfc-text, #26394b);
+  border-top-left-radius: 16px;
+  border-top-right-radius: 16px;
+  box-shadow: 0 -12px 40px rgb(9 20 28 / 22%);
+  padding-bottom: var(--mf-safe-bottom);
+  padding-left: var(--mf-safe-left);
+  padding-right: var(--mf-safe-right);
+  transform: translateY(100%);
+  transition: transform 0.22s ease;
+}
+
+/* [hidden] must win over the display:flex above, otherwise the sheet is
+   permanently on screen. */
+.mf-sheet[hidden] {
+  display: none !important;
+}
+
+.mf-sheet[data-mf-open="true"] {
+  transform: translateY(0);
+}
+
+.mf-sheet-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--lfc-border, #dce5ea);
+  flex: 0 0 auto;
+}
+
+.mf-sheet-title {
+  margin: 0;
+  font-size: 15px;
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.mf-sheet-close {
+  min-width: var(--mf-tap);
+  min-height: var(--mf-tap);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--lfc-border, #dce5ea);
+  background: var(--lfc-surface-soft, #f8fafb);
+  color: inherit;
+  border-radius: 999px;
+  font-size: 18px;
+  line-height: 1;
+}
+
+.mf-sheet-body {
+  flex: 1 1 auto;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  padding: 14px calc(14px + var(--mf-safe-right)) calc(20px + var(--mf-safe-bottom)) calc(14px + var(--mf-safe-left));
+  /* Room for the on-screen keyboard and the sheet's own chrome. MF-11 */
+  scroll-padding-bottom: 96px;
+}
+
+/* Definition list used by detail sheets. */
+.mf-fields {
+  display: grid;
+  grid-template-columns: minmax(96px, 40%) 1fr;
+  gap: 6px 12px;
+  margin: 0;
+  font-size: 13px;
+}
+
+.mf-fields dt {
+  color: var(--lfc-muted, #667b8b);
+  font-weight: 500;
+}
+
+.mf-fields dd {
+  margin: 0;
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+}
+
+@media (min-width: 720px) {
+  .mf-sheet {
+    left: 50%;
+    right: auto;
+    width: min(560px, calc(100vw - 48px));
+    bottom: 24px;
+    transform: translate(-50%, 24px);
+    border-radius: 16px;
+    opacity: 0;
+    transition: transform 0.2s ease, opacity 0.2s ease;
+  }
+
+  .mf-sheet[data-mf-open="true"] {
+    transform: translate(-50%, 0);
+    opacity: 1;
+  }
+}
+
+/* --------------------------------------------------------------------- MF-7 */
+/* Chart board: single column on mobile, expansion keeps the same canvas. */
+
+.mf-chart-card canvas,
+#chartWrap canvas {
+  display: block;
+  width: 100% !important;
+  height: auto;
+  max-width: 100%;
+}
+
+.mf-chart-expand {
+  position: fixed;
+  inset: 0;
+  z-index: 95;
+  background: var(--lfc-bg, #f4f7f9);
+  display: flex;
+  flex-direction: column;
+  padding: var(--mf-safe-top) var(--mf-safe-right) var(--mf-safe-bottom) var(--mf-safe-left);
+}
+
+.mf-chart-expand-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  flex: 0 0 auto;
+}
+
+.mf-chart-expand-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  padding: 0 8px 8px;
+  display: flex;
+}
+
+.mf-chart-expand-body canvas {
+  /* The bitmap is sized in JS to the body's height; forcing 100% here would
+     stretch a shorter bitmap instead of redrawing it. */
+  width: 100% !important;
+  height: auto !important;
+  margin: 0;
+  align-self: flex-start;
+  max-height: 100%;
+  object-fit: contain;
+}
+
+body.mf-locked {
+  overflow: hidden;
+  touch-action: none;
+}
+
+/* --------------------------------------------------------------------- MF-13 */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+
+  .mf-sheet,
+  .mf-sheet[data-mf-open="true"] {
+    transition: none !important;
+  }
+}
+
+html.mf-reduced-motion .mf-animated {
+  animation: none !important;
+}
+
+/* --------------------------------------------------------------------- MF-6 */
+/* Drill-down list used in place of a scaled-down graph at phone widths. */
+.mf-drill-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.mf-drill-list a,
+.mf-drill-list button {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  min-height: var(--mf-tap);
+  padding: 10px 12px;
+  border: 1px solid var(--lfc-border, #dce5ea);
+  border-radius: var(--lfc-radius-sm, 8px);
+  background: var(--lfc-surface, #fff);
+  color: inherit;
+  text-decoration: none;
+  font-size: 14px;
+}
+
+.mf-drill-crumbs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+  font-size: 12px;
+  margin-bottom: 8px;
+}
+
+/* ------------------------------------------------------------------ helpers */
+.mf-sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* Selected scanner row (MF-8) — works on the portal scanner and the terminal. */
+.scanner-row-selected,
+#resultsBody tr.scanner-row-selected {
+  background: var(--lfc-primary-soft, #e5f4f3) !important;
+}
+
+.scanner-row-selected td {
+  font-weight: 600;
+}
+
+#resultsBody tr[data-row] {
+  cursor: pointer;
+}
+
+#resultsBody tr[data-row]:focus-visible {
+  outline: 2px solid var(--lfc-primary, #087e8b);
+  outline-offset: -2px;
+}
+
+@media (max-width: 767px) {
+  .mf-chart-header {
+    position: sticky;
+    top: calc(var(--mf-sticky-top) + var(--mf-safe-top));
+    background: var(--lfc-surface, #fff);
+    z-index: 2;
+    padding-bottom: 6px;
+  }
+}
+
+.mf-only-mobile {
+  display: none;
+}
+
+@media (max-width: 767px) {
+  .mf-only-mobile {
+    display: revert;
+  }
+
+  .mf-hide-mobile {
+    display: none !important;
+  }
+
+  /* Tables become stacked cards where a page has no bespoke mobile layout.
+     Opt in per table with .mf-stack so we never restyle a table that already
+     has a deliberate phone presentation. */
+  .mf-stack thead {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+  }
+
+  .mf-stack tbody tr {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 2px 10px;
+    padding: 10px 12px;
+    border-bottom: 1px solid var(--lfc-border-soft, #eaf0f3);
+  }
+
+  .mf-stack tbody td {
+    display: block;
+    padding: 0;
+    border: 0;
+    text-align: left;
+  }
+
+  .mf-stack tbody td::before {
+    content: attr(data-label);
+    display: block;
+    font-size: 10.5px;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--lfc-muted, #667b8b);
+  }
+}
+
+/* iOS safe-area on a fixed bottom bar. */
+.mf-fixed-bottom {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 80;
+  background: var(--lfc-surface, #fff);
+  border-top: 1px solid var(--lfc-border, #dce5ea);
+  padding-bottom: var(--mf-safe-bottom);
+  padding-left: var(--mf-safe-left);
+  padding-right: var(--mf-safe-right);
+}

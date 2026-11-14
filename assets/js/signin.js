@@ -2,7 +2,8 @@
   const form = document.getElementById("loginForm"),
     button = document.getElementById("loginBtn"),
     msg = document.getElementById("msg"),
-    pass = document.getElementById("loginPass");
+    pass = document.getElementById("loginPass"),
+    help = document.getElementById("help");
   const params = new URLSearchParams(location.search);
   // Collapse previously nested sign-in return URLs without another navigation.
   if (params.has("next")) {
@@ -23,12 +24,26 @@
     }
   }
   const target = () => LfcAuth.safeTarget(resumeTarget());
-  document.getElementById("showPassword").onclick = function () {
-    const show = pass.type === "password";
-    pass.type = show ? "text" : "password";
-    this.textContent = show ? "Hide" : "Show";
-    this.setAttribute("aria-label", show ? "Hide password" : "Show password");
-  };
+  // Access is granted by an administrator, so these two links explain the route
+  // instead of pretending to be a self-service flow the portal cannot offer.
+  function showHelp(text) {
+    if (!help) return;
+    help.hidden = false;
+    help.textContent = text;
+    msg.textContent = "";
+  }
+  const request = document.getElementById("requestAccess");
+  if (request)
+    request.onclick = () =>
+      showHelp(
+        "Access is granted by your portal administrator — ask them to enable an account, then sign in here.",
+      );
+  const forgot = document.getElementById("forgotPassword");
+  if (forgot)
+    forgot.onclick = () =>
+      showHelp(
+        "Passwords are reset by your portal administrator. Ask them to issue you a new one.",
+      );
   LfcAuth.ready.then((user) => {
     if (user && !params.has("loggedOut"))
       location.replace(target());

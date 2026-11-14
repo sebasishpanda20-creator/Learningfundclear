@@ -25,3 +25,30 @@ test('old cache rejected; new cache expires at interval TTL',()=>{let data=M.par
 test('weekend close remains usable without implying live data',()=>{const sat=Date.parse('2026-10-10T09:00:00Z');assert.equal(M.stale([{timestamp:Date.parse('2026-10-09T09:00:00Z')/1000}],'15m','TEST.NS',sat),false)});
 
 test('missing India intraday intervals are identified',()=>{const data=M.parseYahoo(chart([[ts-7200,100,110,90,105,20],[ts-1800,100,110,90,105,20]]),'TEST.NS','15m',now);assert.equal(data.gaps,1)});
+
+// ── GTF base-candle zone (owner's live-data sketch, real historical bar) ─────
+const gtfBar = (i, o, h, l, c) => ({ date: new Date(Date.UTC(2026, 0, 1 + i)).toISOString().slice(0, 10), open: o, high: h, low: l, close: c, volume: 100 });
+function gtfSeries(lastBar) {
+  const b = [];
+  for (let i = 0; i < 24; i++) b.push(gtfBar(i, 100, 112, 99, 111));   // large bodies: never base candles
+  b.push(gtfBar(24, 100, 101.5, 99, 100.5));                            // BASE: body 0.5 of range 2.5
+  for (let i = 25; i < 28; i++) b.push(gtfBar(i, 101, 112, 100, 111));  // trend bars after the base
+  b.push(lastBar);
+  return b;
+}
+test('GTF base candle: real bar, proximal/distal, 1:2 target, risk-based size', () => {
+  const r = S.gtfSetup(gtfSeries(gtfBar(28, 104, 106, 103.5, 105)));
+  assert.equal(r.baseDate, '2026-01-25');
+  assert.equal(r.proximal, 100.5);
+  assert.equal(r.distal, 99);
+  assert.equal(r.stop, 99 * (1 - 0.2 / 100));
+  assert.equal(r.target, 100.5 + 1.5 * 2);
+  assert.equal(r.qty, Math.floor(5000 / (100.5 - 99 * (1 - 0.2 / 100))));
+  assert.equal(r.status, 'AWAITING PULLBACK');
+});
+test('GTF status flips to FRESH RETEST inside the entry band and never to a violated zone', () => {
+  const inside = S.gtfSetup(gtfSeries(gtfBar(28, 100, 100.6, 99.6, 100)));
+  assert.equal(inside.status, 'FRESH RETEST');
+  const broken = S.gtfSetup(gtfSeries(gtfBar(28, 95, 96, 94, 94.5)));
+  assert.equal(broken, null);
+});

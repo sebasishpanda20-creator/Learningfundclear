@@ -15,6 +15,7 @@ on:
       - "crypto-funding.html"
       - "admin.html"
       - "qa/**"
+      - "package.json"
       - "auth-guard.js"
       - "scanner-logic.js"
       - "funds/**"

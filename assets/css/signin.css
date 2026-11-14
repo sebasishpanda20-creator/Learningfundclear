@@ -1,0 +1,217 @@
+/* Sign-in page. Loaded after app.css because this page is one centred card: no
+   sidebar, no portal shell and no two-column story panel. */
+.signin-page {
+  margin: 0;
+  min-height: 100dvh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 40px 20px;
+  background: #f4f6f9;
+  color: #1f3552;
+}
+.signin-page main {
+  /* Overrides the shell's wide-screen side margins so the card stays centred
+     at every viewport width. */
+  margin: 0 auto;
+  padding: 0;
+}
+.signin-shell {
+  width: min(420px, 100%);
+  margin: 0 auto;
+}
+
+/* Brand lockup above the card */
+.signin-brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0 0 16px;
+  text-decoration: none;
+  color: inherit;
+}
+.signin-badge {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 38px;
+  height: 38px;
+  border-radius: 8px;
+  background: #1d4e79;
+  color: #fff;
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: 0.2px;
+}
+.signin-brand-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.signin-brand-text strong {
+  font-size: 19px;
+  font-weight: 700;
+  letter-spacing: -0.3px;
+  color: #16324c;
+}
+.signin-brand-text small {
+  margin-top: 2px;
+  font-size: 12px;
+  color: #6b7d8f;
+}
+
+/* Card */
+.signin-card {
+  background: #fff;
+  border: 1px solid #e1e7ed;
+  border-radius: 8px;
+  box-shadow: 0 1px 2px rgba(16, 42, 67, 0.05);
+  overflow: hidden;
+}
+.signin-card-head {
+  padding: 16px 20px 14px;
+  text-align: center;
+  border-bottom: 1px solid #e8edf2;
+}
+.signin-card-head h1 {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 700;
+  color: #16324c;
+}
+.signin-card-head p {
+  margin: 6px 0 0;
+  font-size: 12.5px;
+  color: #6b7d8f;
+}
+.signin-card-body {
+  padding: 16px 20px 0;
+}
+.signin-card-body label {
+  display: block;
+  margin: 0 0 6px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.8px;
+  text-transform: uppercase;
+  color: #5c7085;
+}
+.signin-card-body label ~ label {
+  margin-top: 14px;
+}
+.signin-card-body input {
+  display: block;
+  width: 100%;
+  height: 40px;
+  padding: 0 12px;
+  border: 1px solid #d7dfe7;
+  border-radius: 6px;
+  background: #fff;
+  color: #16324c;
+  font: inherit;
+  font-size: 14px;
+}
+.signin-card-body input:focus {
+  border-color: #1d4e79;
+  box-shadow: 0 0 0 3px rgba(29, 78, 121, 0.12);
+  outline: none;
+}
+.signin-submit {
+  width: 100%;
+  height: 40px;
+  margin-top: 16px;
+  border: 1px solid #1d4e79;
+  border-radius: 6px;
+  background: #1d4e79;
+  color: #fff;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.signin-submit:hover {
+  background: #17405f;
+  border-color: #17405f;
+}
+.signin-submit:focus-visible {
+  outline: 2px solid #1d4e79;
+  outline-offset: 2px;
+}
+.signin-submit:disabled {
+  opacity: 0.7;
+  cursor: progress;
+}
+.signin-card-body .msg {
+  min-height: 0;
+  margin: 10px 0 0;
+  font-size: 12px;
+  line-height: 1.5;
+  color: #6b7d8f;
+}
+.signin-help {
+  margin: 10px 0 0;
+  padding: 8px 10px;
+  border: 1px solid #e1e7ed;
+  border-radius: 6px;
+  background: #f2f6fa;
+  font-size: 12px;
+  line-height: 1.5;
+  color: #33506b;
+}
+
+/* Footer links sit inside the card, split left and right. */
+.signin-card-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 16px -20px 0;
+  padding: 12px 20px;
+  border-top: 1px solid #e8edf2;
+}
+.signin-link {
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  font-size: 12.5px;
+  color: #40566b;
+  cursor: pointer;
+}
+.signin-link:hover {
+  color: #1d4e79;
+  text-decoration: underline;
+}
+.signin-link:focus-visible {
+  outline: 2px solid #1d4e79;
+  outline-offset: 2px;
+}
+
+.signin-disclaimer {
+  max-width: 430px;
+  margin: 18px auto 0;
+  font-size: 12.5px;
+  line-height: 1.6;
+  color: #7a8b9b;
+  text-align: center;
+}
+
+@media (max-width: 480px) {
+  .signin-page {
+    padding: 28px 16px;
+  }
+  .signin-brand-text strong {
+    font-size: 17px;
+  }
+  .signin-card-body,
+  .signin-card-head {
+    padding-left: 16px;
+    padding-right: 16px;
+  }
+  .signin-card-foot {
+    margin-left: -16px;
+    margin-right: -16px;
+    padding-left: 16px;
+    padding-right: 16px;
+  }
+}

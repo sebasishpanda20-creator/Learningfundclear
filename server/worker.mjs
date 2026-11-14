@@ -3,9 +3,11 @@ import {serveNifty} from './nifty-api.mjs';
 import config from './config.mjs';
 import {serveDeltaAccount} from './delta-account.mjs';
 import {proxyToDaemon} from './quant-proxy.mjs';
-import {issueTicket,guardTerminal,portalRole} from './terminal-gate.mjs';
+import {issueTicket,guardTerminal,portalRole,terminalGateOpen} from './terminal-gate.mjs';
 import {serveMarketYahoo,serveMarketMfapi} from './market-proxy.mjs';
-import {keepDaemonWarm} from './keep-warm.mjs';
+import {runDaemonWatch} from './daemon-watch.mjs';
+import {handleFyers} from './fyers-routes.mjs';
+export {FyersVault} from './fyers-vault.mjs';
 
 // The terminal cookie is a browser credential for this worker only: never let
 // it reach the daemon behind the tunnel.
@@ -26,6 +28,9 @@ function withPortalRole(request,role){
 
 export default {async fetch(request,env){
  const url=new URL(request.url);
+ // FYERS v3 auth/quote: portal session + owner allowlist, state and tokens in a
+ // strongly consistent Durable Object (Workers KV is eventually consistent).
+ if(url.pathname==='/api/fyers'||url.pathname.startsWith('/api/fyers/'))return handleFyers(request,env,config);
  if(url.pathname==='/api/email-alerts')return serveAlerts(request,env,config);
  if(url.pathname==='/api/nifty500')return serveNifty(request,env,config);
  if(url.pathname==='/api/market/yahoo')return serveMarketYahoo(request,env,config);
@@ -46,10 +51,17 @@ export default {async fetch(request,env){
    const role=await portalRole(request,config);
    return proxyToDaemon(role?withPortalRole(request,role):withoutCookies(request),env,url.pathname,url.search);
  }
- // The terminal is only served to a signed-in dashboard session.
+ // The terminal is normally served only to a signed-in dashboard session;
+ // OPEN_TERMINAL=1 opens the route to anonymous visitors (see terminal-gate.mjs).
  if(url.pathname==='/quant-terminal'||url.pathname==='/quant-terminal/'||url.pathname.startsWith('/quant-terminal/')){
-   const denied=await guardTerminal(request,env,config);
-   if(denied)return denied;
+   const open=terminalGateOpen(env);
+   if(!open){
+     const denied=await guardTerminal(request,env,config);
+     if(denied)return denied;
+   }
    const role=await portalRole(request,config);
-   return proxyToDaemon(withPortalRole(request,role||'viewer'),env,url.pathname.slice('/quant-terminal'.length),url.search);
- } return env.ASSETS.fetch(request);},async scheduled(event,env,ctx){ctx.waitUntil(runAlerts(env));ctx.waitUntil(keepDaemonWarm(env));}};
+   // An open route with no session forwards no role at all: the daemon then
+   // applies its own auth instead of being told this visitor is a mere viewer.
+   const forwarded=open&&!role?withoutCookies(request):withPortalRole(request,role||'viewer');
+   return proxyToDaemon(forwarded,env,url.pathname.slice('/quant-terminal'.length),url.search);
+ } return env.ASSETS.fetch(request);},async scheduled(event,env,ctx){ctx.waitUntil(runAlerts(env));ctx.waitUntil(runDaemonWatch(env));}};

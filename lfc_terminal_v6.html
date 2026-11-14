@@ -1,0 +1,957 @@
+<!doctype html>
+<html lang="en-IN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <meta name="robots" content="noindex,nofollow" />
+  <title>Quant Terminal v6 · LearningFundClear</title>
+  <link rel="stylesheet" href="assets/css/tokens.css" />
+  <link rel="stylesheet" href="assets/css/app.css" />
+  <script src="assets/vendor/supabase.js"></script>
+  <script src="assets/js/config.js"></script>
+  <script src="assets/js/quant-config.js"></script>
+  <script src="auth-guard.js"></script>
+  <script src="assets/js/theme.js"></script>
+  <style>
+    /* -------------------------------------------------------------
+       v6: keep 1100px desktop grid, add 820px phone layer.
+       - Sidebar stays fixed; main content shifts below it under 820px.
+       - Tab rail sticks to the outside of the centre column.
+       - Bottom-sheet ticket slides up from the bottom.
+       - No horizontal overflow at 390x844.
+       ------------------------------------------------------------- */
+    .scanner-row-selected {
+      background: var(--lfc-surface-elevated) !important;
+    }
+    .scanner-row-selected td {
+      font-weight: 500;
+    }
+    /* SL/TP scan table: numbers stay monospaced at every width, and the empty /
+       error row keeps one look instead of repeated inline styles. */
+    .scan-num {
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    }
+    .scan-empty {
+      padding: 8px;
+      color: var(--lfc-muted);
+    }
+
+    /* ---- FYERS dialog -------------------------------------------------------- */
+    .fyers-dialog {
+      width: min(560px, calc(100vw - 24px));
+      max-height: min(86vh, 720px);
+      padding: 0;
+      border: 1px solid var(--lfc-border);
+      border-radius: 14px;
+      background: var(--lfc-surface);
+      color: var(--lfc-text);
+      overflow: auto;
+      box-shadow: 0 24px 60px #0006;
+    }
+    .fyers-dialog::backdrop { background: #0b1b2666; }
+    .fyers-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 12px 16px;
+      border-bottom: 1px solid var(--lfc-border);
+      position: sticky;
+      top: 0;
+      background: var(--lfc-surface);
+    }
+    .fyers-head h2 { font-size: 16px; margin: 0; }
+    .fyers-close {
+      min-width: 44px;
+      min-height: 44px;
+      border-radius: 10px;
+      border: 1px solid var(--lfc-border);
+      background: var(--lfc-surface-elevated);
+      color: inherit;
+      font-size: 16px;
+    }
+    .fyers-body { padding: 16px; display: grid; gap: 12px; font-size: 13px; }
+    .fyers-steps { margin: 0; padding-left: 18px; display: grid; gap: 8px; }
+    .fyers-steps code {
+      word-break: normal;
+      overflow-wrap: anywhere;
+      background: #eef4f7;
+      padding: 1px 5px;
+      border-radius: 4px;
+      font-size: 12px;
+    }
+    .fyers-uri {
+      display: inline-flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      align-items: center;
+      max-width: 100%;
+    }
+    .fyers-copy {
+      min-height: 32px;
+      padding: 4px 10px;
+      margin-left: 6px;
+      border-radius: 8px;
+      border: 1px solid var(--lfc-border);
+      background: var(--lfc-surface-elevated);
+      color: inherit;
+    }
+    .fyers-state p { margin: 4px 0; }
+    .fyers-label { color: var(--lfc-muted); display: inline-block; min-width: 106px; }
+    .fyers-note { color: var(--lfc-muted); margin: 0; }
+    .fyers-error { color: #b42318; margin: 0; font-weight: 600; }
+    .fyers-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+    .fyers-actions .button { min-height: 44px; flex: 1 1 160px; }
+    .fyers-actions .button:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    /* ---- phone navigation ---------------------------------------------------- */
+    .mf-topbar { display: none; }
+    @media (max-width: 900px) {
+      .sidebar {
+        position: fixed;
+        inset: 0 auto 0 0;
+        width: 250px;
+        max-width: 86vw;
+        z-index: 80;
+        transform: translateX(-100%);
+        transition: transform 0.2s;
+        overflow-y: auto;
+        background: #102c3e;
+        display: flex;
+        flex-direction: column;
+      }
+      .nav-open .sidebar { transform: translateX(0); }
+      .sidebar nav { flex: 1 1 auto; min-height: 0; overflow-y: auto; align-content: start; }
+      .sidebar .sidebar-bottom {
+        margin-top: auto;
+        padding-bottom: env(safe-area-inset-bottom);
+        display: flex;
+        flex-direction: column;
+        align-items: stretch;
+      }
+      .sidebar .sidebar-bottom button {
+        text-align: left;
+        justify-content: flex-start;
+        width: 100%;
+      }
+      .mf-topbar {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        position: sticky;
+        top: 0;
+        z-index: 44;
+        padding: 8px 12px;
+        background: var(--lfc-surface);
+        border-bottom: 1px solid var(--lfc-border);
+      }
+      .mf-topbar .menu-toggle {
+        align-items: center;
+        justify-content: center;
+        min-width: 44px;
+        min-height: 44px;
+        border-radius: 10px;
+        border: 1px solid var(--lfc-border);
+        background: var(--lfc-surface-elevated);
+        color: inherit;
+        font-size: 18px;
+      }
+      .mf-topbar strong {
+        font-size: 12px;
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+        color: var(--lfc-muted);
+      }
+      .nav-open #portalNavOverlay {
+        z-index: 70;
+        display: block;
+        position: fixed;
+        inset: 0;
+        border: 0;
+        border-radius: 0;
+        background: #102c3e80;
+        z-index: 43;
+      }
+    }
+
+/* ---- phone-layer breakpoint ------------------------------------------------- */
+    @media (max-width: 820px) {
+      body[data-page="quant-terminal"] {
+        padding-left: 0 !important;
+        margin: 0 !important;
+      }
+
+      .nav-open { overflow: hidden; }
+      .nav-open .sidebar { transform: translateX(0); }
+      .nav-open .nav-overlay {
+        display: block;
+        position: fixed;
+        inset: 0;
+        background: #102c3e80;
+        border: 0;
+        border-radius: 0;
+        z-index: 35;
+      }
+      .nav-open { overflow: hidden; }
+      .menu-toggle { display: inline-flex; font-size: 19px; min-width: 40px; min-height: 40px; padding: 5px; }
+      .nav-overlay { display: none; }
+
+      /* Centre column becomes full-width; sidebar drops below or hides */
+      main {
+        margin-left: 0 !important;
+        margin-right: 0 !important;
+        width: 100% !important;
+        max-width: 100% !important;
+      }
+
+      /* ---- sticky tab rail outside centre column -------------------------------- */
+      .tab-rail {
+        position: sticky;
+        top: 0;
+        z-index: 50;
+        background: var(--lfc-surface);
+        border-bottom: 1px solid var(--lfc-border);
+        padding: 8px 12px;
+        margin: -8px -12px 12px;
+        display: flex;
+        gap: 6px;
+        flex-wrap: wrap;
+        justify-content: flex-start;
+      }
+      .tab-rail .tab {
+        flex: 1 1 calc(20% - 6px);
+        min-width: 58px;
+        min-height: 44px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        text-align: center;
+        padding: 8px 4px;
+        border-radius: var(--lfc-radius-sm, 8px);
+        color: var(--lfc-muted);
+        font-size: 11px;
+        font-weight: 600;
+        letter-spacing: 0.2px;
+        transition: background 0.15s, color 0.15s;
+      }
+      .tab-rail .tab.active,
+      .tab-rail .tab:hover {
+        background: var(--lfc-primary-soft);
+        color: var(--lfc-primary);
+        text-decoration: none;
+      }
+      .tab-rail .tab:focus-visible {
+        outline: 3px solid var(--lfc-primary);
+        outline-offset: 2px;
+      }
+
+
+      /* ---- cards shrink to full width ------------------------------------------- */
+      .card, .hero {
+        padding: 16px;
+        border-radius: var(--lfc-radius-sm, 8px);
+        margin-bottom: 16px;
+      }
+      .card > h2 { margin: -16px -16px 14px; padding: 14px 16px; font-size: 15px; }
+      .metric { padding: 14px; }
+      .metric strong { font-size: 22px; }
+      .metric span { font-size: 11px; }
+
+      /* ---- bottom-sheet ticket ------------------------------------------------- */
+      .bottom-sheet {
+        position: fixed;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: var(--lfc-surface);
+        border-top: 1px solid var(--lfc-border);
+        border-radius: var(--lfc-radius-sm, 8px) var(--lfc-radius-sm, 8px) 0 0;
+        padding: 12px 14px;
+        z-index: 60;
+        transform: translateY(100%);
+        transition: transform 0.25s ease-out;
+        overflow: hidden;
+      }
+      .bottom-sheet.open { transform: translateY(0); }
+      .bottom-sheet .ticket-summary {
+        font-size: 12px;
+        color: var(--lfc-text);
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        flex-wrap: wrap;
+        gap: 8px;
+      }
+      .bottom-sheet .ticket-summary .price {
+        color: var(--lfc-primary);
+        font-weight: 600;
+      }
+
+  
+    /* ---- market context: separate from signals, no fabricated values -------- */
+    .context-grid { display: grid; gap: 12px; }
+    @media (min-width: 760px) { .context-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+    .context-card { border: 1px solid var(--lfc-border); border-radius: 10px; padding: 12px; min-width: 0; }
+    .context-card h3 { margin: 0 0 8px; font-size: 12px; letter-spacing: .08em; text-transform: uppercase; color: var(--lfc-muted); }
+    .context-value { margin: 0 0 8px; font-size: 18px; font-weight: 700; }
+    .context-dl { display: grid; grid-template-columns: 1fr auto; gap: 4px 10px; margin: 0; font-size: 12px; }
+    .context-dl dt { color: var(--lfc-muted); }
+    .context-dl dd { margin: 0; text-align: right; font-variant-numeric: tabular-nums; }
+    .context-note { margin: 8px 0 0; font-size: 11px; color: var(--lfc-muted); }
+    .context-table { overflow-x: auto; overscroll-behavior-x: contain; }
+    .context-table table { width: 100%; min-width: 540px; font-size: 12px; }
+    .context-table th, .context-table td { white-space: nowrap; }
+    .tab-rail { overflow-x: auto; scrollbar-width: none; }
+    .tab-rail::-webkit-scrollbar { display: none; }
+    /* ---- table scroll overflow guard ---------------------------------------- */
+      .table-scroll, .table-wrap { overflow-x: auto; overscroll-behavior-x: contain; }
+      table { min-width: 0; }
+      td, th { min-width: 0; white-space: normal; }
+
+      /* ---- iframe / iframe container ------------------------------------------- */
+      .quant-frame-wrap { border-radius: var(--lfc-radius-sm, 8px); }
+      .quant-frame { width: 100%; height: calc(100vh - 340px); min-height: 420px; }
+      @media (max-height: 520px) { .quant-frame { height: calc(100vh - 280px); min-height: 360px; } }
+    }
+
+    /* ---- 1100px desktop grid (already in app.css, just keep it) ---------------- */
+    @media (min-width: 1101px) {
+      body[data-page="quant-terminal"] { padding-left: 244px; }
+      .sidebar { width: 244px; }
+      main { max-width: 1430px; }
+      .overview-grid, .summary-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+      .fund-tabs a { padding: 9px 13px; font-size: 12px; }
+    }
+
+    /* ---- stop horizontal overflow at tiny viewport ---------------------------- */
+    @media (max-width: 390px) {
+      body { overflow-x: hidden; }
+    }
+  </style>
+    <link rel="stylesheet" href="assets/css/mobile-first.css" />
+      <script src="assets/js/mobile-first.js"></script>
+  </head>
+<body data-page="quant-terminal">
+  <!-- ---- skip link for keyboard ------------------------------------------------ -->
+  <a class="skip" href="#main-content">Skip to main content</a>
+
+  <header class="mf-topbar">
+    <button class="menu-toggle" type="button" aria-label="Open navigation" aria-controls="portalNav" aria-expanded="false">☰</button>
+    <strong>Quant terminal</strong>
+  </header>
+  <button class="nav-overlay" id="portalNavOverlay" type="button" aria-label="Close navigation" tabindex="-1"></button>
+
+  <!-- ---- sidebar -------------------------------------------------------------- -->
+  <aside class="sidebar" id="portalNav" aria-label="Main navigation">
+    <div class="portal-brand">
+      <div class="brand-mark"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2L2 7h3v14h8v-14h3L12 2zM2 17h3v5h5v-5h3L2 17z"/></svg></div>
+      <span>LearningFundClear</span>
+    </div>
+    <nav>
+      <a href="#" class="active" aria-current="page">MKT</a>
+      <a href="#">RADAR</a>
+      <a href="#">PLAN</a>
+    </nav>
+    <div class="sidebar-bottom">
+      <button id="settingsBtn">Settings</button>
+      <button id="logoutBtn">Log out</button>
+      <button id="connectFyersBtn" class="button secondary" style="width:100%;padding:6px 4px;font-size:11px;margin-top:4px">Connect FYERS</button>
+    </div>
+  </aside>
+
+  <!-- ---- main content --------------------------------------------------------- -->
+  <main id="main-content">
+    <!-- ---- tab rail: sticky, outside centre column ---------------------------- -->
+    <div class="tab-rail" role="tablist" aria-label="Quick tabs">
+      <div class="tab active" data-tab="mkt">MKT</div>
+      <div class="tab" data-tab="ctx" aria-label="Market context">CTX</div>
+      <div class="tab" data-tab="radar">RADAR</div>
+      <div class="tab" data-tab="plan">PLAN</div>
+      <div class="tab" data-tab="scan">SCAN</div>
+    </div>
+
+    <!-- ---- centre column content ---------------------------------------------- -->
+    <section class="card" aria-label="Market data" id="mkt">
+      <h2>Market</h2>
+      <div class="prices">
+        <span>NIFTY</span> <b>24,465.00</b>
+        <span>BANKNIFTY</b> <b>61,230.00</b>
+        <span>FINNIFTY</b> <b>22,180.00</b>
+      </div>
+    </section>
+
+
+    <section class="card hidden" aria-label="Market context" id="ctx">
+      <h2>Market context</h2>
+      <p class="msg">Context only. Bulk deals, FII/DII flows and options OI can change confirmation or risk; they never create a BUY or SELL.</p>
+      <div class="context-grid" id="marketContextPanel">
+        <div class="context-card">
+          <h3>Market regime</h3>
+          <p class="context-value" id="mcRegimeValue">UNAVAILABLE</p>
+          <dl class="context-dl">
+            <div><dt>Freshness</dt><dd id="mcRegimeFreshness">UNAVAILABLE</dd></div>
+            <div><dt>Updated</dt><dd id="mcRegimeUpdated">—</dd></div>
+            <div><dt>Source</dt><dd id="mcRegimeSource">—</dd></div>
+            <div><dt>FII net</dt><dd id="mcFiiNet">—</dd></div>
+            <div><dt>DII net</dt><dd id="mcDiiNet">—</dd></div>
+            <div><dt>Index trend</dt><dd id="mcIndexTrend">—</dd></div>
+            <div><dt>Breadth</dt><dd id="mcBreadth">—</dd></div>
+            <div><dt>Volatility</dt><dd id="mcVolatility">—</dd></div>
+          </dl>
+          <p class="context-note" id="mcEffect">Market-regime context is unavailable. Context-dependent setups need at least two confirmations.</p>
+          <dl class="context-dl">
+            <div><dt>Risk multiplier</dt><dd id="mcRiskMultiplier">0×</dd></div>
+            <div><dt>Required confirmations</dt><dd id="mcConfirmations">2</dd></div>
+          </dl>
+          <p class="context-note">Context only. It may affect confirmation or risk, but does not create a signal.</p>
+        </div>
+        <div class="context-card">
+          <h3>Bulk deals — <span id="mcSymbol">—</span></h3>
+          <p class="context-note">Context only · Not a trading signal</p>
+          <div class="context-table">
+            <table>
+              <thead><tr><th>Date</th><th>Quantity</th><th>Price</th><th>Buyer</th><th>Seller</th><th>Type</th><th>Source</th><th>Freshness</th></tr></thead>
+              <tbody id="mcBulkBody"></tbody>
+            </table>
+          </div>
+          <p class="context-note" id="mcBulkEmpty">No recent bulk-deal context available for this instrument.</p>
+          <p class="context-note" id="mcBulkMeta"></p>
+        </div>
+        <div class="context-card">
+          <h3>Options OI — <span id="mcOiUnderlying">—</span></h3>
+          <div class="context-table">
+            <table>
+              <thead><tr><th>Expiry</th><th>Strike</th><th>Type</th><th>OI</th><th>OI change</th><th>Volume</th><th>IV</th><th>LTP</th></tr></thead>
+              <tbody id="mcOiBody"></tbody>
+            </table>
+          </div>
+          <p class="context-note" id="mcOiEmpty">No options OI context available.</p>
+          <p class="context-note" id="mcOiMeta"></p>
+        </div>
+      </div>
+      <p class="context-note">No order will be placed.</p>
+    </section>
+
+    <section class="card" aria-label="Radar scans" id="radar">
+      <h2>Radar</h2>
+      <ul class="fund-tabs">
+        <li><a href="#" aria-current="page">Active</a></li>
+        <li><a href="#">Pending</a></li>
+        <li><a href="#">Screened</a></li>
+      </ul>
+      <div class="metric"><span>Signals</span><strong id="sigCount">0</strong></div>
+    </section>
+
+    <section class="card" aria-label="Execution plan" id="plan">
+      <h2>Plan</h2>
+      <div class="grid2">
+        <div>
+          <label>Notional</label>
+          <input type="number" step="0.01" placeholder="1875000" />
+        </div>
+        <div>
+          <label>Strategy</label>
+          <select><option>Iron Condor</option><option>Calendar</option></select>
+        </div>
+      </div>
+      <div class="metric"><span>Edge</span><strong id="edge">0.00</strong></div>
+    </section>
+
+    <section class="card" aria-label="SL/TP scan" id="scan">
+      <h2>SL/TP Scan</h2>
+      <div class="metric"><span>Symbols scanned</span><strong id="scanCount">0</strong></div>
+      <div id="scanResults" class="table-wrap"><table><thead><tr><th>Symbol</th><th>Segment</th><th>Entry</th><th>SL</th><th>TP1</th><th>TP2</th><th>R/M</th></tr></thead><tbody id="scanRows"></tbody></table></div>
+      <div class="metric" style="font-size: 11px; margin-top: 8px;">
+        <span>Data source</span><span id="scanSource">synthetic fallback</span>
+      </div>
+      <div class="metric" style="font-size: 11px; margin-top: 8px;">
+        <span>Status</span><span id="scanStatus">no scan run</span>
+      </div>
+      <div id="scanMeta" style="font-size: 12px; color: var(--lfc-muted); margin-top: 4px;"></div>
+    </section>
+
+    <!-- ---- FYERS connection dialog ---------------------------------------------- -->
+    <dialog class="fyers-dialog" id="fyersModal" aria-labelledby="fyersModalTitle">
+      <div class="fyers-head">
+        <h2 id="fyersModalTitle">Connect FYERS</h2>
+        <button type="button" class="fyers-close" data-fyers-close aria-label="Close connection dialog">✕</button>
+      </div>
+      <div class="fyers-body">
+        <p class="fyers-note">Broker login runs on this server. The app secret and access token never reach this page.</p>
+        <p id="fyersConfigNote" class="fyers-note" role="status">Checking server configuration…</p>
+        <ol class="fyers-steps">
+          <li>Create a NON-TRADING app at <a href="https://myapi.fyers.in" target="_blank" rel="noopener noreferrer">myapi.fyers.in</a>.</li>
+          <li>Register this redirect URI on that app:
+            <span class="fyers-uri"><code id="fyersRedirectUri">not configured</code><button type="button" id="copyCallbackBtn" class="fyers-copy">Copy</button></span>
+          </li>
+          <li>Set <code>FYERS_CLIENT_ID</code>, <code>FYERS_SECRET_ID</code> and <code>FYERS_REDIRECT_URI</code> in the server environment, then restart the proxy.</li>
+        </ol>
+        <div class="fyers-state">
+          <p><span class="fyers-label">Authentication</span> <strong id="fyersAuthState">signed out</strong></p>
+          <p><span class="fyers-label">Market data</span> <strong id="fyersDataState">not requested</strong></p>
+          <p id="fyersExpiry" class="fyers-note"></p>
+        </div>
+        <p id="fyersError" class="fyers-error" role="alert" hidden></p>
+        <div class="fyers-actions">
+          <button type="button" id="loginWithFyersBtn" class="button primary">Log in with FYERS</button>
+          <button type="button" id="discFyersBtn" class="button secondary" hidden>Disconnect</button>
+        </div>
+        <p class="fyers-note">Disconnect clears this server session and asks FYERS to revoke this app's token. Refresh needs your account PIN, so it is not implemented: sign in again after the daily 06:30 IST expiry.</p>
+      </div>
+    </dialog>
+
+<!-- ---- bottom-sheet ticket ------------------------------------------------- -->
+    <div class="bottom-sheet" id="bottomSheet" aria-modal="true" role="dialog" aria-labelledby="sheetTitle">
+      <div class="ticket-summary">
+        <span>Order ticket</span>
+        <span class="price">0.00</span>
+      </div>
+      <div style="margin-top: 8px; font-size: 11px; color: var(--lfc-muted);">
+        <button class="button secondary" style="width:100%;padding:6px 4px;font-size:11px">Cancel</button>
+        <button class="button primary" style="width:100%;padding:6px 4px;font-size:11px;margin-top:4px">Send</button>
+      </div>
+    </div>
+
+    <!-- ---- quant terminal iframe ----------------------------------------------- -->
+    <section class="quant-shell" aria-label="Quant execution terminal">
+      <div class="quant-toolbar">
+        <div class="cluster">
+          <span id="qtStatus" class="quant-status" data-state="pending" role="status" aria-live="polite">Checking terminal…</span>
+          <span id="qtOrigin" class="quant-note"></span>
+        </div>
+        <div class="cluster">
+          <button id="qtReload" class="button" type="button" data-quant-reload>Reload terminal</button>
+          <a id="qtOpen" class="button primary" href="#" target="_blank" rel="noopener" data-quant-open>Open full screen ↗</a>
+        </div>
+      </div>
+      <div class="quant-frame-wrap">
+        <iframe id="qtFrame" class="quant-frame" title="Quant execution terminal" src="about:blank" loading="eager" referrerpolicy="no-referrer"></iframe>
+      </div>
+      <div id="qtFallback" class="quant-fallback" hidden>
+        <p><strong>Terminal not configured.</strong> Set <code>window.QUANT_TERMINAL.url</code> in <code>assets/js/quant-config.js</code> to the daemon's HTTPS origin.</p>
+      </div>
+      <p class="quant-note">If the panel stays blank, the daemon (or its tunnel) is offline — the dashboard cannot start it from here.</p>
+    </section>
+  </main>
+
+  <script src="assets/js/quant-embed.js"></script>
+  <script src="assets/js/ops-status.js"></script>
+  <script src="assets/js/shell.js"></script>
+  <script src="assets/js/market-context-store.js"></script>
+  <script src="assets/js/market-regime-service.js"></script>
+  <script src="assets/js/market-context-ui.js"></script>
+  <script>
+    (function () {
+      if (!window.LfcMarketContextStore || !window.LfcMarketContextUI) return;
+      var store = window.LfcMarketContextStore.createStore();
+      window.LfcMarketContext = { store: store, ui: window.LfcMarketContextUI.mount({ store: store }) };
+    })();
+  </script>
+
+  <script type="module" src="assets/js/journal.js"></script>
+
+  <script>
+    'use strict';
+
+    /* ------------------------------------------------------------------
+       SL/TP scan table: one payload, one row renderer, one detail panel.
+       The panel is driven only by the selected row, so a chip and the panel
+       can never disagree about which symbol they describe.
+       ------------------------------------------------------------------ */
+
+    // The payload behind the rendered rows: row i always resolves to symbols[i].
+    // The script sits after the markup, so the table body already exists; the two
+    // entry points below guard it, the helpers may assume it.
+    var scanPayload = null;
+    var scanRows = document.getElementById('scanRows');
+
+    function setScanText(id, value) {
+      var el = document.getElementById(id);
+      if (el) el.textContent = value;
+    }
+
+    function showScanMessage(text) {
+      scanRows.innerHTML = '<tr><td colspan="7" class="scan-empty">' + text + '</td></tr>';
+    }
+
+    // Complete details for one symbol. Every line is either a gate outcome or
+    // the contract value behind the corresponding table cell.
+    function scanMetaHtml(inst) {
+      if (!inst) return 'Select a row to see its contract details.';
+      var gate = inst.gate_outcomes || {};
+      var lines = [
+        'provider: ' + ((scanPayload && scanPayload.provider) || 'unknown'),
+        'venue: ' + (inst.venue || 'NSE_FUT'),
+        'contract: ' + (inst.contract || inst.symbol),
+        'symbol: ' + inst.symbol,
+        'entry: ' + inst.entry + ' &middot; SL: ' + inst.stop,
+        'TP1: ' + inst.tp1 + ' &middot; TP2: ' + inst.tp2,
+        'R/M: ' + (inst.tp1_risk_multiple || '1.5R'),
+        'status: ' + (gate.symbol_status || 'unknown'),
+        'blocking: ' + (gate.status_blocking || 'none'),
+        'live_data: ' + String(gate.live_data_available),
+        'freshness: ' + (gate.freshness_reason || inst.data_freshness || 'N/A'),
+        'strategy: ' + (gate.strategy_version || inst.strategy_version || 'N/A'),
+      ];
+      return lines.join('<br>');
+    }
+
+    // Takes the <tr> itself; data-index is the only link between a rendered row
+    // and its payload entry, so no position arithmetic is involved.
+    function selectScannerRow(row) {
+      var rows = scanRows.querySelectorAll('tr[data-index]');
+      for (var i = 0; i < rows.length; i++) {
+        rows[i].classList.toggle('scanner-row-selected', rows[i] === row);
+      }
+      var index = row ? Number(row.dataset.index) : -1;
+      var panel = document.getElementById('scanMeta');
+      if (panel) panel.innerHTML = scanMetaHtml(scanPayload && scanPayload.symbols[index]);
+    }
+
+    function scanRowHtml(inst, index) {
+      var cells = [inst.symbol, inst.segment, inst.entry, inst.stop, inst.tp1, inst.tp2, inst.tp1_risk_multiple || '1.5R'];
+      return (
+        '<tr data-index="' + index + '">' +
+        cells
+          .map(function (value, i) {
+            return '<td' + (i > 1 ? ' class="scan-num"' : '') + '>' + value + '</td>';
+          })
+          .join('') +
+        '</tr>'
+      );
+    }
+
+    // One listener on <tbody>: a click on any cell bubbles here exactly once, and
+    // stopPropagation keeps it away from the document handler that dismisses the
+    // order-ticket sheet.
+    (function () {
+      if (!scanRows) return;
+      scanRows.addEventListener('click', function (e) {
+        var row = e.target.closest('tr[data-index]');
+        if (!row) return;
+        e.stopPropagation();
+        selectScannerRow(row);
+      });
+    })();
+
+    function populateScanResults() {
+      if (!scanRows) return;
+      fetch('scan_sl_tp.json', { cache: 'no-cache' })
+        .then(function (res) { return res.json(); })
+        .then(function (data) {
+          var all = (data && data.symbols) || [];
+
+          if (!all.length) {
+            scanPayload = null;
+            setScanText('scanCount', '0');
+            setScanText('scanSource', 'no data');
+            setScanText('scanStatus', 'no scan run');
+            showScanMessage('No scan data available');
+            selectScannerRow(null);
+            return;
+          }
+
+          var nse = all.filter(function (s) { return s.segment === 'NSE_FUT'; });
+          // scan_sl_tp.json records the provider per symbol, not at the top level.
+          scanPayload = {
+            provider: data.provider || (all[0] && all[0].provider) || 'unknown',
+            symbols: nse,
+          };
+
+          setScanText('scanCount', String(nse.length));
+          setScanText('scanSource', scanPayload.provider + ' / ' + nse.length + ' symbols');
+          setScanText('scanStatus', nse.length ? 'scan complete' : 'no NSE_FUT results');
+
+          if (!nse.length) {
+            showScanMessage('No NSE_FUT scan results');
+            selectScannerRow(null);
+            return;
+          }
+
+          scanRows.innerHTML = nse.map(scanRowHtml).join('');
+          // Show the first row's details immediately: the panel is never a
+          // separate summary, so it must never be blank after a load.
+          selectScannerRow(scanRows.firstElementChild);
+        })
+        .catch(function (err) {
+          console.error('Failed to populate scan results:', err);
+          scanPayload = null;
+          setScanText('scanCount', '0');
+          setScanText('scanSource', 'error');
+          setScanText('scanStatus', 'fetch error');
+          showScanMessage('scan unavailable');
+          selectScannerRow(null);
+        });
+    }
+
+    // --- Tab switching ---
+    (function () {
+      var tabs = document.querySelectorAll('.tab-rail .tab');
+      var panels = document.querySelectorAll('#main-content > section.card');
+
+      function setTab(id) {
+        var tab = document.querySelector('.tab-rail .tab[data-tab="' + id + '"]');
+        var panel = document.getElementById(id);
+        if (!tab || !panel) {
+          console.error('setTab: invalid tab id="' + id + '" - target not found in DOM');
+          return;
+        }
+        tabs.forEach(function (t) {
+          t.classList.remove('active');
+          t.setAttribute('aria-selected', 'false');
+        });
+        panels.forEach(function (p) { p.classList.add('hidden'); });
+        tab.classList.add('active');
+        tab.setAttribute('aria-selected', 'true');
+        panel.classList.remove('hidden');
+        if (id === 'scan') populateScanResults();
+      }
+
+      tabs.forEach(function (t) {
+        t.addEventListener('click', function () { setTab(t.dataset.tab); });
+      });
+      setTab('mkt');
+    })();
+
+    // --- Bottom-sheet toggle (click outside dismisses) ---
+    (function () {
+      var sheet = document.getElementById('bottomSheet');
+      document.addEventListener('click', function (e) {
+        if (e.target === sheet || sheet.contains(e.target)) return;
+        sheet.classList.remove('open');
+      });
+      var planTab = document.querySelector('.tab[data-tab="plan"]');
+      if (planTab) {
+        planTab.addEventListener('click', function (e) {
+          e.stopPropagation();
+          sheet.classList.add('open');
+        });
+      }
+    })();
+
+    // Runs once on load; opening the scan tab refreshes it.
+    populateScanResults();
+</script>
+    <script>
+    'use strict';
+    /* FYERS dialog: one initialisation, explicit wiring, no fabricated state. */
+    (function () {
+      if (window.__lfcFyers) return;
+      window.__lfcFyers = true;
+
+      var byId = function (id) { return document.getElementById(id); };
+      var dialog = byId('fyersModal');
+      var closeBtn = dialog ? dialog.querySelector('[data-fyers-close]') : null;
+      var required = {
+        connect: byId('connectFyersBtn'),
+        dialog: dialog,
+        close: closeBtn,
+        copy: byId('copyCallbackBtn'),
+        note: byId('fyersConfigNote'),
+        redirect: byId('fyersRedirectUri'),
+        auth: byId('fyersAuthState'),
+        data: byId('fyersDataState'),
+        expiry: byId('fyersExpiry'),
+        error: byId('fyersError'),
+        login: byId('loginWithFyersBtn'),
+        disconnect: byId('discFyersBtn')
+      };
+      var missing = Object.keys(required).filter(function (k) { return !required[k]; });
+      if (missing.length) {
+        console.error('[fyers] missing required elements: ' + missing.join(', '));
+        return;
+      }
+
+      var cfg = { configured: false, connected: false, redirectUri: null, expiresAt: null };
+      var FYERS_BASE = (window.LFC_CONFIG && window.LFC_CONFIG.fyersBase) || '/api/v1/fyers';
+      var REASONS = {
+        provider_refused: 'FYERS refused the login.',
+        missing_code: 'The provider redirect carried no authorization code.',
+        invalid_state: 'The login state was missing or expired. Start again.',
+        not_configured: 'The server is not configured for FYERS.',
+        token_exchange_failed: 'The token exchange failed. No credentials were stored.',
+        storage_failed: 'The server could not store the session securely. No credentials were kept.',
+        login_failed: 'FYERS login did not complete.'
+      };
+
+      function error(message) {
+        required.error.textContent = message || '';
+        required.error.hidden = !message;
+      }
+      function setAuth(text, dataText) {
+        required.auth.textContent = text;
+        if (dataText) required.data.textContent = dataText;
+      }
+      async function authHeaders() {
+        try {
+          var s = await LfcAuth.client.auth.getSession();
+          var t = s && s.data && s.data.session && s.data.session.access_token;
+          return t ? { Authorization: 'Bearer ' + t } : {};
+        } catch (e) { return {}; }
+      }
+      async function api(path, options) {
+        var opts = Object.assign({ cache: 'no-store', credentials: 'same-origin' }, options || {});
+        opts.headers = Object.assign({}, opts.headers || {}, await authHeaders());
+        var resp = await fetch(path, opts);
+        var body = null;
+        try { body = await resp.json(); } catch (e) {}
+        return { ok: resp.ok, status: resp.status, body: body };
+      }
+      function render() {
+        required.note.textContent = cfg.configured
+          ? 'Server configured. Continue with broker login.'
+          : 'Server is missing FYERS_CLIENT_ID / FYERS_SECRET_ID / FYERS_REDIRECT_URI.';
+        required.redirect.textContent = cfg.redirectUri || 'not configured';
+        required.copy.disabled = !cfg.redirectUri;
+        required.login.disabled = !cfg.configured;
+        required.login.hidden = cfg.connected;
+        required.disconnect.hidden = !cfg.connected;
+        required.expiry.textContent = cfg.expiresAt
+          ? 'Token expires ' + new Date(cfg.expiresAt * 1000).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' }) + ' IST.'
+          : '';
+      }
+      async function refresh() {
+        var r = await api(FYERS_BASE + '/config-status');
+        if (!r.ok || !r.body) {
+          cfg = { configured: false, connected: false, redirectUri: null, expiresAt: null };
+          var restricted = r.status === 401 || r.status === 403;
+          setAuth(restricted ? 'restricted' : 'unavailable', 'unavailable');
+          required.note.textContent = restricted
+            ? 'FYERS is restricted to the portal owner. Sign in with that account.'
+            : 'Server backend unavailable on this origin (' + r.status + '). FYERS login is inactive.';
+          required.login.disabled = true;
+          required.login.hidden = false;
+          required.disconnect.hidden = true;
+          required.copy.disabled = true;
+          required.redirect.textContent = 'not configured';
+          return;
+        }
+        cfg = {
+          configured: !!(r.body.configured && r.body.connected !== undefined),
+          connected: !!r.body.connected,
+          redirectUri: r.body.redirect_uri || null,
+          expiresAt: r.body.expires_at || null
+        };
+        setAuth(cfg.connected ? 'connected' : (cfg.configured ? 'signed out' : 'unavailable'));
+        render();
+        if (cfg.connected) loadQuote();
+        else required.data.textContent = 'not requested';
+      }
+      async function loadQuote() {
+        required.data.textContent = 'requesting…';
+        var r = await api(FYERS_BASE + '/quote?symbol=NIFTY');
+        if (r.ok && r.body && typeof r.body.ltp === 'number') {
+          required.data.textContent = 'NIFTY ₹' + r.body.ltp + ' · as of ' + (r.body.as_of || 'provider time unavailable');
+        } else {
+          required.data.textContent = r.status === 401 ? 'unavailable (session expired)' : 'unavailable';
+        }
+      }
+      function open() {
+        if (!dialog.open) dialog.showModal();
+        refresh();
+      }
+
+      required.connect.addEventListener('click', open);
+      required.close.addEventListener('click', function () { dialog.close(); });
+      dialog.addEventListener('click', function (e) { if (e.target === dialog) dialog.close(); });
+      dialog.addEventListener('close', function () { required.connect.focus(); });
+
+      required.copy.addEventListener('click', async function () {
+        var text = required.redirect.textContent;
+        if (!text || text === 'not configured') return;
+        try {
+          await navigator.clipboard.writeText(text);
+          required.copy.textContent = 'Copied';
+          setTimeout(function () { required.copy.textContent = 'Copy'; }, 1600);
+        } catch (e) {
+          error('Could not copy automatically; select the URI and copy it manually.');
+        }
+      });
+
+      required.login.addEventListener('click', async function () {
+        error('');
+        required.login.disabled = true;
+        try {
+          var r = await api(FYERS_BASE + '/login');
+          if (!r.ok || !r.body || !r.body.login_url) {
+            error('Could not start FYERS login (HTTP ' + r.status + ').');
+            return;
+          }
+          location.assign(r.body.login_url);
+        } finally {
+          required.login.disabled = false;
+        }
+      });
+
+      required.disconnect.addEventListener('click', async function () {
+        required.disconnect.disabled = true;
+        error('');
+        try {
+          var r = await api(FYERS_BASE + '/disconnect', { method: 'POST' });
+          if (!r.ok) error('Disconnect failed (HTTP ' + r.status + ').');
+          await refresh();
+        } finally {
+          required.disconnect.disabled = false;
+        }
+      });
+
+      var params = new URLSearchParams(location.search);
+      var outcome = params.get('fyers');
+      if (outcome) {
+        history.replaceState(null, '', location.pathname + location.hash);
+        if (outcome === 'connected') {
+          setAuth('connected');
+          open();
+        } else if (outcome === 'error') {
+          error(REASONS[params.get('reason')] || 'FYERS login did not complete.');
+          open();
+        }
+      }
+      refresh();
+    })();
+
+    /* Phone navigation drawer: touch reachable, backdrop dismiss, focus restored. */
+    (function () {
+      var toggle = document.querySelector('.mf-topbar .menu-toggle');
+      var overlay = document.getElementById('portalNavOverlay');
+      var drawer = document.getElementById('portalNav');
+      if (!toggle || !overlay || !drawer) {
+        console.error('[nav] missing drawer, overlay or toggle');
+        return;
+      }
+      function setOpen(open) {
+        document.body.classList.toggle('nav-open', open);
+        toggle.setAttribute('aria-expanded', String(open));
+        if (open) {
+          var first = drawer.querySelector('a, button');
+          if (first) first.focus();
+        }
+      }
+      toggle.addEventListener('click', function () {
+        setOpen(!document.body.classList.contains('nav-open'));
+      });
+      overlay.addEventListener('click', function () { setOpen(false); toggle.focus(); });
+      document.addEventListener('keydown', function (e) {
+        if (e.key === 'Escape' && document.body.classList.contains('nav-open')) {
+          setOpen(false);
+          toggle.focus();
+        }
+      });
+      drawer.addEventListener('click', function (e) {
+        if (e.target.closest('button, a')) setOpen(false);
+      });
+      var logout = document.getElementById('logoutBtn');
+      if (logout) {
+        logout.addEventListener('click', async function () {
+          try {
+            await LfcAuth.client.auth.signOut();
+          } catch (e) {
+            console.error('[nav] sign out failed', e);
+          }
+          location.assign('signin.html');
+        });
+      }
+    })();
+  </script>
+</body>
+</html>

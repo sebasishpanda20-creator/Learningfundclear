@@ -19,3 +19,7 @@ Provider documentation: https://resend.com/docs/api-reference/emails/send-email 
 `bash .ci/guard.sh`
 
 Tests use mocked authentication, storage, market quotes and email delivery. No real email is sent during tests. Live delivery must be verified after provider setup with an explicitly enabled paper watch.
+
+## Daemon health alerts
+
+The same every-minute cron also probes the quant daemon (`QUANT_API_ORIGIN` + `/api/v1/health`). Five consecutive failed probes send one Resend email for that outage; the streak lives in the same `ALERTS_KV` namespace under `daemon:health` and clears on the first healthy probe, so a later outage alerts again. Recipients come from `ALERT_TO` (comma separated) and fall back to `ALERT_FROM` when it is unset. Without `ALERTS_KV`, `RESEND_API_KEY` and `ALERT_FROM` the watchdog still probes and keeps the Render instance warm, but sends nothing.

@@ -12,6 +12,8 @@
     <script src="assets/js/config.js"></script>
     <script src="auth-guard.js"></script>
     <script src="assets/js/theme.js"></script>
+      <link rel="stylesheet" href="assets/css/mobile-first.css" />
+      <script src="assets/js/mobile-first.js"></script>
   </head>
   <body data-page="setups">
     <main id="main">
@@ -458,6 +460,35 @@
         renderSignals();
         primeRisk(signals[0]);
       };
+
+      // MF-9: a scanner row hands its setup here as a draft plan. Values are
+      // only prefilled — nothing is saved until the user adds it, and Setups
+      // records paper ideas only.
+      (function prefillFromScanner() {
+        let q;
+        try {
+          q = new URLSearchParams(location.search);
+        } catch (e) {
+          return;
+        }
+        if (q.get("src") !== "scanner") return;
+        const sym = (q.get("sym") || "").trim().toUpperCase();
+        if (!sym) return;
+        $("mSym").value = sym;
+        ["entry", "stop", "target"].forEach((k) => {
+          const v = parseFloat(q.get(k));
+          const field = $("m" + k.charAt(0).toUpperCase() + k.slice(1));
+          if (field && isFinite(v) && v > 0) field.value = v;
+        });
+        const note = $("mNote");
+        if (note && !note.value)
+          note.value = "Draft from scanner" + (q.get("tf") ? " · " + q.get("tf") : "");
+        $("msg").textContent =
+          "Draft plan prefilled from the scanner for " +
+          sym +
+          ". Review the levels, then add it as a paper setup — nothing is sent to a broker.";
+        $("mSym").focus({ preventScroll: true });
+      })();
 
       // ---------- risk ----------
       let riskCtx = null;

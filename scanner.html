@@ -12,6 +12,8 @@
     <script src="assets/js/config.js"></script>
     <script src="auth-guard.js"></script>
     <script src="assets/js/theme.js"></script>
+      <link rel="stylesheet" href="assets/css/mobile-first.css" />
+      <script src="assets/js/mobile-first.js"></script>
   </head>
   <body data-page="scanner">
     <main id="main">
@@ -213,6 +215,7 @@ ASHOKLEY.NS, Coal India
                 <th>Dist to zone</th>
                 <th>Zone from</th>
                 <th>Vol vs 20d</th>
+                <th>GTF setup</th>
                 <th></th>
               </tr>
             </thead>
@@ -221,12 +224,43 @@ ASHOKLEY.NS, Coal India
         </div>
       </div>
 
-      <div class="card" id="chartCard" style="display: none">
-        <h3 id="chartTitle" style="font-size: 15px; margin-bottom: 8px"></h3>
+      <div class="card mf-chart-card" id="chartCard" style="display: none">
+        <div class="mf-chart-header" style="display:flex; align-items:center; gap:10px; margin-bottom:8px; flex-wrap:wrap">
+          <h3 id="chartTitle" style="font-size: 15px; margin:0; flex:1 1 auto; min-width:0"></h3>
+          <button class="ghost" id="expandChart" aria-pressed="false">Expand chart</button>
+        </div>
         <div id="chartWrap">
-          <canvas id="chart" width="900" height="340"></canvas>
+          <canvas id="chart" width="900" height="340" role="img" aria-label="Price chart for the selected scan result"></canvas>
         </div>
         <p class="mut" id="chartNote"></p>
+      </div>
+
+      <!-- MF-8: complete, scrollable setup details for the selected row. -->
+      <div
+        class="mf-sheet"
+        id="setupSheet"
+        data-mf-sheet
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="setupSheetTitle"
+        hidden
+      >
+        <div class="mf-sheet-header">
+          <h2 class="mf-sheet-title" id="setupSheetTitle">Setup details</h2>
+          <button class="mf-sheet-close" type="button" data-mf-close aria-label="Close setup details">✕</button>
+        </div>
+        <div class="mf-sheet-body">
+          <p class="mut" id="setupNote" style="margin-top:0"></p>
+          <dl class="mf-fields" id="setupFields"></dl>
+          <div class="row" style="margin-top:14px; flex-wrap:wrap; gap:8px">
+            <button class="ghost" id="setupChart" type="button">Show chart</button>
+            <button class="ghost" id="setupPlan" type="button">Draft a plan</button>
+          </div>
+          <p class="mut" style="font-size:11.5px; margin-bottom:0">
+            Paper research only. Nothing here places an order, and no broker is
+            connected by this page.
+          </p>
+        </div>
       </div>
 
       <p class="disclaimer">
@@ -252,6 +286,206 @@ ASHOKLEY.NS, Coal India
           return document.getElementById(id);
         };
         var lastRows = [];
+        var currentSetup = -1;
+
+        /* ------------------------------------------------------------------
+           MF-8 / MF-9 — selected-row details and state that survives a reload
+           or a back/forward navigation. Everything here reads from lastRows, so
+           the sheet can never show a different symbol than the row tapped.
+           ------------------------------------------------------------------ */
+        function mfApi() {
+          return window.LfcMobile || null;
+        }
+
+        function scanFilterState() {
+          return {
+            pLeft: $("pLeft").value,
+            pRight: $("pRight").value,
+            days: $("days").value,
+            tf: ["tfDaily", "tfWeekly", "tfMonthly", "tfHourly", "tf15"].reduce(
+              function (acc, id) {
+                acc[id] = $(id).checked;
+                return acc;
+              },
+              {},
+            ),
+            trendFilter: $("trendFilter").checked,
+            showTouching: $("showTouching").checked,
+            volFilter: $("volFilter").checked,
+            historySource: $("historySource").value,
+          };
+        }
+
+        function saveScanFilters() {
+          var api = mfApi();
+          if (api) api.remember("scan.filters", scanFilterState());
+        }
+
+        function restoreScanFilters() {
+          var api = mfApi();
+          if (!api) return false;
+          var saved = api.recall("scan.filters", null);
+          if (!saved) return false;
+          try {
+            if (saved.pLeft) $("pLeft").value = saved.pLeft;
+            if (saved.pRight) $("pRight").value = saved.pRight;
+            if (saved.days) $("days").value = saved.days;
+            Object.keys(saved.tf || {}).forEach(function (id) {
+              if ($(id)) $(id).checked = saved.tf[id];
+            });
+            $("trendFilter").checked = !!saved.trendFilter;
+            $("showTouching").checked = !!saved.showTouching;
+            $("volFilter").checked = !!saved.volFilter;
+            if (saved.historySource) $("historySource").value = saved.historySource;
+          } catch (e) {
+            return false;
+          }
+          return true;
+        }
+
+        function selectScanRow(idx) {
+          currentSetup = idx;
+          var body = $("resultsBody");
+          if (!body) return;
+          Array.prototype.forEach.call(body.querySelectorAll("tr[data-row]"), function (tr) {
+            var on = parseInt(tr.getAttribute("data-row"), 10) === idx;
+            tr.classList.toggle("scanner-row-selected", on);
+            tr.setAttribute("aria-selected", on ? "true" : "false");
+          });
+          var api = mfApi();
+          if (api) api.remember("scan.selected", idx);
+        }
+
+        function restoreScanSelection() {
+          var api = mfApi();
+          if (!api) return;
+          var idx = api.recall("scan.selected", -1);
+          if (typeof idx === "number" && idx >= 0 && idx < lastRows.length) {
+            selectScanRow(idx);
+          }
+        }
+
+        function setupField(label, value) {
+          return "<dt>" + label + "</dt><dd>" + value + "</dd>";
+        }
+
+        var MIN_BARS = {
+          Daily: 100,
+          Weekly: 60,
+          Monthly: 50,
+          Hourly: 200,
+          "15m (MIS)": 200,
+        };
+
+        function istTime(ms) {
+          if (!ms) return "—";
+          return (
+            new Date(ms).toLocaleString("en-IN", {
+              timeZone: "Asia/Kolkata",
+              dateStyle: "medium",
+              timeStyle: "short",
+            }) + " IST"
+          );
+        }
+
+        function openSetup(idx) {
+          var row = lastRows[idx];
+          if (!row) return;
+          selectScanRow(idx);
+          var g = row.res.gtf || null;
+          var feed = row.feed || {};
+          var html = [
+            setupField("Symbol", "<b>" + row.sym + "</b>"),
+            setupField("Timeframe", row.tf),
+            setupField("Price", "₹" + Number(row.res.price).toFixed(2)),
+            setupField("Trend", trendTag(row.res.trend)),
+            setupField("Demand zone", fmtZone(row.res)),
+            setupField("Position", posTag(row.res)),
+            setupField("Distance to zone", distText(row.res)),
+            setupField("Zone created", row.res.zoneCreated || "—"),
+            setupField("Volume vs 20d", volText(row.res)),
+            setupField("GTF setup", g ? gtfText(g) : "—"),
+            setupField(
+              "GTF zone (base candle)",
+              g ? g.distal.toFixed(2) + " – " + g.proximal.toFixed(2) : "—",
+            ),
+            setupField(
+              "Candles used",
+              (row.bars ? row.bars.length : 0) +
+                " bars · min " +
+                MIN_BARS[row.tf] +
+                " " +
+                row.tf.toLowerCase(),
+            ),
+            setupField(
+              "Data freshness",
+              feed.candleAt
+                ? istTime(feed.candleAt) + " · " + (feed.cached ? "cached" : "fetched")
+                : "—",
+            ),
+            setupField("Data source", feed.source || "unknown source"),
+            setupField(
+              "Data mode",
+              feed.mode || "historical · not live",
+            ),
+            setupField("Candle as-of", istTime(feed.candleAt)),
+            setupField("Fetched at", istTime(feed.fetchedAt)),
+            setupField("Market timezone", feed.timezone || "—"),
+            setupField(
+              "History integrity",
+              (feed.supplied || 0) +
+                " supplied · " +
+                (feed.bars ? feed.bars.length : 0) +
+                " used · " +
+                (feed.discarded || 0) +
+                " discarded · " +
+                (feed.excludedFuture || 0) +
+                " future · " +
+                (feed.gaps || 0) +
+                " gaps",
+            ),
+            setupField(
+              "Future candles",
+              feed.excludedFuture
+                ? feed.excludedFuture +
+                  " excluded — candle close is after the current time"
+                : "None excluded",
+            ),
+          ].join("");
+          $("setupFields").innerHTML = html;
+          $("setupSheetTitle").textContent = row.sym + " · " + row.tf + " setup";
+          $("setupNote").textContent =
+            "Selected research setup — paper only. Historical candles are not a live feed. Verify on your broker platform before acting.";
+          var sheet = $("setupSheet");
+          var api = mfApi();
+          var opener = document.querySelector(
+            '#resultsBody tr[data-row="' + idx + '"]',
+          );
+          if (api && api.openSheet) api.openSheet(sheet, opener);
+          else {
+            sheet.hidden = false;
+            sheet.dataset.mfOpen = "true";
+            sheet.querySelector("[data-mf-close]").focus();
+          }
+        }
+
+        // Draft a paper plan from the selected setup. Non-actionable: Setups
+        // only records a paper idea and never contacts a broker.
+        function draftPlan(row) {
+          if (!row) return;
+          var g = row.res.gtf || {};
+          var entry = Number(g.proximal || row.res.price);
+          var stop = Number(g.stop || 0);
+          var target = Number(g.target || 0);
+          var q = new URLSearchParams();
+          q.set("sym", row.sym);
+          q.set("tf", row.tf);
+          if (isFinite(entry) && entry > 0) q.set("entry", entry.toFixed(2));
+          if (isFinite(stop) && stop > 0) q.set("stop", stop.toFixed(2));
+          if (isFinite(target) && target > 0) q.set("target", target.toFixed(2));
+          q.set("src", "scanner");
+          location.href = "setups.html?" + q.toString();
+        }
         var cacheHits = 0;
 
         var DEFAULT_WATCH = [
@@ -465,16 +699,19 @@ ASHOKLEY.NS, Coal India
             "Watchlist saved (" + arr.length + " symbols, on this device).";
         }
 
-        // ---------- EOD data: Yahoo direct, jina.ai text proxy as fallback ----------
+        // ---------- EOD data: same-origin worker proxy for Yahoo ----------
+        // Browsers cannot call Yahoo directly (no CORS header); the worker adds
+        // an authenticated, edge-cached relay so scans do not depend on r.jina.ai.
         function yahooUrl(symbol, interval, range) {
-          return (
-            "https://query1.finance.yahoo.com/v8/finance/chart/" +
-            encodeURIComponent(symbol) +
-            "?range=" +
-            range +
-            "&interval=" +
-            interval
-          );
+          return new URL(
+            "api/market/yahoo?symbol=" +
+              encodeURIComponent(symbol) +
+              "&interval=" +
+              interval +
+              "&range=" +
+              range,
+            LfcAuth.base,
+          ).toString();
         }
 
         var TF_ORDER = ["d", "w", "m", "1h", "15m"];
@@ -529,34 +766,36 @@ ASHOKLEY.NS, Coal India
         }
 
         // fetch with a hard timeout — a hung response must never hold a worker forever
-        function fetchT(url, ms) {
+        function fetchT(url, ms, headers) {
           var ctrl = new AbortController();
           var timer = setTimeout(function () {
             ctrl.abort();
           }, ms);
-          return fetch(url, { signal: ctrl.signal }).finally(function () {
-            clearTimeout(timer);
-          });
+          return fetch(url, { signal: ctrl.signal, headers: headers }).finally(
+            function () {
+              clearTimeout(timer);
+            },
+          );
         }
 
         function fetchDirect(url) {
-          return fetchT(url, 15000).then(function (r) {
-            if (!r.ok) throw new Error("HTTP " + r.status);
-            return r.json();
-          });
-        }
-
-        // r.jina.ai returns the JSON wrapped in a small text preamble; extract it.
-        function fetchViaProxy(url) {
-          return fetchT("https://r.jina.ai/" + url, 25000)
-            .then(function (r) {
-              if (!r.ok) throw new Error("proxy HTTP " + r.status);
-              return r.text();
+          return LfcAuth.client.auth
+            .getSession()
+            .then(function (result) {
+              var session = result.data.session;
+              if (!session) throw new Error("Sign in again to view prices");
+              return fetchT(url, 20000, {
+                Authorization: "Bearer " + session.access_token,
+              });
             })
-            .then(function (text) {
-              var start = text.indexOf('{"chart"');
-              if (start < 0) throw new Error("proxy returned no chart JSON");
-              return JSON.parse(text.slice(start));
+            .then(function (r) {
+              if (!r.ok)
+                throw new Error(
+                  r.status === 401
+                    ? "Sign in again to view prices"
+                    : "HTTP " + r.status,
+                );
+              return r.json();
             });
         }
 
@@ -569,7 +808,9 @@ ASHOKLEY.NS, Coal India
             if(file.size>10*1024*1024)throw new Error('Use a CSV smaller than 10 MB');
             importedHistory=LfcCsvHistory.parse(await file.text());
             document.getElementById('historySource').value='csv';
-            document.getElementById('watchInput').value=[...importedHistory.keys()].join('\n');
+            // watchInput is a single-line field: join with ", " or a multi-symbol
+            // import collapses into one unusable ticker.
+            document.getElementById('watchInput').value=[...importedHistory.keys()].join(', ');
             ['tfWeekly','tfMonthly','tfHourly','tf15'].forEach(function(id){document.getElementById(id).checked=false;});
             document.getElementById('tfDaily').checked=true;
             msg.textContent='Imported '+importedHistory.size+' symbols into this tab. Daily history will be checked for freshness and minimum length when scanned.';
@@ -583,15 +824,9 @@ ASHOKLEY.NS, Coal India
             try{return Promise.resolve(LfcCsvHistory.history(importedHistory,symbol,tf.interval));}catch(e){return Promise.reject(e);}
           }
           var url = yahooUrl(symbol, tf.interval, tf.range);
-          return fetchDirect(url)
-            .then(function (json) {
-              return parseYahoo(json, symbol, tf.interval);
-            })
-            .catch(function () {
-              return fetchViaProxy(url).then(function (json) {
-                return parseYahoo(json, symbol, tf.interval);
-              });
-            });
+          return fetchDirect(url).then(function (json) {
+            return parseYahoo(json, symbol, tf.interval);
+          });
         }
 
         // ---------- EOD bar cache ----------
@@ -944,6 +1179,7 @@ ASHOKLEY.NS, Coal India
             "Dist to zone",
             "Zone Date",
             "Vol vs 20 bars",
+            "GTF setup",
             "Candle time (UTC)",
             "Source",
           ];
@@ -966,6 +1202,7 @@ ASHOKLEY.NS, Coal India
                 cell(distText(r.res)),
                 cell(r.res.zoneCreated || ""),
                 cell(volText(r.res)),
+                cell(gtfText(r.res.gtf)),
                 cell(new Date(r.feed.candleAt).toISOString()),
                 cell(r.feed.source),
               ].join(","),
@@ -1002,6 +1239,32 @@ ASHOKLEY.NS, Coal India
           return "—";
         }
 
+        function gtfText(g) {
+          if (!g) return "—";
+          return (
+            g.status +
+            " · entry " + g.proximal.toFixed(2) +
+            " · stop " + g.stop.toFixed(2) +
+            " · target " + g.target.toFixed(2) +
+            " · " + g.qty + " qty · base " + g.baseDate
+          );
+        }
+
+        function gtfTag(g) {
+          if (!g) return "—";
+          var cls =
+            g.status === "FRESH RETEST"
+              ? "in"
+              : g.status === "ZONE VIOLATED"
+                ? "down"
+                : "touch";
+          return (
+            '<span class="tag ' + cls + '">' + g.status + "</span><br><small>E " +
+            g.proximal.toFixed(2) + " · S " + g.stop.toFixed(2) +
+            " · T " + g.target.toFixed(2) + " · " + g.qty + " qty</small>"
+          );
+        }
+
         function render(rows) {
           lastRows = rows;
           if (!rows.length) {
@@ -1018,6 +1281,10 @@ ASHOKLEY.NS, Coal India
           body.innerHTML = "";
           rows.forEach(function (r, idx) {
             var tr = document.createElement("tr");
+            tr.setAttribute("data-row", idx);
+            tr.setAttribute("role", "row");
+            tr.tabIndex = 0;
+            tr.setAttribute("aria-label", r.sym + " " + r.tf + " setup details");
             tr.innerHTML =
               "<td><b>" +
               r.sym +
@@ -1046,6 +1313,9 @@ ASHOKLEY.NS, Coal India
               "<td>" +
               volText(r.res) +
               "</td>" +
+              "<td>" +
+              gtfTag(r.res.gtf) +
+              "</td>" +
               '<td><button class="ghost" data-chart="' +
               idx +
               '">Chart</button></td>';
@@ -1053,11 +1323,28 @@ ASHOKLEY.NS, Coal India
           });
           $("resultsCard").style.display = "";
 
+          // MF-8: one delegated handler. A tap anywhere on a row opens the full
+          // setup sheet; the explicit Chart button still draws the chart.
           body.onclick = function (ev) {
             var b = ev.target.closest("[data-chart]");
-            if (b) drawChart(rows[parseInt(b.getAttribute("data-chart"), 10)]);
+            if (b) {
+              var i = parseInt(b.getAttribute("data-chart"), 10);
+              selectScanRow(i);
+              drawChart(rows[i]);
+              return;
+            }
+            var tr = ev.target.closest("tr[data-row]");
+            if (tr) openSetup(parseInt(tr.getAttribute("data-row"), 10));
+          };
+          body.onkeydown = function (ev) {
+            if (ev.key !== "Enter" && ev.key !== " ") return;
+            var tr = ev.target.closest("tr[data-row]");
+            if (!tr) return;
+            ev.preventDefault();
+            openSetup(parseInt(tr.getAttribute("data-row"), 10));
           };
           drawChart(rows[0]);
+          restoreScanSelection();
         }
 
         // ---------- minimal canvas chart: candlesticks, EMA20/50, zones ----------
@@ -1072,9 +1359,23 @@ ASHOKLEY.NS, Coal India
 
           var cvs = $("chart"),
             ctx = cvs.getContext("2d");
-          var W = (cvs.width = cvs.clientWidth * 2); // crisp on HiDPI
-          var H = (cvs.height = 680);
-          ctx.scale(1, 1);
+          // MF-7: size from the container, redraw in logical pixels so axis and
+          // price labels stay legible (the old 2x bitmap halved every font).
+          var CSSW = Math.max(240, Math.round(cvs.clientWidth || cvs.parentNode.clientWidth || 320));
+          // An expanded host pins the height; the card chart keeps a readable
+          // 0.55 aspect, capped so it stays compact.
+          var forcedH = Number(cvs.__mfForceHeight) || 0;
+          var CSSH = forcedH
+            ? Math.max(240, Math.round(forcedH))
+            : Math.max(220, Math.min(520, Math.round(CSSW * 0.55)));
+          var dpr = Math.min(2, window.devicePixelRatio || 1);
+          cvs.width = Math.round(CSSW * dpr);
+          cvs.height = Math.round(CSSH * dpr);
+          cvs.style.height = CSSH + 'px';
+          cvs.__mfLogical = { w: CSSW, h: CSSH, dpr: dpr };
+          ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+          var W = CSSW;
+          var H = CSSH;
 
           var min = Math.min.apply(
             null,
@@ -1313,6 +1614,146 @@ ASHOKLEY.NS, Coal India
           reader.readAsText(f);
           ev.target.value = ""; // allow re-selecting the same file
         };
+        /* ------------------------------------------------------------------
+           MF-7 — expansion keeps the same canvas and data; it never refetches.
+           Focus moves into the overlay, Tab is trapped, Escape closes and focus
+           returns to the trigger (MF-10).
+           ------------------------------------------------------------------ */
+        function initChartExpand() {
+          var btn = $("expandChart");
+          var wrap = $("chartWrap");
+          var canvas = $("chart");
+          if (!btn || !wrap || !canvas) return;
+          var host = null;
+
+          function currentRow() {
+            return lastRows[currentSetup >= 0 ? currentSetup : 0] || lastRows[0] || null;
+          }
+
+          function close() {
+            if (!host) return;
+            wrap.appendChild(canvas);
+            canvas.__mfForceHeight = 0;
+            host.remove();
+            host = null;
+            document.body.classList.remove("mf-locked");
+            btn.setAttribute("aria-pressed", "false");
+            btn.textContent = "Expand chart";
+            btn.focus();
+            if (currentRow()) drawChart(currentRow());
+          }
+
+          function trap(ev) {
+            if (!host) return;
+            if (ev.key === "Escape") {
+              ev.preventDefault();
+              close();
+              return;
+            }
+            if (ev.key !== "Tab") return;
+            var list = Array.prototype.filter.call(
+              host.querySelectorAll("button, [tabindex]:not([tabindex='-1'])"),
+              function (el) {
+                return el.offsetParent !== null;
+              },
+            );
+            if (!list.length) return;
+            if (ev.shiftKey && document.activeElement === list[0]) {
+              ev.preventDefault();
+              list[list.length - 1].focus();
+            } else if (!ev.shiftKey && document.activeElement === list[list.length - 1]) {
+              ev.preventDefault();
+              list[0].focus();
+            }
+          }
+
+          btn.onclick = function () {
+            if (host) return close();
+            var row = currentRow();
+            if (!row) return;
+            host = document.createElement("div");
+            host.className = "mf-chart-expand";
+            host.setAttribute("role", "dialog");
+            host.setAttribute("aria-modal", "true");
+            host.setAttribute("aria-label", "Expanded price chart");
+            host.innerHTML =
+              '<div class="mf-chart-expand-header">' +
+              '<h2 class="mf-sheet-title" style="margin:0;flex:1 1 auto">' +
+              row.sym +
+              " · " +
+              row.tf +
+              '</h2><button class="mf-sheet-close" type="button" data-close-expanded aria-label="Close expanded chart">✕</button>' +
+              '</div><div class="mf-chart-expand-body"></div>';
+            host.querySelector(".mf-chart-expand-body").appendChild(canvas);
+            document.body.appendChild(host);
+            document.body.classList.add("mf-locked");
+            btn.setAttribute("aria-pressed", "true");
+            btn.textContent = "Close chart";
+            host.querySelector("[data-close-expanded]").onclick = close;
+            host.addEventListener("keydown", trap);
+            var bodyEl = host.querySelector(".mf-chart-expand-body");
+            canvas.__mfForceHeight = Math.max(240, (bodyEl ? bodyEl.clientHeight : 0) - 8);
+            drawChart(row);
+            host.querySelector("[data-close-expanded]").focus();
+          };
+        }
+
+        function initMobileFirst() {
+          restoreScanFilters();
+          [
+            "pLeft",
+            "pRight",
+            "days",
+            "trendFilter",
+            "showTouching",
+            "volFilter",
+            "historySource",
+            "tfDaily",
+            "tfWeekly",
+            "tfMonthly",
+            "tfHourly",
+            "tf15",
+          ].forEach(function (id) {
+            var el = $(id);
+            if (el) el.addEventListener("change", saveScanFilters);
+          });
+
+          var chartBtn = $("setupChart");
+          if (chartBtn) {
+            chartBtn.onclick = function () {
+              var row = lastRows[currentSetup];
+              if (!row) return;
+              var api = mfApi();
+              if (api) api.closeSheet($("setupSheet"));
+              drawChart(row);
+              $("chartCard").scrollIntoView({ block: "start" });
+            };
+          }
+          var planBtn = $("setupPlan");
+          if (planBtn) {
+            planBtn.onclick = function () {
+              draftPlan(lastRows[currentSetup]);
+            };
+          }
+          initChartExpand();
+
+          // MF-7 / MF-14: a rotation or width change redraws from the bars we
+          // already hold. No fetch, so rotating cannot duplicate a request.
+          var lastW = window.innerWidth;
+          var timer = null;
+          window.addEventListener("resize", function () {
+            clearTimeout(timer);
+            timer = setTimeout(function () {
+              if (window.innerWidth === lastW) return;
+              lastW = window.innerWidth;
+              var row = lastRows[currentSetup >= 0 ? currentSetup : 0];
+              if (row && $("chartCard").style.display !== "none") drawChart(row);
+            }, 180);
+          });
+        }
+
+        initMobileFirst();
+
         if (!window.LfcAuth || !window.LfcAuth.current()) {
           location.replace("signin.html?next=scanner.html");
         }

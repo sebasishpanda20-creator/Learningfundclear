@@ -111,10 +111,16 @@
     document.documentElement.classList.add("auth-pending");
     // Start revocation while the client still has the session; clear local credentials immediately.
     const revocation = client.auth.signOut({ scope: "local" }).catch(() => {});
+    // The terminal cookie outlives the local session; ask the worker to expire it.
+    const clearTerminal = fetch(new URL("api/terminal-ticket", base), {
+      method: "DELETE",
+      cache: "no-store",
+    }).catch(() => {});
     clear();
     try {
       await Promise.race([
         revocation,
+        clearTerminal,
         new Promise((resolve) => setTimeout(resolve, 2500)),
       ]);
     } finally {

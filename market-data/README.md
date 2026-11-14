@@ -30,7 +30,7 @@ The `nifty500-data.yml` workflow also supports **nselive** mode — live NSE quo
 
 - **Cron**: weekdays 07:30–08:30 IST (`0,15,30,45 5-6 * * 1-5`)
 - **Artifact**: `market-data/nselive-latest.enc.json` (AES-256-GCM encrypted)
-- **Caveat**: The nsemine payload has `upper_circuit` < `lower_circuit` (swapped at source); the portal's data layer (`server/nifty-api.mjs`) auto-detects and fixes this swap, setting `._nsemine_circuit_swap` on the result so consumers know the correction was applied
+- **Caveat**: The nsemine payload has `upper_circuit` < `lower_circuit` (swapped at source); the portal's data layer (`server/nifty-api.mjs`) auto-detects and fixes this swap, setting `._nsemine_circuit_swap` on the payload and `._circuit_swap` on each corrected row so consumers know the correction was applied; `nifty500.html` shows a warning and badges the affected rows (`assets/js/nifty500.js`)
 - **Availability**: Runs on the same US Actions runner where the probe succeeded (3/3 symbols). The collector script (`tools/nifty500-nselive-collect.py`) documents the approach and payload characteristics (16:00 IST session stamp)
 - **Decryption**: Requires the Site's `NIFTY_FEED_PRIVATE_KEY` secret; never commit or expose that value
 - **Downstream**: The scanner's GTF setup (`scanner-logic.js` → `gtfSetup`) can reference the live snapshot via the encrypted data layer once decrypted

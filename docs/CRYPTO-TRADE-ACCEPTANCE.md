@@ -26,6 +26,7 @@ For automatic main-branch Cloudflare deployment, add the GitHub Actions reposito
 ## Acceptance checks
 
 - `bash .ci/guard.sh` — HTML/JS contracts, scanner tests, crypto desk tests and 42-day validation/capital regression tests.
+- `node qa/mobile-first.cjs` — mobile-first release gate (also run by `guard.sh`): overflow, zoom, 44×44 touch targets, hover-only actions, focus/sheets, safe areas, sticky chrome, reduced motion, duplicate requests and the scanner → details → chart → draft-plan data path. Criteria live in `docs/MOBILE-FIRST-RELEASE-CRITERIA.md` (MF-1 … MF-14).
 - `node qa/crypto-desk-flows.cjs` — authenticated browser integration with **mock** market feeds in mobile and desktop viewports.
 - `npm run build:cloudflare && npm run check:cloudflare` — Worker packaging preflight.
 - Verify production browser sign-in, latest market timestamps and public exchange API access separately; mocks cannot certify external CORS, provider uptime or liquidity.

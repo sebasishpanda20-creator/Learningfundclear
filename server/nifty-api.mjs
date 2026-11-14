@@ -20,8 +20,9 @@ if (Array.isArray(result.rows)) {
   for (const row of result.rows) {
     if (row.upper_circuit !== undefined && row.lower_circuit !== undefined) {
       if (row.upper_circuit < row.lower_circuit) {
-        // Swapped: fix by swapping back
+        // Swapped: fix by swapping back, and mark that row so the UI can badge it
         [row.upper_circuit, row.lower_circuit] = [row.lower_circuit, row.upper_circuit]
+        row._circuit_swap = true
         circuitSwapDetected = true
       }
     }

@@ -7,94 +7,65 @@
     <title>Sign in · LearningFundClear</title>
     <link rel="stylesheet" href="assets/css/tokens.css" />
     <link rel="stylesheet" href="assets/css/app.css" />
+    <link rel="stylesheet" href="assets/css/signin.css" />
     <script src="assets/vendor/supabase.js"></script>
     <script src="assets/js/config.js"></script>
     <script src="auth-guard.js"></script>
-    <script>
-      /* The sign-in page defaults to the dark palette so it matches the Quant
-         terminal. A stored light/dark choice always wins; only an unset
-         preference is defaulted to dark. theme.js below reads lfc.theme. */
-      try {
-        if (!localStorage.getItem("lfc.theme")) localStorage.setItem("lfc.theme", "dark");
-      } catch (e) {}
-    </script>
-    <script src="assets/js/theme.js"></script>
+      <link rel="stylesheet" href="assets/css/mobile-first.css" />
+      <script src="assets/js/mobile-first.js"></script>
   </head>
   <body class="signin-page">
-    <div>
-      <main class="signin-layout" id="main" style="padding: 0">
-        <section class="signin-story">
-          <a class="portal-brand" href="signin.html"
-            ><span class="brand-mark"
-              ><svg
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                stroke-width="1.8"
-              >
-                <path d="M3 16l6-5 5 3 7-10M15 4h6v6" /></svg></span
-            ><span
-              >Learning<span class="brand-clear">FundClear</span
-              ><small>RESEARCH WORKSPACE</small></span
-            ></a
-          >
-          <div>
-            <h1>Clear thinking.<br /><em>Better research.</em></h1>
-            <p>
-              Your journal, market tools, and mutual fund research. Together in
-              one focused workspace.
-            </p>
-          </div>
-          <div class="story-bottom">
-            JOURNAL &nbsp; / &nbsp; SCANNER &nbsp; / &nbsp; FUNDS
-          </div>
-        </section>
-        <section class="signin-form">
-          <p class="eyebrow">YOUR PRIVATE WORKSPACE</p>
-          <h2>Welcome back</h2>
-          <p class="sub">Sign in to pick up where you left off.</p>
-          <form id="loginForm">
-            <label for="loginUser">Username or email</label
-            ><input
-              id="loginUser"
-              required
-              autocomplete="username"
-              placeholder="Enter your username"
-              autocapitalize="none"
-              spellcheck="false"
-            /><label for="loginPass">Password</label>
-            <div class="password-field">
-              <input
-                id="loginPass"
-                type="password"
-                required
-                autocomplete="current-password"
-                placeholder="Enter your password"
-              /><button
-                id="showPassword"
-                type="button"
-                aria-label="Show password"
-              >
-                Show
-              </button>
-            </div>
-            <button class="primary" type="submit" id="loginBtn">
-              Sign in <span aria-hidden="true">→</span>
+    <main class="signin-shell" id="main">
+      <a class="signin-brand" href="signin.html">
+        <span class="signin-badge" aria-hidden="true">LF</span>
+        <span class="signin-brand-text">
+          <strong>LearningFundClear</strong>
+          <small>Research &amp; trade decision support · ₹ · IST</small>
+        </span>
+      </a>
+
+      <section class="signin-card">
+        <header class="signin-card-head">
+          <h1>Sign in</h1>
+          <p>Approved users only. Sessions expire after 14 days.</p>
+        </header>
+        <form id="loginForm" class="signin-card-body">
+          <label for="loginUser">Username</label>
+          <input
+            id="loginUser"
+            required
+            autocomplete="username"
+            autocapitalize="none"
+            spellcheck="false"
+          />
+          <label for="loginPass">Password</label>
+          <input
+            id="loginPass"
+            type="password"
+            required
+            autocomplete="current-password"
+          />
+          <button class="signin-submit" type="submit" id="loginBtn">
+            Sign in
+          </button>
+          <p class="msg" id="msg" role="status" aria-live="polite"></p>
+          <p class="signin-help" id="help" role="status" aria-live="polite" hidden></p>
+          <div class="signin-card-foot">
+            <button type="button" class="signin-link" id="requestAccess">
+              Request access
             </button>
-            <p class="msg" id="msg" role="status" aria-live="polite"></p>
-          </form>
-          <p class="signin-note">
-            Access is managed by your portal administrator. Use your existing
-            LearningFundClear credentials.
-          </p>
-        </section>
-      </main>
+            <button type="button" class="signin-link" id="forgotPassword">
+              Forgot password?
+            </button>
+          </div>
+        </form>
+      </section>
+
       <p class="signin-disclaimer">
-        Private research and educational information only. This portal does not
-        provide investment advice. Market data may be delayed or incomplete;
-        verify it independently. Investments are subject to market risk.
+        Private portal. Market data shown is delayed / snapshot-based and never
+        live. No broker connectivity.
       </p>
-    </div>
+    </main>
     <script src="assets/js/signin.js"></script>
   </body>
 </html>

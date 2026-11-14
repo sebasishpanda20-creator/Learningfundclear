@@ -15,6 +15,6 @@ node qa/crypto-flows.cjs
 node qa/crypto-desk-flows.cjs
 node qa/crypto-context-flows.cjs
 node qa/research-flows.cjs
-node qa/nifty500-flows.cjs
+npm run --silent test:nifty500
 mkdir -p visual-qa-artifacts
 cp qa/*.png qa/*results.json qa/page-audit.json visual-qa-artifacts/
