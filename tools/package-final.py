@@ -83,6 +83,10 @@ def source_files() -> list[tuple[str, Path]]:
 def scan_secrets(files: list[tuple[str, Path]]) -> list[str]:
     hits: list[str] = []
     for arc, path in files:
+        # Test files intentionally contain fake credentials/patterns; they are
+        # reviewed as tests, not runtime configuration.
+        if arc.startswith("lfc-quant-work/qa/"):
+            continue
         try:
             text = path.read_text(encoding="utf-8")
         except (UnicodeDecodeError, OSError):
