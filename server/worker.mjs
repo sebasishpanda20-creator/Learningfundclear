@@ -51,6 +51,10 @@ export default {async fetch(request,env){
    const role=await portalRole(request,config);
    return proxyToDaemon(role?withPortalRole(request,role):withoutCookies(request),env,url.pathname,url.search);
  }
+ // Unknown /api/* routes must return JSON error, not HTML fallback.
+ if(url.pathname.startsWith('/api/')){
+   return json({ error: 'Not found' }, 404);
+ }
  // The terminal is normally served only to a signed-in dashboard session;
  // OPEN_TERMINAL=1 opens the route to anonymous visitors (see terminal-gate.mjs).
  if(url.pathname==='/quant-terminal'||url.pathname==='/quant-terminal/'||url.pathname.startsWith('/quant-terminal/')){
