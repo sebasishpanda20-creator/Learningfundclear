@@ -8,7 +8,7 @@
   "preview_urls": false,
   "vars": {
     "QUANT_API_ORIGIN": "https://quant-daemon-a9m2.onrender.com",
-    "OPEN_TERMINAL": "true"
+    "OPEN_TERMINAL": "false"
   },
 
   "durable_objects": {
