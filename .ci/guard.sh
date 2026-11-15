@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # LearningFundClear production regression guard.
 # The same script is used locally and in GitHub Actions.
-
+# QA_PORT=9131 avoids EADDRINUSE conflicts with port 8130 (informational; test scripts use listen(0))
 set -euo pipefail
 
 PAGES=(index.html signin.html performance.html scanner.html setups.html gex.html crypto.html crypto-options.html crypto-funding.html admin.html lfc_terminal_v6.html)

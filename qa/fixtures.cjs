@@ -1,6 +1,7 @@
 const {chromium}=require('playwright');
 const path=require('path'),fs=require('fs');
-const port=Number(process.env.QA_PORT||8130);
+const qaPort=Number(process.env.QA_PORT);
+const port=qaPort||0;
 const origin='http://127.0.0.1:'+port;
 const user={id:'11111111-1111-4111-8111-111111111111',email:'qa@portal.local',aud:'authenticated',role:'authenticated',app_metadata:{},user_metadata:{}};
 const profile={...user,username:'qa',display_name:'QA account',is_admin:true,is_active:true};

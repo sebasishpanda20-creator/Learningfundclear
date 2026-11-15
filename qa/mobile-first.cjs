@@ -14,7 +14,7 @@
  *   node qa/mobile-first.cjs --flow     interaction flow only
  */
 const { chromium } = require("playwright");
-const { fixture, origin, port } = require("./fixtures.cjs");
+const { fixture, port } = require("./fixtures.cjs");
 const path = require("path");
 const fs = require("fs");
 const http = require("http");
@@ -487,7 +487,9 @@ async function runFlow(browser, viewport) {
       res.end("Missing");
     }
   });
-  await new Promise((r) => server.listen(port, "127.0.0.1", r));
+    await new Promise((r) => server.listen(0, "127.0.0.1", r));
+  const actualPort = (server.address && server.address().port) || port;
+  origin = 'http://127.0.0.1:' + actualPort;
 
   const browser = await chromium.launch({
     headless: true,
@@ -496,6 +498,8 @@ async function runFlow(browser, viewport) {
   });
 
   let flowResult = null;
+
+
 
   if (!FLOW_ONLY) {
     for (const vp of VIEWPORTS.filter((v) => !ONLY_VP || v.name === ONLY_VP || v.name.startsWith(ONLY_VP))) {

@@ -88,8 +88,8 @@
       max-width: 100%;
     }
     .fyers-copy {
-      min-height: 32px;
-      padding: 4px 10px;
+      min-height: 44px;
+      padding: 8px 12px;
       margin-left: 6px;
       border-radius: 8px;
       border: 1px solid var(--lfc-border);
@@ -170,7 +170,6 @@
         border: 0;
         border-radius: 0;
         background: #102c3e80;
-        z-index: 43;
       }
     }
 
@@ -374,9 +373,9 @@
     <section class="card" aria-label="Market data" id="mkt">
       <h2>Market</h2>
       <div class="prices">
-        <span>NIFTY</span> <b>24,465.00</b>
-        <span>BANKNIFTY</b> <b>61,230.00</b>
-        <span>FINNIFTY</b> <b>22,180.00</b>
+        <span>NIFTY</span> <b>—</b>
+        <span>BANKNIFTY</b> <b>—</b>
+        <span>FINNIFTY</b> <b>—</b>
       </div>
     </section>
 
@@ -442,19 +441,19 @@
       <div class="metric"><span>Signals</span><strong id="sigCount">0</strong></div>
     </section>
 
-    <section class="card" aria-label="Execution plan" id="plan">
+    <section class="card" aria-label="Research plan" id="plan">
       <h2>Plan</h2>
       <div class="grid2">
         <div>
           <label>Notional</label>
-          <input type="number" step="0.01" placeholder="1875000" />
+          <input type="number" step="0.01" placeholder="—" />
         </div>
         <div>
           <label>Strategy</label>
           <select><option>Iron Condor</option><option>Calendar</option></select>
         </div>
       </div>
-      <div class="metric"><span>Edge</span><strong id="edge">0.00</strong></div>
+      <div class="metric"><span>Edge</span><strong id="edge">—</strong></div>
     </section>
 
     <section class="card" aria-label="SL/TP scan" id="scan">
@@ -504,16 +503,16 @@
     <div class="bottom-sheet" id="bottomSheet" aria-modal="true" role="dialog" aria-labelledby="sheetTitle">
       <div class="ticket-summary">
         <span>Order ticket</span>
-        <span class="price">0.00</span>
+        <span class="price">—</span>
       </div>
       <div style="margin-top: 8px; font-size: 11px; color: var(--lfc-muted);">
         <button class="button secondary" style="width:100%;padding:6px 4px;font-size:11px">Cancel</button>
-        <button class="button primary" style="width:100%;padding:6px 4px;font-size:11px;margin-top:4px">Send</button>
+        <button id="existing-send-button-id" class="button primary" type="button" disabled aria-describedby="sendUnavailableNote">Send unavailable</button><p id="sendUnavailableNote" class="quant-note" role="status">Order submission is not supported. Research-only terminal.</p>
       </div>
     </div>
 
     <!-- ---- quant terminal iframe ----------------------------------------------- -->
-    <section class="quant-shell" aria-label="Quant execution terminal">
+    <section class="quant-shell" aria-label="Quant research terminal">
       <div class="quant-toolbar">
         <div class="cluster">
           <span id="qtStatus" class="quant-status" data-state="pending" role="status" aria-live="polite">Checking terminal…</span>
@@ -525,7 +524,7 @@
         </div>
       </div>
       <div class="quant-frame-wrap">
-        <iframe id="qtFrame" class="quant-frame" title="Quant execution terminal" src="about:blank" loading="eager" referrerpolicy="no-referrer"></iframe>
+        <iframe id="qtFrame" class="quant-frame" title="Quant research terminal" src="about:blank" loading="eager" referrerpolicy="no-referrer"></iframe>
       </div>
       <div id="qtFallback" class="quant-fallback" hidden>
         <p><strong>Terminal not configured.</strong> Set <code>window.QUANT_TERMINAL.url</code> in <code>assets/js/quant-config.js</code> to the daemon's HTTPS origin.</p>
@@ -763,7 +762,7 @@
       }
 
       var cfg = { configured: false, connected: false, redirectUri: null, expiresAt: null };
-      var FYERS_BASE = (window.LFC_CONFIG && window.LFC_CONFIG.fyersBase) || '/api/v1/fyers';
+      var FYERS_BASE = (window.LFC_CONFIG && window.LFC_CONFIG.fyersBase) || '/api/fyers';
       var REASONS = {
         provider_refused: 'FYERS refused the login.',
         missing_code: 'The provider redirect carried no authorization code.',

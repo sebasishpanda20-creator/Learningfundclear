@@ -9,7 +9,7 @@
  * Missing segments are reported explicitly in `segments`.
  */
 const { chromium } = require("playwright");
-const { fixture, origin, port } = require("./fixtures.cjs");
+const { fixture, port } = require("./fixtures.cjs");
 const http = require("http");
 const fs = require("fs");
 const path = require("path");
@@ -59,7 +59,9 @@ function chart(bs) {
     res.setHeader("Content-Type", f.endsWith(".js") ? "text/javascript" : f.endsWith(".css") ? "text/css" : "text/html");
     res.end(fs.readFileSync(f));
   });
-  await new Promise((r) => server.listen(port, "127.0.0.1", r));
+  await new Promise((r) => server.listen(0, "127.0.0.1", r));
+  const actualPort = (server.address && server.address().port) || port;
+  origin = 'http://127.0.0.1:' + actualPort;
 
   const browser = await chromium.launch({ headless: true, args: ["--no-sandbox"] });
   const ctx = await browser.newContext({ viewport: { width: 1280, height: 900 } });
