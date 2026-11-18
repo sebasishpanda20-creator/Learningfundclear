@@ -7,6 +7,7 @@ import {issueTicket,guardTerminal,portalRole,terminalGateOpen} from './terminal-
 import {serveMarketYahoo,serveMarketMfapi} from './market-proxy.mjs';
 import {runDaemonWatch} from './daemon-watch.mjs';
 import {handleFyers} from './fyers-routes.mjs';
+import {serveHedgePlan} from './hedging-engine.mjs';
 export {FyersVault} from './fyers-vault.mjs';
 
 // The terminal cookie is a browser credential for this worker only: never let
@@ -51,6 +52,10 @@ export default {async fetch(request,env){
    const role=await portalRole(request,config);
    return proxyToDaemon(role?withPortalRole(request,role):withoutCookies(request),env,url.pathname,url.search);
  }
+ // Plan-only hedging: validated research templates for the existing portal
+ // segments. The handler never reads env/config, never calls a broker and never
+ // places an order, so it is deliberately not behind the terminal gate.
+ if(url.pathname==='/api/hedge-plan')return serveHedgePlan(request);
  // Unknown /api/* routes must return JSON error, not HTML fallback.
  if(url.pathname.startsWith('/api/')){
    return json({ error: 'Not found' }, 404);

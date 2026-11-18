@@ -2,7 +2,7 @@
 <html lang="en-IN">
 <head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="robots" content="noindex,nofollow"><title>Crypto Options Desk · LearningFundClear</title>
-<link rel="stylesheet" href="assets/css/tokens.css"><link rel="stylesheet" href="assets/css/app.css"><link rel="stylesheet" href="assets/css/crypto-desk.css">
+<link rel="stylesheet" href="assets/css/tokens.css"><link rel="stylesheet" href="assets/css/app.css"><link rel="stylesheet" href="assets/css/crypto-desk.css"><link rel="stylesheet" href="assets/css/hedge-plan.css"><link rel="stylesheet" href="assets/css/hedge-scenario.css">
 <script src="assets/vendor/supabase.js"></script><script src="assets/js/config.js"></script><script src="auth-guard.js"></script><script src="assets/js/theme.js"></script>
     <link rel="stylesheet" href="assets/css/mobile-first.css" />
       <script src="assets/js/mobile-first.js"></script>
@@ -31,6 +31,8 @@
 <div id="simpleDecision" aria-live="polite"><p>We will choose a strategy automatically when the market data is ready.</p></div>
 </section>
 <section id="tradePlan" class="card" aria-live="polite"><h2>NO TRADE</h2><p>Enter your capital to begin.</p></section>
+<div class="hedge-plan" data-hedge-plan data-segment="DELTA" data-symbol="BTC" data-timeframe="4h"></div>
+<div class="hedge-scenario" data-hedge-scenario data-segment="DELTA"></div>
 <section id="monitorPanel" class="card" aria-live="polite"><h2>3. Monitor the result</h2><p>Only qualified paper setups are monitored. No exchange trades are placed.</p></section>
 <section class="card" id="emailWatch"><p class="eyebrow">BACKGROUND PAPER-PLAN WATCH</p><h2>Email alerts</h2><p>Save the current paper spread for a background stop, target and time-exit watch. Emails go only to your verified portal login address. One watch at a time; each event is sent once. New opportunities still require a portal scan.</p><p id="emailStatus" role="status">Checking email service…</p><button id="emailEnable" disabled>Enable email for this paper plan</button> <button id="emailDisable">Disable email watch</button><p class="desk-minor">Checks approximately every minute when configured, even with this page closed. Emails may be delayed. This does not place protective orders. Clearing a local paper plan does not cancel its saved email watch; use Disable here.</p></section><details class="card desk-advanced"><summary>Advanced analysis and backtesting (optional)</summary>
 <section class="card"><h2>Which direction is the market moving?</h2>
@@ -58,6 +60,8 @@
 </details>
 </main>
 <script src="assets/js/shell.js"></script><script src="assets/js/crypto-desk-engine.js"></script><script src="assets/js/crypto-advanced-engine.js"></script><script src="assets/js/crypto-validation-engine.js"></script><script src="assets/js/crypto-desk-ui.js"></script>
+<script src="assets/js/hedge-plan.js"></script>
+<script type="module" src="assets/js/hedge-scenario-adapters.js"></script>
 <script src="assets/js/crypto-email.js"></script>
 <script src="assets/js/crypto-cockpit.js"></script>
   </body></html>

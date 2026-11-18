@@ -8,7 +8,9 @@ for(const file of ['auth-guard.js','scanner-logic.js','india_symbols.json'])copy
 mkdirSync('dist/client/tools',{recursive:true});copyFileSync('tools/signal-watchlist.json','dist/client/tools/signal-watchlist.json');
 
 mkdirSync('dist/server',{recursive:true});
-cpSync('server','dist/server',{recursive:true});
+// server/worker.mjs is the source entrypoint; it is emitted as index.js only,
+// so the upload tree never carries a duplicate worker file.
+cpSync('server','dist/server',{recursive:true,filter:p=>!p.endsWith('worker.mjs')});
 copyFileSync('server/worker.mjs','dist/server/index.js');
 if(!process.argv.includes('--cloudflare') && existsSync('.openai/hosting.json')) {
   mkdirSync('dist/.openai',{recursive:true});

@@ -8,6 +8,8 @@
     <link rel="stylesheet" href="assets/css/tokens.css" />
 
     <link rel="stylesheet" href="assets/css/app.css" />
+    <link rel="stylesheet" href="assets/css/hedge-plan.css" />
+    <link rel="stylesheet" href="assets/css/hedge-scenario.css" />
     <script src="assets/vendor/supabase.js"></script>
     <script src="assets/js/config.js"></script>
     <script src="auth-guard.js"></script>
@@ -130,6 +132,14 @@
             Add commodities
           </button>
         </div>
+        <div
+          class="hedge-plan"
+          data-hedge-plan
+          data-segment="MCX"
+          data-symbol="CRUDEOIL"
+          data-timeframe="1h"
+        ></div>
+        <div class="hedge-scenario" data-hedge-scenario data-segment="MCX"></div>
         <div class="row hidden" id="importRow" style="margin-top: 12px">
           <div style="flex: 1; min-width: 260px">
             <label
@@ -274,6 +284,8 @@ ASHOKLEY.NS, Coal India
       </p>
     </main>
     <script src="assets/js/shell.js"></script>
+    <script src="assets/js/hedge-plan.js"></script>
+    <script type="module" src="assets/js/hedge-scenario-adapters.js"></script>
     <script src="assets/js/market-data.js"></script>
     <script src="assets/js/csv-history.js"></script>
     <script src="assets/js/scanner-auto.js"></script>

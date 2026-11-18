@@ -1,0 +1,87 @@
+{
+  "entrypoint": "dist/server/index.js",
+  "compatibilityDate": "2026-10-09",
+  "modules": [
+    {
+      "name": "index.js",
+      "type": "esm",
+      "path": "./dist/server/index.js"
+    },
+    {
+      "name": "email-alerts.mjs",
+      "type": "esm",
+      "path": "./dist/server/email-alerts.mjs"
+    },
+    {
+      "name": "crypto-engine.js",
+      "type": "esm",
+      "path": "./dist/server/crypto-engine.js"
+    },
+    {
+      "name": "nifty-api.mjs",
+      "type": "esm",
+      "path": "./dist/server/nifty-api.mjs"
+    },
+    {
+      "name": "config.mjs",
+      "type": "esm",
+      "path": "./dist/server/config.mjs"
+    },
+    {
+      "name": "delta-account.mjs",
+      "type": "esm",
+      "path": "./dist/server/delta-account.mjs"
+    },
+    {
+      "name": "quant-proxy.mjs",
+      "type": "esm",
+      "path": "./dist/server/quant-proxy.mjs"
+    },
+    {
+      "name": "terminal-gate.mjs",
+      "type": "esm",
+      "path": "./dist/server/terminal-gate.mjs"
+    },
+    {
+      "name": "market-proxy.mjs",
+      "type": "esm",
+      "path": "./dist/server/market-proxy.mjs"
+    },
+    {
+      "name": "daemon-watch.mjs",
+      "type": "esm",
+      "path": "./dist/server/daemon-watch.mjs"
+    },
+    {
+      "name": "keep-warm.mjs",
+      "type": "esm",
+      "path": "./dist/server/keep-warm.mjs"
+    },
+    {
+      "name": "fyers-routes.mjs",
+      "type": "esm",
+      "path": "./dist/server/fyers-routes.mjs"
+    },
+    {
+      "name": "fyers-core.mjs",
+      "type": "esm",
+      "path": "./dist/server/fyers-core.mjs"
+    },
+    {
+      "name": "fyers-vault.mjs",
+      "type": "esm",
+      "path": "./dist/server/fyers-vault.mjs"
+    },
+    {
+      "name": "hedging-engine.mjs",
+      "type": "esm",
+      "path": "./dist/server/hedging-engine.mjs"
+    }
+  ],
+  "assetsDirectory": "./dist/client",
+  "spa": false,
+  "vars": {
+    "OPEN_TERMINAL": "false",
+    "QUANT_API_ORIGIN": "https://quant-daemon-a9m2.onrender.com"
+  }
+}

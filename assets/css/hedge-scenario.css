@@ -1,0 +1,131 @@
+/* Expiry-scenario preview inside the NSE, MCX and Delta instrument panels. */
+
+.hedge-scenario {
+  margin: 14px 0 4px;
+  padding: 12px 14px;
+  border: 1px solid var(--lfc-border, #b8c3c8);
+  border-radius: 10px;
+  background: var(--lfc-surface, #fff);
+}
+
+.hedge-scenario button {
+  font: inherit;
+  font-weight: 650;
+  padding: 7px 12px;
+  border-radius: 8px;
+  border: 1px solid var(--lfc-border, #b8c3c8);
+  background: var(--lfc-input-bg, #f7faf8);
+  color: inherit;
+  cursor: pointer;
+}
+
+.hedge-scenario button:focus-visible {
+  outline: 2px solid var(--lfc-focus, #2f6b4f);
+  outline-offset: 2px;
+}
+
+.hedge-scenario button[disabled] {
+  opacity: 0.6;
+  cursor: progress;
+}
+
+.hedge-scenario__label,
+.hedge-scenario__source {
+  margin: 8px 0 0;
+  font-size: 0.76rem;
+  color: #5b6b73;
+  overflow-wrap: anywhere;
+}
+
+.hedge-scenario__source:empty {
+  display: none;
+}
+
+.hedge-scenario__output {
+  margin: 8px 0 0;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: #0d1310;
+  color: #e8efe9;
+  font-size: 0.76rem;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  overflow-x: auto;
+}
+
+.hedge-scenario__output:empty {
+  display: none;
+}
+
+.hedge-scenario__manual {
+  margin-top: 12px;
+  border-top: 1px solid var(--lfc-border, #b8c3c8);
+  padding-top: 10px;
+}
+
+.hedge-scenario__manual summary {
+  cursor: pointer;
+  font-weight: 650;
+}
+
+.hedge-scenario__fields,
+.hedge-scenario__leg {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 8px;
+  margin: 8px 0;
+}
+
+.hedge-scenario__leg {
+  padding: 8px;
+  border: 1px dashed var(--lfc-border, #b8c3c8);
+  border-radius: 8px;
+}
+
+.hedge-scenario__leg p {
+  grid-column: 1 / -1;
+  margin: 0;
+}
+
+.hedge-scenario__field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.hedge-scenario__field label {
+  font-size: 0.76rem;
+  color: #5b6b73;
+}
+
+.hedge-scenario__field input,
+.hedge-scenario__field select {
+  font: inherit;
+  font-size: 16px;
+  min-height: 40px;
+  padding: 6px 8px;
+  border-radius: 8px;
+  border: 1px solid var(--lfc-border, #b8c3c8);
+  background: var(--lfc-input-bg, #f7faf8);
+  color: inherit;
+}
+
+.hedge-scenario__field input:focus-visible,
+.hedge-scenario__field select:focus-visible {
+  outline: 2px solid var(--lfc-focus, #2f6b4f);
+  outline-offset: 2px;
+}
+
+.hedge-scenario__manual button {
+  margin-top: 8px;
+}
+
+@media (max-width: 640px) {
+  .hedge-scenario {
+    padding: 10px;
+  }
+
+  .hedge-scenario button {
+    width: 100%;
+  }
+}

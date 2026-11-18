@@ -1,0 +1,215 @@
+/* Hedge plan panel — plan only. Uses the portal tokens with plain fallbacks so
+   the block still reads correctly before tokens.css resolves. */
+
+.hedge-plan {
+  margin: 18px 0;
+  padding: 16px 18px;
+  border: 1px solid var(--lfc-border, #b8c3c8);
+  border-radius: 12px;
+  background: var(--lfc-surface, #fff);
+  color: var(--lfc-text, #14211a);
+}
+
+.hedge-plan__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+  margin-bottom: 12px;
+}
+
+.hedge-plan__head h2 {
+  margin: 0;
+  font-size: 1.15rem;
+}
+
+.hedge-plan__badge {
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  padding: 4px 9px;
+  border-radius: 999px;
+  border: 1px solid #a12a2a55;
+  color: #a12a2a;
+  background: #a12a2a12;
+  white-space: nowrap;
+}
+
+.hedge-plan__note {
+  flex: 1 1 100%;
+  margin: 0;
+  font-size: 0.78rem;
+  color: #5b6b73;
+}
+
+.hedge-plan__controls {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.hedge-plan__field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.hedge-plan__label {
+  font-size: 0.72rem;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  color: #5b6b73;
+}
+
+.hedge-plan__value {
+  font-size: 0.92rem;
+  overflow-wrap: anywhere;
+}
+
+.hedge-plan input,
+.hedge-plan select {
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+  padding: 7px 9px;
+  border-radius: 8px;
+  border: 1px solid var(--lfc-border, #b8c3c8);
+  background: var(--lfc-input-bg, #f7faf8);
+  color: inherit;
+  font-size: 0.85rem;
+}
+
+.hedge-plan input:focus-visible,
+.hedge-plan select:focus-visible,
+.hedge-plan button:focus-visible {
+  outline: 2px solid var(--lfc-focus, #2f6b4f);
+  outline-offset: 2px;
+}
+
+.hedge-plan__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.hedge-plan__status {
+  margin: 6px 0 0;
+  font-size: 0.8rem;
+  color: #5b6b73;
+  min-height: 1.2em;
+}
+
+.hedge-plan__panel {
+  margin-top: 12px;
+  padding: 14px;
+  border: 1px dashed var(--lfc-border, #b8c3c8);
+  border-radius: 10px;
+}
+
+.hedge-plan__panel-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 6px 12px;
+  margin-bottom: 10px;
+}
+
+.hedge-plan__panel-head h3 {
+  margin: 0;
+  font-size: 1rem;
+}
+
+.hedge-plan__tier {
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  color: #3d6b52;
+}
+
+.hedge-plan__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.hedge-plan__rule,
+.hedge-plan__gate,
+.hedge-plan__tax {
+  font-size: 0.78rem;
+  margin: 6px 0;
+  padding: 8px 10px;
+  border-left: 3px solid #3d6b52;
+  background: #3d6b520d;
+  border-radius: 0 8px 8px 0;
+}
+
+.hedge-plan__gate {
+  border-left-color: #8a6d1f;
+  background: #8a6d1f0d;
+}
+
+.hedge-plan__tax {
+  border-left-color: #a12a2a;
+  background: #a12a2a0d;
+}
+
+.hedge-plan__legs {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.76rem;
+  margin: 8px 0;
+  display: block;
+  overflow-x: auto;
+  white-space: nowrap;
+}
+
+.hedge-plan__legs th,
+.hedge-plan__legs td {
+  padding: 6px 8px;
+  border-bottom: 1px solid var(--lfc-border, #b8c3c8);
+  text-align: left;
+}
+
+.hedge-plan__legs th {
+  font-size: 0.68rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #5b6b73;
+}
+
+.hedge-plan__unavailable {
+  margin: 8px 0 0;
+  padding-left: 18px;
+  font-size: 0.76rem;
+  color: #a12a2a;
+}
+
+@media (max-width: 640px) {
+  .hedge-plan {
+    padding: 12px;
+    margin: 12px 0;
+    border-radius: 10px;
+  }
+
+  .hedge-plan__controls,
+  .hedge-plan__grid {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .hedge-plan__actions .primary,
+  .hedge-plan__actions .ghost {
+    flex: 1 1 100%;
+  }
+}
+
+@media (max-width: 380px) {
+  .hedge-plan__controls,
+  .hedge-plan__grid {
+    grid-template-columns: 1fr;
+  }
+}
