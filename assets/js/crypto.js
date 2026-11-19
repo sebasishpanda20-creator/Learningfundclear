@@ -16,7 +16,8 @@
   for(const [label,reading] of [['Yesterday',m.yesterday],['7 days ago',m.week],['30 days ago',m.month]]){
    const p=document.createElement('p');p.textContent=label+': '+reading+'/100';compare.appendChild(p);
   }
-  $('moodStatus').textContent='Fetched '+stamp(Date.now())+' · Alternative.me public index. Context only; no trade is based on it.';
+  const stale=Date.now()-m.asOf>2*86400000;
+  $('moodStatus').textContent=stale?'Stale reading · refresh to update':'Fetched '+stamp(Date.now())+' · Alternative.me public index. Context only; no trade is based on it.';
  }
  async function refreshMood(){
   if(!$('moodValue'))return;
