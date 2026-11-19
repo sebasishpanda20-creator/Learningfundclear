@@ -10,6 +10,8 @@ import {handleFyers} from './fyers-routes.mjs';
 import {serveHedgePlan} from './hedging-engine.mjs';
 export {FyersVault} from './fyers-vault.mjs';
 
+const json=(body,status=200)=>Response.json(body,{status,headers:{'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store'}});
+
 // The terminal cookie is a browser credential for this worker only: never let
 // it reach the daemon behind the tunnel.
 function withoutCookies(request){
