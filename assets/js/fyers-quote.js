@@ -159,26 +159,18 @@
         error && error.name === 'AbortError' ? 'The broker quote timed out.' : 'Could not reach the broker quote route.',
       );
     }
+    const httpStatus = response.status;
     let payload = null;
-    if (response.status !== 200) {
-      try {
-        payload = await response.json();
-      } catch {
-        payload = null;
-      }
-      return evaluate(payload, {
-        httpStatus: response.status,
-        now: options.now,
-        maxAgeMs: options.maxAgeMs,
-      });
-    }
     try {
       payload = await response.json();
     } catch {
+      payload = null;
+    }
+    if (httpStatus === 200 && !payload) {
       return unavailable('INVALID_RESPONSE', 'The broker route returned invalid JSON.');
     }
     return evaluate(payload, {
-      httpStatus: response.status,
+      httpStatus,
       now: options.now,
       maxAgeMs: options.maxAgeMs,
     });

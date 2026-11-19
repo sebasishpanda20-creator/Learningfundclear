@@ -25,12 +25,10 @@
   const source = page === 'gex' ? document.querySelector('#sym') : null;
   const initial = source && source.value ? source.value : DEFAULT_SYMBOLS[page];
   const heading = main.querySelector('h1');
-  let block = heading ? heading.closest('.page-heading') : null;
-  if (!block && heading) {
-    const next = heading.nextElementSibling;
-    block = next && next.classList.contains('sub') ? next : heading;
-  }
-  if (!block) return;
+  if (!heading) return;
+  const sibling = heading.nextElementSibling;
+  const block = heading.closest('.page-heading')
+    || (sibling && sibling.classList.contains('sub') ? sibling : heading);
 
   const host = document.createElement('div');
   host.className = 'fyers-quote';
@@ -189,7 +187,7 @@
           status: 'unavailable',
           code: 'CLIENT_ERROR',
           message: error && error.name === 'AbortError'
-            ? 'The broker quote timed out. No substitute price is shown.'
+            ? 'The broker quote timed out.'
             : 'The broker quote client could not complete the request.',
         });
       }
