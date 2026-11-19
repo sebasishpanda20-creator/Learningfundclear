@@ -120,7 +120,7 @@ function backtestUnderlying(raw15,raw60,{hours=4,feeBps=20,from,until}={}){
  let small,big;
  try{small=normalize(raw15,15);big=normalize(raw60,60);}
  catch(e){return no(e.message);}
- if(small.length<165||big.length<90)return no("Not enough continuous historical candles for walk-forward tests");
+ if(small.length<165||big.length<90)return no("Not enough continuous historical candles for the backtest");
  const records=[];let curve=0,peak=0,maxDrawdownR=0;
  for(let i=90;i+hours*4+1<small.length;){
   const event=small[i].time+15*60000;
@@ -156,7 +156,7 @@ function backtestUnderlying(raw15,raw60,{hours=4,feeBps=20,from,until}={}){
   winRate:n?wins/n:null,meanNetR:n?sum/n:null,totalNetR:sum,maxDrawdownR,
   feeBps,hours,from:small[0].time,to:small.at(-1).time+900000,
   records:records.slice(-50),reason:n>=20?
-  "Underlying-only non-overlapping historical walk-forward; option premiums, IV, margin and fills NOT tested. No out-of-sample validation.":
+  "Underlying-only non-overlapping historical backtest; option premiums, IV, margin and fills NOT tested. No out-of-sample validation.":
   "Fewer than 20 qualifying non-overlapping signals; performance is not validated."};
 }
 root.LfcCryptoAdvanced={evaluateCredit,backtestUnderlying,normalize};

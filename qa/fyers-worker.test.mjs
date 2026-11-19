@@ -10,6 +10,7 @@ import {
   appIdHash,
   buildLoginUrl,
   clearSessionCookie,
+  FYERS_RETURN_COOKIE,
   mapQuote,
   nextFyersExpiry,
   openToken,
@@ -18,6 +19,7 @@ import {
   providerSymbol,
   quoteUrl,
   sameOrigin,
+  safeReturnPath,
   sealToken,
   sessionCookie,
   sha256Hex,
@@ -87,26 +89,30 @@ function request(path, { method = 'GET', cookie, headers = {} } = {}) {
   });
 }
 
-async function startLogin({ user = OWNER, env = baseEnv(), deps = {} } = {}) {
+async function startLogin({ user = OWNER, env = baseEnv(), deps = {}, path = '/api/fyers/login' } = {}) {
   const vault = deps.vault || fakeVault(deps.now);
   const p = provider();
-  const res = await handleFyers(request('/api/fyers/login'), env, CONFIG, {
+  const res = await handleFyers(request(path), env, CONFIG, {
     authenticate: sessionFor(user),
     vault,
     fetchImpl: deps.fetchImpl || p.fetchImpl,
     now: deps.now,
   });
   const body = await res.json();
-  const setCookie = res.headers.get('set-cookie') || '';
-  const sid = parseCookies(setCookie).lfc_fyers_session;
+  const setCookies = typeof res.headers.getSetCookie === 'function'
+    ? res.headers.getSetCookie()
+    : [res.headers.get('set-cookie') || ''];
+  const parsed = setCookies.map((value) => parseCookies(value));
+  const sid = parsed.map((value) => value.lfc_fyers_session).find(Boolean);
+  const returnCookie = parsed.map((value) => value[FYERS_RETURN_COOKIE]).find((value) => value !== undefined);
   const state = new URL(body.login_url).searchParams.get('state');
-  return { res, body, sid, state, vault, providerCalls: p.calls };
+  return { res, body, sid, returnCookie, state, vault, providerCalls: p.calls };
 }
 
-async function callback({ sid, state, env = baseEnv(), vault, fetchImpl, query = '' }) {
+async function callback({ sid, state, env = baseEnv(), vault, fetchImpl, query = '', cookie }) {
   return handleFyers(
     request(`/api/fyers/callback?state=${encodeURIComponent(state)}&auth_code=CODE123${query}`, {
-      cookie: `lfc_fyers_session=${sid}`,
+      cookie: cookie || `lfc_fyers_session=${sid}`,
     }),
     env,
     CONFIG,
@@ -297,7 +303,8 @@ test('callback exchanges once, stores only sealed text and redirects connected',
   const p = provider();
   const res = await callback({ sid, state, vault, fetchImpl: p.fetchImpl });
   assert.equal(res.status, 302);
-  assert.match(res.headers.get('location'), /fyers=connected/);
+  assert.equal(res.headers.get('location'), '/lfc_terminal_v6.html?fyers=connected');
+  assert.match(res.headers.get('set-cookie'), /lfc_fyers_return=;/);
   assert.equal(res.headers.get('cache-control'), 'no-store');
   assert.equal(p.calls.length, 1);
   const exchange = JSON.parse(p.calls[0].init.body);
@@ -307,6 +314,38 @@ test('callback exchanges once, stores only sealed text and redirects connected',
   const record = await vault.request('getSession', [sid, OWNER.id]);
   assert.ok(record);
   assert.equal(JSON.stringify(record).includes('ACCESS-TOKEN'), false);
+});
+
+test('safeReturnPath allows portal pages and refuses off-origin destinations', () => {
+  assert.equal(safeReturnPath('/gex.html?sym=BANKNIFTY'), '/gex.html?sym=BANKNIFTY');
+  assert.equal(safeReturnPath('/gex.html?fyers=error&reason=invalid_state'), '/gex.html');
+  assert.equal(safeReturnPath('https://evil.example/gex.html'), '/lfc_terminal_v6.html');
+  assert.equal(safeReturnPath('//evil.example/gex.html'), '/lfc_terminal_v6.html');
+  assert.equal(safeReturnPath('/api/fyers/callback'), '/lfc_terminal_v6.html');
+  assert.equal(safeReturnPath('/signin.html'), '/lfc_terminal_v6.html');
+});
+
+test('login records the starting page and the callback returns there', async () => {
+  const { sid, state, vault, returnCookie } = await startLogin({
+    path: '/api/fyers/login?return=' + encodeURIComponent('/gex.html?sym=BANKNIFTY'),
+  });
+  assert.equal(returnCookie, encodeURIComponent('/gex.html?sym=BANKNIFTY'));
+  const p = provider();
+  const res = await callback({ sid, state, vault, fetchImpl: p.fetchImpl });
+  assert.equal(res.headers.get('location'), '/gex.html?sym=BANKNIFTY&fyers=connected');
+});
+
+test('callback failures return to the starting page when the cookie survives', async () => {
+  const { sid, state, vault } = await startLogin({
+    path: '/api/fyers/login?return=' + encodeURIComponent('/setups.html'),
+  });
+  const res = await callback({
+    sid: 'wrong',
+    state,
+    vault,
+    cookie: `lfc_fyers_session=wrong; ${FYERS_RETURN_COOKIE}=${encodeURIComponent('/setups.html')}`,
+  });
+  assert.equal(res.headers.get('location'), '/setups.html?fyers=error&reason=invalid_state');
 });
 
 test('callback replay, invalid state and missing cookie are refused', async () => {

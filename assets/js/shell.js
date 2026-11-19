@@ -17,6 +17,7 @@
     "quant-desk": "M4 5h16v14H4z M7 9l3 3-3 3 M13 15h4",
     funds: "M3 9l9-6 9 6 M5 10v8 M12 10v8 M19 10v8 M3 21h18",
     admin: "M12 3l8 4v5c0 5-8 9-8 9s-8-4-8-9V7z",
+    broker: "M4 7h16v12H4z M8 7V5h8v2 M8 12h8",
   };
   const nav = [
     ["dashboard", "Dashboard", "index.html"],
@@ -37,7 +38,7 @@
   const aside = document.createElement("aside");
   aside.className = "sidebar";
   aside.id = "portalNav";
-  aside.innerHTML = `<a class="portal-brand" href="${route("index.html")}"><span class="brand-mark">${svg("gex")}</span><span>Learning<span class="brand-clear">FundClear</span><small>RESEARCH WORKSPACE</small></span></a><p class="nav-caption">WORKSPACE</p><nav aria-label="Primary navigation">${nav.map(([key, title, path]) => `<a ${key === "admin" ? 'id="adminNav" hidden' : ""} ${key === page ? 'aria-current="page"' : ""} href="${route(path)}">${svg(key)}<span>${title}</span>${key === page ? "<i></i>" : ""}</a>`).join("")}</nav><div class="sidebar-bottom"><div class="privacy-note">${svg("admin")}<span>Private research<br><small>Your space to think clearly</small></span></div><button data-lfc-theme-toggle aria-pressed="false">Dark appearance</button><button id="logoutBtn">Sign out <span aria-hidden="true">↗</span></button></div>`;
+  aside.innerHTML = `<a class="portal-brand" href="${route("index.html")}"><span class="brand-mark">${svg("gex")}</span><span>Learning<span class="brand-clear">FundClear</span><small>RESEARCH WORKSPACE</small></span></a><p class="nav-caption">WORKSPACE</p><nav aria-label="Primary navigation">${nav.map(([key, title, path]) => `<a ${key === "admin" ? 'id="adminNav" hidden' : ""} ${key === page ? 'aria-current="page"' : ""} href="${route(path)}">${svg(key)}<span>${title}</span>${key === page ? "<i></i>" : ""}</a>`).join("")}<button type="button" id="brokerNav" class="nav-broker" hidden>${svg("broker")}<span>Broker connection</span></button></nav><div class="sidebar-bottom"><div class="privacy-note">${svg("admin")}<span>Private research<br><small>Your space to think clearly</small></span></div><button data-lfc-theme-toggle aria-pressed="false">Dark appearance</button><button id="logoutBtn">Sign out <span aria-hidden="true">↗</span></button></div>`;
   const top = document.createElement("div");
   top.className = "topbar";
   top.innerHTML = `<button class="menu-toggle" aria-label="Open navigation" aria-controls="portalNav" aria-expanded="false">☰</button><div class="breadcrumb">Workspace <span>/</span> <strong>${nav.find((n) => n[0] === page)?.[1] || "Research"}</strong></div><div class="profile"><span class="private-badge">Private portal</span><span class="avatar" aria-hidden="true">U</span><span id="userDisplay">Research account</span></div>`;
@@ -51,6 +52,47 @@
   skip.href = "#main";
   skip.textContent = "Skip to content";
   document.body.prepend(skip);
+  let dialogLoad = null;
+  function loadFyersDialog() {
+    if (window.LfcFyersDialog) return Promise.resolve(window.LfcFyersDialog);
+    if (!dialogLoad) {
+      dialogLoad = new Promise((resolve, reject) => {
+        const script = document.createElement("script");
+        script.src = new URL("assets/js/fyers-dialog.js", root).href;
+        script.onload = () => window.LfcFyersDialog ? resolve(window.LfcFyersDialog) : reject(new Error("FYERS dialog unavailable"));
+        script.onerror = () => reject(new Error("FYERS dialog failed to load"));
+        document.body.append(script);
+      }).catch((error) => {
+        dialogLoad = null;
+        throw error;
+      });
+    }
+    return dialogLoad;
+  }
+  async function isBrokerOwner() {
+    try {
+      const session = await LfcAuth.client.auth.getSession();
+      const token = session && session.data && session.data.session && session.data.session.access_token;
+      if (!token) return false;
+      const response = await fetch(new URL("api/fyers/config-status", root), {
+        cache: "no-store",
+        credentials: "same-origin",
+        headers: { Authorization: "Bearer " + token },
+      });
+      return response.ok;
+    } catch {
+      return false;
+    }
+  }
+  const brokerNav = document.getElementById("brokerNav");
+  brokerNav.onclick = async () => {
+    try {
+      const fyers = await loadFyersDialog();
+      fyers.open();
+    } catch (error) {
+      console.error("[fyers] " + error.message);
+    }
+  };
   const menu = top.querySelector(".menu-toggle");
   function close() {
     document.body.classList.remove("nav-open");
@@ -123,7 +165,7 @@
       el.placeholder || el.id.replace(/([A-Z])/g, " $1"),
     );
   });
-  LfcAuth.ready.then((user) => {
+  LfcAuth.ready.then(async (user) => {
     if (!user) return;
     // Remember the desk the user is actually on, verified session only, so a
     // later sign-in resumes there instead of always landing on the dashboard.
@@ -146,5 +188,7 @@
       .slice(0, 1)
       .toUpperCase();
     document.getElementById("adminNav").hidden = !user.is_admin;
+    if (user.is_admin || await isBrokerOwner()) brokerNav.hidden = false;
   });
+  if (new URLSearchParams(location.search).has("fyers")) loadFyersDialog().catch(() => {});
 })();

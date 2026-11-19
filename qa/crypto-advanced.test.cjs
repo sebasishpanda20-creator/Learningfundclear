@@ -45,7 +45,7 @@ function bars(minutes,n,slope=0.05){
    open:mid-.1,high:mid+.4,low:mid-.4,close:mid};
  });
 }
-test("walk-forward backtest refuses missing/corrupt/candle-gap history",()=>{
+test("historical backtest refuses missing/corrupt/candle-gap history",()=>{
  const a=bars(15,300),b=bars(60,160);
  assert.equal(A.backtestUnderlying([],b).status,"NO TRADE");
  const gap=[...a];gap[180]={...gap[180],time:gap[180].time+4};
@@ -53,7 +53,7 @@ test("walk-forward backtest refuses missing/corrupt/candle-gap history",()=>{
  const invalid=[...a];invalid[100]={...invalid[100],high:0};
  assert.equal(A.backtestUnderlying(invalid,b).status,"NO TRADE");
 });
-test("walk-forward backtest returns explicitly qualified underlying-only record",()=>{
+test("historical backtest returns explicitly qualified underlying-only record",()=>{
  const r=A.backtestUnderlying(bars(15,700),bars(60,250),{hours:2,feeBps:20});
  assert(["INSUFFICIENT SAMPLE","HISTORICAL PROXY"].includes(r.status));
  assert(r.trades>=0);assert(r.reason.includes("historical")||r.reason.includes("signals"));

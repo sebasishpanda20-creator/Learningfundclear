@@ -8,6 +8,7 @@ export const FYERS_LOGOUT_PATH = '/api/v3/logout';
 export const FYERS_QUOTES_PATH = '/data/quotes';
 
 export const FYERS_COOKIE = 'lfc_fyers_session';
+export const FYERS_RETURN_COOKIE = 'lfc_fyers_return';
 export const STATE_TTL_SECONDS = 600;
 export const SESSION_FALLBACK_SECONDS = 12 * 60 * 60;
 
@@ -99,10 +100,33 @@ export function parseCookies(header) {
   return out;
 }
 
-export function sessionCookie(sid, { maxAge, secure }) {
+const RETURN_DEFAULT = '/lfc_terminal_v6.html';
+const RETURN_ALLOWED = /^\/(?:(?:index|performance|admin|scanner|nifty500|setups|gex|crypto|crypto-options|crypto-funding|quant-desk|lfc_terminal_v6)\.html|funds\/(?:index|top-returns|funds|scheme|compare|calculators|methodology|legal)\.html)$/;
+
+// Only same-origin portal pages are valid post-login destinations. Query and
+// hash survive, but OAuth outcome parameters are removed so a stale
+// ?fyers=error cannot follow the user back into the page.
+export function safeReturnPath(raw) {
+  if (typeof raw !== 'string' || !raw.startsWith('/') || raw.startsWith('//') || raw.includes('\\')) {
+    return RETURN_DEFAULT;
+  }
+  try {
+    const url = new URL(raw, 'https://portal.invalid');
+    if (url.origin !== 'https://portal.invalid' || !RETURN_ALLOWED.test(url.pathname)) {
+      return RETURN_DEFAULT;
+    }
+    url.searchParams.delete('fyers');
+    url.searchParams.delete('reason');
+    return url.pathname + url.search + url.hash;
+  } catch {
+    return RETURN_DEFAULT;
+  }
+}
+
+function cookie(name, value, { maxAge = 0, secure = false, path }) {
   return [
-    `${FYERS_COOKIE}=${sid}`,
-    'Path=/',
+    `${name}=${value}`,
+    `Path=${path}`,
     'HttpOnly',
     `Max-Age=${Math.max(0, Math.floor(maxAge))}`,
     'SameSite=Lax',
@@ -110,15 +134,34 @@ export function sessionCookie(sid, { maxAge, secure }) {
   ].filter(Boolean).join('; ');
 }
 
+export function returnCookie(value, { maxAge, secure }) {
+  return cookie(FYERS_RETURN_COOKIE, encodeURIComponent(safeReturnPath(value)), {
+    maxAge,
+    secure,
+    path: '/api/fyers',
+  });
+}
+
+export function clearReturnCookie({ secure }) {
+  return cookie(FYERS_RETURN_COOKIE, '', { secure, path: '/api/fyers' });
+}
+
+export function readReturnCookie(header) {
+  const raw = parseCookies(header)[FYERS_RETURN_COOKIE];
+  if (!raw) return RETURN_DEFAULT;
+  try {
+    return safeReturnPath(decodeURIComponent(raw));
+  } catch {
+    return RETURN_DEFAULT;
+  }
+}
+
+export function sessionCookie(sid, { maxAge, secure }) {
+  return cookie(FYERS_COOKIE, sid, { maxAge, secure, path: '/' });
+}
+
 export function clearSessionCookie({ secure }) {
-  return [
-    `${FYERS_COOKIE}=`,
-    'Path=/',
-    'HttpOnly',
-    'Max-Age=0',
-    'SameSite=Lax',
-    secure ? 'Secure' : '',
-  ].filter(Boolean).join('; ');
+  return cookie(FYERS_COOKIE, '', { secure, path: '/' });
 }
 
 export function buildLoginUrl({ clientId, redirectUri, state, scope }) {

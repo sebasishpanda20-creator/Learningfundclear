@@ -22,11 +22,38 @@ export class ScenarioBlocked extends Error {
   }
 }
 
+// Sources hand back either epoch milliseconds or an ISO 8601 string; both are
+// normalised before the freshness comparison.
+export function normalizeQuoteAt(value) {
+  if (typeof value === 'number' && Number.isFinite(value)) return value;
+  if (typeof value === 'string' && value.trim()) {
+    const parsed = Date.parse(value);
+    if (Number.isFinite(parsed)) return parsed;
+  }
+  return NaN;
+}
+
+function nseFill(ctx, leg) {
+  const strike = Number(leg.strike);
+  const optionType = leg.optionType === 'CE' || leg.optionType === 'PE' ? leg.optionType : null;
+  const quote = ctx.quotes && optionType ? ctx.quotes[`${strike}:${optionType}`] : null;
+  const side = leg.action === 'SELL' ? 'bid' : 'ask';
+  const value = quote ? quote[side] : null;
+  if (!(Number.isFinite(value) && value > 0)) {
+    throw new ScenarioBlocked(
+      'NO_BID_ASK',
+      `The NSE chain has no verified ${side} for ${strike} ${optionType || 'leg'}; the preview will not fall back to last traded price.`,
+    );
+  }
+  return value;
+}
+
 function requireFresh(ctx) {
-  if (!Number.isFinite(ctx.quoteAt)) {
+  const quoteAt = normalizeQuoteAt(ctx.quoteAt);
+  if (!Number.isFinite(quoteAt)) {
     throw new ScenarioBlocked('QUOTE_TIMESTAMP_UNAVAILABLE', 'The quote has no source timestamp, so its freshness cannot be verified.');
   }
-  const age = ctx.now - ctx.quoteAt;
+  const age = ctx.now - quoteAt;
   if (!Number.isFinite(age) || age < -60000 || age > QUOTE_MAX_AGE_MS) {
     throw new ScenarioBlocked('STALE_QUOTES', 'The last verified quote is older than five minutes; refresh the segment data.');
   }
@@ -39,14 +66,26 @@ function requirePrices(prices) {
   return prices;
 }
 
+// Segment-specific reasons for a missing contract. The generic fallback keeps
+// the existing NO_<SEGMENT>_CONTRACT code for any future adapter.
+const MISSING_CONTRACT = {
+  MCX: [
+    'NO_MCX_CONTRACT',
+    'No MCX contract metadata or quote is available in this portal; the commodity watchlist is a Yahoo global-futures proxy, not an MCX contract.',
+  ],
+  DELTA: [
+    'NO_INR_SETTLED_CONTRACT',
+    'No verified INR-settled Delta contract metadata is available for this panel.',
+  ],
+};
+
 function contractIdentity(contract, segment) {
   if (!contract) {
-    throw new ScenarioBlocked(
+    const [code, reason] = MISSING_CONTRACT[segment] || [
       `NO_${segment}_CONTRACT`,
-      segment === 'MCX'
-        ? 'No MCX contract metadata or quote is available in this portal; the commodity watchlist is a Yahoo global-futures proxy, not an MCX contract.'
-        : 'No verified Delta product metadata is available for this panel.',
-    );
+      'No verified contract metadata is available for this panel.',
+    ];
+    throw new ScenarioBlocked(code, reason);
   }
   if (!['LINEAR', 'CALL', 'PUT'].includes(contract.kind)) {
     throw new ScenarioBlocked('UNSUPPORTED_INSTRUMENT_KIND', 'Only linear, call and put instruments with a verified contract spec are supported.');
@@ -91,7 +130,7 @@ function legFromPlan(leg, contract, currency, settlement) {
   if (!(Number.isFinite(quote) && quote > 0)) {
     throw new ScenarioBlocked(
       'NO_VERIFIED_PREMIUM',
-      'The plan has no verified premium for every leg. NSE option entries need an exchange bid (sell) and ask (buy); the chain in this portal publishes last traded price only.',
+      'The plan has no verified entry premium for every leg; the preview will not invent one.',
     );
   }
   return {
@@ -118,13 +157,9 @@ export function nseScenario(ctx) {
   if (!ctx.plan || !Array.isArray(ctx.plan.basket?.legs) || !ctx.plan.basket.legs.length) {
     throw new ScenarioBlocked('NO_PLAN', 'Generate a hedge plan in this panel first; the preview simulates that plan\'s legs.');
   }
-  if (!ctx.bidAsk) {
-    throw new ScenarioBlocked(
-      'NO_BID_ASK',
-      'NSE option entries need a verified bid for sells and ask for buys. This chain publishes last traded price only, so a fill price would have to be invented.',
-    );
+  if (ctx.chain && (ctx.chain.symbol !== ctx.symbol || ctx.chain.expiry !== ctx.expiry)) {
+    throw new ScenarioBlocked('CHAIN_MISMATCH', 'The loaded option chain does not match the selected underlying and expiry.');
   }
-  requireFresh(ctx);
   const contract = contractIdentity(
     {
       underlying: ctx.symbol,
@@ -136,7 +171,10 @@ export function nseScenario(ctx) {
     },
     'NSE',
   );
-  const legs = ctx.plan.basket.legs.map((leg) => legFromPlan(leg, contract, 'INR', 'INR'));
+  const legs = ctx.plan.basket.legs.map((leg) =>
+    legFromPlan({ ...leg, quote: nseFill(ctx, leg) }, contract, 'INR', 'INR'),
+  );
+  requireFresh(ctx);
   assertSameContract(contract, legs);
   return {
     underlying: contract.underlying,
@@ -147,7 +185,7 @@ export function nseScenario(ctx) {
     prices: requirePrices(ctx.prices),
     fees: Number.isFinite(ctx.fees) && ctx.fees >= 0 ? ctx.fees : Number(ctx.plan.statutoryCostInr) || 0,
     source: ctx.source || 'NSE option chain',
-    quoteAt: ctx.quoteAt ? new Date(ctx.quoteAt).toISOString() : null,
+    quoteAt: Number.isFinite(normalizeQuoteAt(ctx.quoteAt)) ? new Date(normalizeQuoteAt(ctx.quoteAt)).toISOString() : null,
   };
 }
 
@@ -183,7 +221,7 @@ export function mcxScenario(ctx) {
     prices: requirePrices(ctx.prices),
     fees: Number.isFinite(ctx.fees) && ctx.fees >= 0 ? ctx.fees : 0,
     source: ctx.source || 'MCX contract feed',
-    quoteAt: ctx.quoteAt ? new Date(ctx.quoteAt).toISOString() : null,
+    quoteAt: Number.isFinite(normalizeQuoteAt(ctx.quoteAt)) ? new Date(normalizeQuoteAt(ctx.quoteAt)).toISOString() : null,
   };
 }
 
@@ -207,7 +245,7 @@ export function deltaScenario(ctx) {
     prices: requirePrices(ctx.prices),
     fees: Number.isFinite(ctx.fees) && ctx.fees >= 0 ? ctx.fees : 0,
     source: ctx.source || 'Delta India exchange feed',
-    quoteAt: ctx.quoteAt ? new Date(ctx.quoteAt).toISOString() : null,
+    quoteAt: Number.isFinite(normalizeQuoteAt(ctx.quoteAt)) ? new Date(normalizeQuoteAt(ctx.quoteAt)).toISOString() : null,
   };
 }
 
@@ -218,17 +256,49 @@ function text(doc, id) {
   return node ? (node.value !== undefined && node.tagName !== 'DIV' ? node.value : node.textContent) : '';
 }
 
+// Settlement prices are typed by the operator in the panel; they are never
+// synthesised from the chain, spot or any model.
+function operatorPrices(doc) {
+  const node = typeof doc.querySelector === 'function' ? doc.querySelector('[data-hedge-market-prices]') : null;
+  return String((node && node.value) || '')
+    .split(/[,;\s]+/)
+    .filter((value) => value.trim())
+    .map((value) => Number(value))
+    .filter((value) => Number.isFinite(value) && value >= 0);
+}
+
 export function readNseContext(doc = document, win = window) {
   const state = win.LfcHedgePlanState;
+  const chain = win.LfcNseChain && Array.isArray(win.LfcNseChain.rows) ? win.LfcNseChain : null;
+  const quotes = {};
+  if (chain) {
+    for (const row of chain.rows) {
+      for (const [optionType, side] of [['CE', row.ce], ['PE', row.pe]]) {
+        if (!side) continue;
+        const bid = Number(side.bid);
+        const ask = Number(side.ask);
+        if (Number.isFinite(bid) && bid > 0 && Number.isFinite(ask) && ask > 0) {
+          quotes[`${row.strike}:${optionType}`] = { bid, ask };
+        }
+      }
+    }
+  }
+  const selectedSymbol = String(text(doc, 'sym') || '').trim();
+  const selectedExpiry = String(text(doc, 'exp') || '').trim();
+  // The selectors identify what the user asked for. If the expiry selector has
+  // not been populated (for example after a failed chain load), the loaded
+  // chain's expiry is the only usable value; a mismatch still blocks below.
+  const expirySelected = /^\d{2}-[A-Za-z]{3}-\d{4}$/.test(selectedExpiry);
   return {
-    symbol: String(text(doc, 'sym') || '').trim(),
-    expiry: String(text(doc, 'exp') || '').trim(),
+    symbol: selectedSymbol || String((chain && chain.symbol) || '').trim(),
+    expiry: expirySelected ? selectedExpiry : String((chain && chain.expiry) || '').trim(),
     plan: state && state.plan ? state.plan : null,
-    quoteAt: state && Number.isFinite(state.at) ? state.at : null,
+    quoteAt: chain && Number.isFinite(chain.fetchedAt) ? chain.fetchedAt : null,
     now: Date.now(),
-    bidAsk: false, // the NSE chain renders last traded price only
-    prices: [],
-    source: 'NSE option chain (rendered)',
+    quotes,
+    chain: chain ? { symbol: chain.symbol, expiry: chain.expiry } : null,
+    prices: operatorPrices(doc),
+    source: chain ? 'NSE option chain (relay bid/ask)' : 'NSE option chain (not loaded)',
   };
 }
 
@@ -286,7 +356,10 @@ export function mountAll(doc = document) {
     const segment = (host.getAttribute('data-segment') || '').toUpperCase();
     const adapter = adapters[segment];
     if (!adapter) continue;
-    mountHedgeScenario(host, () => adapter(), doc, { clearOn: CLEAR_ON[segment] || [] });
+    mountHedgeScenario(host, () => adapter(), doc, {
+      clearOn: CLEAR_ON[segment] || [],
+      marketPrices: segment === 'NSE',
+    });
     mounted.push(segment);
   }
   return mounted;

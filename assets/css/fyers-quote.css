@@ -1,0 +1,20 @@
+.fyers-quote-card { margin-top: 18px; }
+.fyers-quote-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.fyers-quote-head h2 { margin: 0; }
+.fyers-quote-state { display: inline-flex; align-items: center; border: 1px solid var(--lfc-border, #cbd5e1); border-radius: 999px; padding: 5px 10px; font-size: .72rem; font-weight: 750; letter-spacing: .05em; white-space: nowrap; }
+.fyers-quote-state[data-state="fresh"] { color: #0a7a3f; border-color: #0a7a3f66; background: #0a7a3f0d; }
+.fyers-quote-state[data-state="stale"], .fyers-quote-state[data-state="unverified"] { color: #8a6100; border-color: #8a610066; background: #8a61000d; }
+.fyers-quote-state[data-state="unavailable"] { color: #b42318; border-color: #b4231866; background: #b423180d; }
+.fyers-quote-form { align-items: flex-end; margin-top: 14px; }
+.fyers-quote-form input { min-width: 180px; text-transform: uppercase; }
+.fyers-quote-message { margin: 10px 0 0; font-size: .85rem; }
+.fyers-quote-message a { font-weight: 650; }
+.fyers-quote-stats { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; margin-top: 14px; }
+.fyers-quote-stats div { border: 1px solid var(--lfc-border, #e2e8f0); border-radius: 10px; padding: 10px 12px; min-width: 0; }
+.fyers-quote-stats span { display: block; color: var(--lfc-muted, #5b6b73); font-size: .72rem; font-weight: 650; text-transform: uppercase; letter-spacing: .04em; }
+.fyers-quote-stats strong { display: block; margin-top: 3px; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.fyers-quote-card .mut { margin-bottom: 0; }
+@media (max-width: 700px) {
+  .fyers-quote-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .fyers-quote-form input { min-width: 0; width: 100%; }
+}

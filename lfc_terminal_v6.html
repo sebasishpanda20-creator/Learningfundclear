@@ -7,6 +7,7 @@
   <title>Quant Terminal v6 · LearningFundClear</title>
   <link rel="stylesheet" href="assets/css/tokens.css" />
   <link rel="stylesheet" href="assets/css/app.css" />
+  <link rel="stylesheet" href="assets/css/fyers-dialog.css" />
   <script src="assets/vendor/supabase.js"></script>
   <script src="assets/js/config.js"></script>
   <script src="assets/js/quant-config.js"></script>
@@ -35,74 +36,6 @@
       padding: 8px;
       color: var(--lfc-muted);
     }
-
-    /* ---- FYERS dialog -------------------------------------------------------- */
-    .fyers-dialog {
-      width: min(560px, calc(100vw - 24px));
-      max-height: min(86vh, 720px);
-      padding: 0;
-      border: 1px solid var(--lfc-border);
-      border-radius: 14px;
-      background: var(--lfc-surface);
-      color: var(--lfc-text);
-      overflow: auto;
-      box-shadow: 0 24px 60px #0006;
-    }
-    .fyers-dialog::backdrop { background: #0b1b2666; }
-    .fyers-head {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 12px;
-      padding: 12px 16px;
-      border-bottom: 1px solid var(--lfc-border);
-      position: sticky;
-      top: 0;
-      background: var(--lfc-surface);
-    }
-    .fyers-head h2 { font-size: 16px; margin: 0; }
-    .fyers-close {
-      min-width: 44px;
-      min-height: 44px;
-      border-radius: 10px;
-      border: 1px solid var(--lfc-border);
-      background: var(--lfc-surface-elevated);
-      color: inherit;
-      font-size: 16px;
-    }
-    .fyers-body { padding: 16px; display: grid; gap: 12px; font-size: 13px; }
-    .fyers-steps { margin: 0; padding-left: 18px; display: grid; gap: 8px; }
-    .fyers-steps code {
-      word-break: normal;
-      overflow-wrap: anywhere;
-      background: #eef4f7;
-      padding: 1px 5px;
-      border-radius: 4px;
-      font-size: 12px;
-    }
-    .fyers-uri {
-      display: inline-flex;
-      flex-wrap: wrap;
-      gap: 6px;
-      align-items: center;
-      max-width: 100%;
-    }
-    .fyers-copy {
-      min-height: 44px;
-      padding: 8px 12px;
-      margin-left: 6px;
-      border-radius: 8px;
-      border: 1px solid var(--lfc-border);
-      background: var(--lfc-surface-elevated);
-      color: inherit;
-    }
-    .fyers-state p { margin: 4px 0; }
-    .fyers-label { color: var(--lfc-muted); display: inline-block; min-width: 106px; }
-    .fyers-note { color: var(--lfc-muted); margin: 0; }
-    .fyers-error { color: #b42318; margin: 0; font-weight: 600; }
-    .fyers-actions { display: flex; gap: 8px; flex-wrap: wrap; }
-    .fyers-actions .button { min-height: 44px; flex: 1 1 160px; }
-    .fyers-actions .button:disabled { opacity: 0.5; cursor: not-allowed; }
 
     /* ---- phone navigation ---------------------------------------------------- */
     .mf-topbar { display: none; }
@@ -354,7 +287,7 @@
     <div class="sidebar-bottom">
       <button id="settingsBtn">Settings</button>
       <button id="logoutBtn">Log out</button>
-      <button id="connectFyersBtn" class="button secondary" style="width:100%;padding:6px 4px;font-size:11px;margin-top:4px">Connect FYERS</button>
+      <button id="connectFyersBtn" data-fyers-open class="button secondary" style="width:100%;padding:6px 4px;font-size:11px;margin-top:4px">Connect FYERS</button>
     </div>
   </aside>
 
@@ -470,34 +403,6 @@
     </section>
 
     <!-- ---- FYERS connection dialog ---------------------------------------------- -->
-    <dialog class="fyers-dialog" id="fyersModal" aria-labelledby="fyersModalTitle">
-      <div class="fyers-head">
-        <h2 id="fyersModalTitle">Connect FYERS</h2>
-        <button type="button" class="fyers-close" data-fyers-close aria-label="Close connection dialog">✕</button>
-      </div>
-      <div class="fyers-body">
-        <p class="fyers-note">Broker login runs on this server. The app secret and access token never reach this page.</p>
-        <p id="fyersConfigNote" class="fyers-note" role="status">Checking server configuration…</p>
-        <ol class="fyers-steps">
-          <li>Create a NON-TRADING app at <a href="https://myapi.fyers.in" target="_blank" rel="noopener noreferrer">myapi.fyers.in</a>.</li>
-          <li>Register this redirect URI on that app:
-            <span class="fyers-uri"><code id="fyersRedirectUri">not configured</code><button type="button" id="copyCallbackBtn" class="fyers-copy">Copy</button></span>
-          </li>
-          <li>Set <code>FYERS_CLIENT_ID</code>, <code>FYERS_SECRET_ID</code> and <code>FYERS_REDIRECT_URI</code> in the server environment, then restart the proxy.</li>
-        </ol>
-        <div class="fyers-state">
-          <p><span class="fyers-label">Authentication</span> <strong id="fyersAuthState">signed out</strong></p>
-          <p><span class="fyers-label">Market data</span> <strong id="fyersDataState">not requested</strong></p>
-          <p id="fyersExpiry" class="fyers-note"></p>
-        </div>
-        <p id="fyersError" class="fyers-error" role="alert" hidden></p>
-        <div class="fyers-actions">
-          <button type="button" id="loginWithFyersBtn" class="button primary">Log in with FYERS</button>
-          <button type="button" id="discFyersBtn" class="button secondary" hidden>Disconnect</button>
-        </div>
-        <p class="fyers-note">Disconnect clears this server session and asks FYERS to revoke this app's token. Refresh needs your account PIN, so it is not implemented: sign in again after the daily 06:30 IST expiry.</p>
-      </div>
-    </dialog>
 
 <!-- ---- bottom-sheet ticket ------------------------------------------------- -->
     <div class="bottom-sheet" id="bottomSheet" aria-modal="true" role="dialog" aria-labelledby="sheetTitle">
@@ -512,11 +417,11 @@
     </div>
 
     <!-- ---- quant terminal iframe ----------------------------------------------- -->
-    <section class="quant-shell" aria-label="Quant research terminal">
+    <section class="quant-shell" aria-label="Quant research terminal" data-quant-embed>
       <div class="quant-toolbar">
         <div class="cluster">
           <span id="qtStatus" class="quant-status" data-state="pending" role="status" aria-live="polite">Checking terminal…</span>
-          <span id="qtOrigin" class="quant-note"></span>
+          <span id="qtOrigin" class="quant-note" data-quant-origin></span>
         </div>
         <div class="cluster">
           <button id="qtReload" class="button" type="button" data-quant-reload>Reload terminal</button>
@@ -731,183 +636,6 @@
     // Runs once on load; opening the scan tab refreshes it.
     populateScanResults();
 </script>
-    <script>
-    'use strict';
-    /* FYERS dialog: one initialisation, explicit wiring, no fabricated state. */
-    (function () {
-      if (window.__lfcFyers) return;
-      window.__lfcFyers = true;
-
-      var byId = function (id) { return document.getElementById(id); };
-      var dialog = byId('fyersModal');
-      var closeBtn = dialog ? dialog.querySelector('[data-fyers-close]') : null;
-      var required = {
-        connect: byId('connectFyersBtn'),
-        dialog: dialog,
-        close: closeBtn,
-        copy: byId('copyCallbackBtn'),
-        note: byId('fyersConfigNote'),
-        redirect: byId('fyersRedirectUri'),
-        auth: byId('fyersAuthState'),
-        data: byId('fyersDataState'),
-        expiry: byId('fyersExpiry'),
-        error: byId('fyersError'),
-        login: byId('loginWithFyersBtn'),
-        disconnect: byId('discFyersBtn')
-      };
-      var missing = Object.keys(required).filter(function (k) { return !required[k]; });
-      if (missing.length) {
-        console.error('[fyers] missing required elements: ' + missing.join(', '));
-        return;
-      }
-
-      var cfg = { configured: false, connected: false, redirectUri: null, expiresAt: null };
-      var FYERS_BASE = (window.LFC_CONFIG && window.LFC_CONFIG.fyersBase) || '/api/fyers';
-      var REASONS = {
-        provider_refused: 'FYERS refused the login.',
-        missing_code: 'The provider redirect carried no authorization code.',
-        invalid_state: 'The login state was missing or expired. Start again.',
-        not_configured: 'The server is not configured for FYERS.',
-        token_exchange_failed: 'The token exchange failed. No credentials were stored.',
-        storage_failed: 'The server could not store the session securely. No credentials were kept.',
-        login_failed: 'FYERS login did not complete.'
-      };
-
-      function error(message) {
-        required.error.textContent = message || '';
-        required.error.hidden = !message;
-      }
-      function setAuth(text, dataText) {
-        required.auth.textContent = text;
-        if (dataText) required.data.textContent = dataText;
-      }
-      async function authHeaders() {
-        try {
-          var s = await LfcAuth.client.auth.getSession();
-          var t = s && s.data && s.data.session && s.data.session.access_token;
-          return t ? { Authorization: 'Bearer ' + t } : {};
-        } catch (e) { return {}; }
-      }
-      async function api(path, options) {
-        var opts = Object.assign({ cache: 'no-store', credentials: 'same-origin' }, options || {});
-        opts.headers = Object.assign({}, opts.headers || {}, await authHeaders());
-        var resp = await fetch(path, opts);
-        var body = null;
-        try { body = await resp.json(); } catch (e) {}
-        return { ok: resp.ok, status: resp.status, body: body };
-      }
-      function render() {
-        required.note.textContent = cfg.configured
-          ? 'Server configured. Continue with broker login.'
-          : 'Server is missing FYERS_CLIENT_ID / FYERS_SECRET_ID / FYERS_REDIRECT_URI.';
-        required.redirect.textContent = cfg.redirectUri || 'not configured';
-        required.copy.disabled = !cfg.redirectUri;
-        required.login.disabled = !cfg.configured;
-        required.login.hidden = cfg.connected;
-        required.disconnect.hidden = !cfg.connected;
-        required.expiry.textContent = cfg.expiresAt
-          ? 'Token expires ' + new Date(cfg.expiresAt * 1000).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' }) + ' IST.'
-          : '';
-      }
-      async function refresh() {
-        var r = await api(FYERS_BASE + '/config-status');
-        if (!r.ok || !r.body) {
-          cfg = { configured: false, connected: false, redirectUri: null, expiresAt: null };
-          var restricted = r.status === 401 || r.status === 403;
-          setAuth(restricted ? 'restricted' : 'unavailable', 'unavailable');
-          required.note.textContent = restricted
-            ? 'FYERS is restricted to the portal owner. Sign in with that account.'
-            : 'Server backend unavailable on this origin (' + r.status + '). FYERS login is inactive.';
-          required.login.disabled = true;
-          required.login.hidden = false;
-          required.disconnect.hidden = true;
-          required.copy.disabled = true;
-          required.redirect.textContent = 'not configured';
-          return;
-        }
-        cfg = {
-          configured: !!(r.body.configured && r.body.connected !== undefined),
-          connected: !!r.body.connected,
-          redirectUri: r.body.redirect_uri || null,
-          expiresAt: r.body.expires_at || null
-        };
-        setAuth(cfg.connected ? 'connected' : (cfg.configured ? 'signed out' : 'unavailable'));
-        render();
-        if (cfg.connected) loadQuote();
-        else required.data.textContent = 'not requested';
-      }
-      async function loadQuote() {
-        required.data.textContent = 'requesting…';
-        var r = await api(FYERS_BASE + '/quote?symbol=NIFTY');
-        if (r.ok && r.body && typeof r.body.ltp === 'number') {
-          required.data.textContent = 'NIFTY ₹' + r.body.ltp + ' · as of ' + (r.body.as_of || 'provider time unavailable');
-        } else {
-          required.data.textContent = r.status === 401 ? 'unavailable (session expired)' : 'unavailable';
-        }
-      }
-      function open() {
-        if (!dialog.open) dialog.showModal();
-        refresh();
-      }
-
-      required.connect.addEventListener('click', open);
-      required.close.addEventListener('click', function () { dialog.close(); });
-      dialog.addEventListener('click', function (e) { if (e.target === dialog) dialog.close(); });
-      dialog.addEventListener('close', function () { required.connect.focus(); });
-
-      required.copy.addEventListener('click', async function () {
-        var text = required.redirect.textContent;
-        if (!text || text === 'not configured') return;
-        try {
-          await navigator.clipboard.writeText(text);
-          required.copy.textContent = 'Copied';
-          setTimeout(function () { required.copy.textContent = 'Copy'; }, 1600);
-        } catch (e) {
-          error('Could not copy automatically; select the URI and copy it manually.');
-        }
-      });
-
-      required.login.addEventListener('click', async function () {
-        error('');
-        required.login.disabled = true;
-        try {
-          var r = await api(FYERS_BASE + '/login');
-          if (!r.ok || !r.body || !r.body.login_url) {
-            error('Could not start FYERS login (HTTP ' + r.status + ').');
-            return;
-          }
-          location.assign(r.body.login_url);
-        } finally {
-          required.login.disabled = false;
-        }
-      });
-
-      required.disconnect.addEventListener('click', async function () {
-        required.disconnect.disabled = true;
-        error('');
-        try {
-          var r = await api(FYERS_BASE + '/disconnect', { method: 'POST' });
-          if (!r.ok) error('Disconnect failed (HTTP ' + r.status + ').');
-          await refresh();
-        } finally {
-          required.disconnect.disabled = false;
-        }
-      });
-
-      var params = new URLSearchParams(location.search);
-      var outcome = params.get('fyers');
-      if (outcome) {
-        history.replaceState(null, '', location.pathname + location.hash);
-        if (outcome === 'connected') {
-          setAuth('connected');
-          open();
-        } else if (outcome === 'error') {
-          error(REASONS[params.get('reason')] || 'FYERS login did not complete.');
-          open();
-        }
-      }
-      refresh();
-    })();
 
     /* Phone navigation drawer: touch reachable, backdrop dismiss, focus restored. */
     (function () {
@@ -952,5 +680,6 @@
       }
     })();
   </script>
+  <script src="assets/js/fyers-dialog.js"></script>
 </body>
 </html>

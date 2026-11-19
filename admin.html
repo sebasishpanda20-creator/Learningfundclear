@@ -188,6 +188,24 @@
       <section id="admin" class="card hidden">
         <h2>Admin · Ideas, Users, Audit</h2>
         <div class="content">
+          <div id="fyersAdminCard">
+            <div class="section-title">FYERS broker</div>
+            <p class="method">
+              Configuration and connection status from the existing owner-gated
+              <code>/api/fyers/config-status</code> route. No client ID, secret,
+              token key or access token is displayed here.
+            </p>
+            <div class="overview-grid">
+              <div class="metric"><span>Configuration</span><strong id="fyersAdminConfigured">—</strong><small>Server environment</small></div>
+              <div class="metric"><span>Connection</span><strong id="fyersAdminConnected">—</strong><small>Owner broker session</small></div>
+              <div class="metric"><span>Token expiry</span><strong id="fyersAdminExpiry">—</strong><small>Asia/Kolkata</small></div>
+              <div class="metric"><span>Access</span><strong id="fyersAdminAccess">—</strong><small>Owner-only route</small></div>
+            </div>
+            <p class="method">Callback URI: <code id="fyersAdminRedirect">—</code></p>
+            <div class="actions"><button id="refreshFyersAdmin" type="button">Refresh FYERS status</button></div>
+            <p id="fyersAdminStatus" role="status" aria-live="polite">Checking FYERS configuration…</p>
+          </div>
+          <hr style="width: 100%; border-color: var(--line)" />
           <div class="section-title">Add / Edit idea</div>
           <div class="grid2">
             <label>Script<input id="ticker" list="symbols" /></label
@@ -341,6 +359,7 @@
       </section>
     </main>
     <script src="assets/js/shell.js"></script>
+    <script src="assets/js/admin-fyers.js"></script>
     <script type="module" src="assets/js/journal.js"></script>
   </body>
 </html>

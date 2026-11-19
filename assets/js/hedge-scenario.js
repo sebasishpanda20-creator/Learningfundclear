@@ -185,6 +185,25 @@ export function mountHedgeScenario(host, readScenario, doc = globalThis.document
   output.className = 'hedge-scenario__output';
   output.setAttribute('aria-live', 'polite');
 
+  /* Settlement prices are operator inputs, never derived from the chain. Only
+   * the NSE adapter reads this field; the other segments must not show a
+   * control their previews ignore. */
+  let marketPricesRow = null;
+  let marketPricesNote = null;
+  if (options.marketPrices !== false) {
+    marketPricesRow = create('div');
+    marketPricesRow.className = 'hedge-scenario__fields';
+    const marketPricesBlock = fieldBlock(doc, `${ns}-market-prices`, 'Settlement prices for this preview (you supply)');
+    const marketPricesInput = marketPricesBlock.input;
+    marketPricesInput.setAttribute('data-hedge-market-prices', '');
+    marketPricesInput.setAttribute('placeholder', 'e.g. 24000, 24500, 25000');
+    marketPricesRow.append(marketPricesBlock.wrap);
+    marketPricesNote = create('p');
+    marketPricesNote.className = 'hedge-scenario__label hedge-scenario__caption';
+    marketPricesNote.textContent =
+      'Expiry prices are your inputs, not quotes: nothing is generated or estimated. The market preview stays blocked until you enter at least one.';
+  }
+
   /* A click, or a change of instrument, starts a new run. A slow earlier
    * request can never repaint its result over the newer selection. */
   let run = 0;
@@ -214,11 +233,28 @@ export function mountHedgeScenario(host, readScenario, doc = globalThis.document
     try {
       const input = await readScenario();
       if (ticket !== run) return;
-      const results = expiryScenario(input);
-      output.textContent = formatScenario(results, input.currency);
-      if (input.source) {
-        source.textContent =
-          'Source: ' + input.source + (input.quoteAt ? ' · quote ' + input.quoteAt : ' · quote timestamp unavailable');
+      let results;
+      if (input.quoteAt && typeof input.quoteAt === 'number') {
+        const age = Date.now() - input.quoteAt;
+        const QUOTE_MAX_AGE_MS = 5 * 60 * 1000;
+        if (age > QUOTE_MAX_AGE_MS) {
+          output.textContent = 'Stale reading · refresh to update';
+          source.textContent = 'Quote is older than 5 minutes; data may be stale.';
+        } else {
+          results = expiryScenario(input);
+          output.textContent = formatScenario(results, input.currency);
+          if (input.source) {
+            source.textContent =
+              'Source: ' + input.source + (input.quoteAt ? ' · quote ' + input.quoteAt : ' · quote timestamp unavailable');
+          }
+        }
+      } else {
+        results = expiryScenario(input);
+        output.textContent = formatScenario(results, input.currency);
+        if (input.source) {
+          source.textContent =
+            'Source: ' + input.source + (input.quoteAt ? ' · quote ' + input.quoteAt : ' · quote timestamp unavailable');
+        }
       }
     } catch (err) {
       if (ticket !== run) return;
@@ -352,6 +388,6 @@ export function mountHedgeScenario(host, readScenario, doc = globalThis.document
     }
   });
 
-  host.append(button, label, source, output, manual);
+  host.append(...(marketPricesRow ? [marketPricesRow, marketPricesNote] : []), button, label, source, output, manual);
   return { button, label, source, output, manual, manualButton, manualLabel, manualSource, manualOutput, legRows };
 }

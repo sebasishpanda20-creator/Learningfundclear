@@ -46,11 +46,11 @@
 <section class="card" id="creditResearch"><h2>Credit spreads &amp; iron condors — risk-gated research</h2>
 <p class="sub">Screen all quoted legs with liquidity, completed-candle direction, theoretical defined risk, costs and capital-based contract limits. These are <strong>WATCH ONLY</strong> until verified account margin, exchange execution sequence and implied-volatility evidence are available. Never treat theoretical payoff as a fill or margin guarantee.</p>
 <div id="creditCandidates" aria-live="polite"><p>Run market analysis to inspect qualified research candidates.</p></div></section>
-<section class="card" id="historicalResearch"><h2>Historical signal backtest (underlying proxy)</h2>
-<p class="sub">Quick proxy uses historical 15m/hourly perpetual prices; validation compares the current multi-factor rule against EMA+SMC and EMA-only baselines using chronological 70% training / 30% untouched testing, trailing trend/volatility regimes, 20-bps costs and 40-bps stress. Insufficient samples are reported clearly. Neither test simulates historical options, order-book fills, actual margin or future profitability.</p>
+<section class="card" id="historicalResearch"><h2>Historical signal validation — single 70/30 holdout</h2>
+<p class="sub">Quick proxy uses historical 15m/hourly perpetual prices. Validation is <strong>one chronological 70/30 holdout</strong>: the first 70% is training and the final 30% is a single untouched test period. It compares the current multi-factor rule against EMA+SMC and EMA-only baselines with trailing trend/volatility regimes, 20-bps costs and 40-bps stress. Insufficient samples are reported clearly. Neither test simulates historical options, order-book fills, actual margin or future profitability.</p>
 <button id="runBacktest" type="button">Quick 14-day signal proxy (BTC &amp; ETH)</button>
-<button id="runValidation" type="button">Validate combined signals across 42 days (BTC &amp; ETH)</button>
-<div id="validationResults" role="status" aria-live="polite"><p>Independent 70/30 training/test comparison not run. The study never backtests historical option premiums or fills.</p></div>
+<button id="runValidation" type="button">Run single 70/30 holdout across 42 days (BTC &amp; ETH)</button>
+<div id="validationResults" role="status" aria-live="polite"><p>Single 70/30 holdout not run. The study never backtests historical option premiums or fills.</p></div>
 <div id="backtestResults" role="status" aria-live="polite"><p>Historical research not run.</p></div></section>
 <section class="card"><h2>How the automation decides</h2>
 <p>Scan → require aligned 15m/1h trend plus weighted momentum and SMC/ADX evidence (SMC optional) → check option-chain timestamps, expiry, spread, open interest and exact contract value → compare debit spreads, credit structures and long-volatility research → size from at most 2% of capital at maximum theoretical spread loss → lock one plan for a selected 2-, 4- or 8-hour research exit watch. If no plan qualifies, do not force a trade. Credit spreads and iron condors remain WATCH ONLY because their live margin and fill risks are not broker verified.</p>

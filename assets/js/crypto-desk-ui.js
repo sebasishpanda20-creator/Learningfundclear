@@ -452,10 +452,12 @@ function validationStatRow(title,x){
 function renderValidation(out,asset,r){
  const part=document.createElement("section");part.className="validation-asset";
  part.append(node("h3",asset+" · "+r.status));
+ part.append(node("p","Validation design: "+(r.design?.label||
+  "One chronological 70/30 holdout.")));
  if(!r.methods?.length){part.append(node("p",r.reason));out.append(part);return;}
  part.append(node("p","Public Delta perpetuals · "+r.days+" days · "+r.candleCount15+
   " completed 15-minute and "+r.candleCount60+" hourly candles · "+r.hours+"-hour maximum holding · "+
-  r.feeBps+" bps assumed round-trip costs. Train/test cutoff: "+stamp(Date.parse(r.splitAt))+"."));
+  r.feeBps+" bps assumed round-trip costs. One 70/30 cutoff: "+stamp(Date.parse(r.splitAt))+". The OOS column is only the final 30%."));
  part.append(node("p",r.reason));
  part.append(validationGrid(["Predefined rule","Training trades","Training mean net R",
   "Out-of-sample trades","OOS win rate","OOS win-rate interval (95%)","OOS mean net R",

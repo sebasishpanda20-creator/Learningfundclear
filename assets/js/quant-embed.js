@@ -35,6 +35,20 @@
     var fallback = root.querySelector(".quant-fallback");
     if (!frame || !status) return;
 
+    if (window.__LFC_QA_PREVIEW__ === true) {
+      status.textContent = "Terminal unavailable in this preview";
+      status.dataset.state = "offline";
+      if (frame.parentNode) frame.parentNode.hidden = true;
+      if (open) open.hidden = true;
+      if (reload) reload.hidden = true;
+      if (fallback) {
+        fallback.hidden = false;
+        fallback.setAttribute("role", "status");
+        fallback.innerHTML = "<p><strong>Terminal unavailable in this preview.</strong> The local QA preview serves static files and fixtures, not the portal Worker or the quant daemon, so no terminal iframe is loaded here.</p>";
+      }
+      return;
+    }
+
     if (!frameBase) {
       if (fallback) fallback.hidden = false;
       frame.hidden = true;
@@ -78,8 +92,6 @@
     if (open) open.href = frameBase + "/";
 
     function probeOnce() {
-      var controller = window.AbortController ? new AbortController() : null;
-      var timer = controller ? setTimeout(function () { controller.abort(); }, 6000) : null;
       // Through the gate the request is same-origin, so the real status code is
       // readable: 200 means the daemon answered, while the gate's 401 (no cookie
       // yet) or a 5xx from an unreachable tunnel does not. A no-cors probe
@@ -89,42 +101,50 @@
         ? fetch(frameBase + "/api/v1/health", {
             cache: "no-store",
             credentials: "same-origin",
-            signal: controller ? controller.signal : undefined,
-          }).then(function (response) { return { ok: response.ok, unauthorized: response.status === 401 }; })
+          }).then(function (response) { return { ok: response.ok, unauthorized: response.status === 401, status: response.status }; })
         : fetch(frameBase + "/api/v1/health", {
             mode: "no-cors",
             cache: "no-store",
-            signal: controller ? controller.signal : undefined,
-          }).then(function () { return { ok: true, unauthorized: false }; });
-      return request.catch(function () { return { ok: false, unauthorized: false }; }).then(function (result) {
-        if (timer) clearTimeout(timer);
-        return result;
-      });
+          }).then(function () { return { ok: true, unauthorized: false, status: 0 }; });
+      return request.catch(function () { return { ok: false, unauthorized: false, status: 0 }; });
     }
 
     // The worker serves the terminal only to a signed-in session. Hand it the
     // Supabase access token once per page load and it replies with a short-lived
     // HttpOnly cookie scoped to the terminal path; the frame must be pointed at
     // the terminal only after that cookie exists.
+    function ticketMessage(status) {
+      return window.QUANT_TERMINAL_MESSAGES.ticketMessage(status);
+    }
+
+    function proxyMessage(status) {
+      return window.QUANT_TERMINAL_MESSAGES.proxyMessage(status);
+    }
+
     function authorize() {
       var auth = window.LfcAuth;
-      if (!gated || !auth || !auth.client || !auth.client.auth) return Promise.resolve(true);
+      if (!gated) return Promise.resolve({ ok: true, status: 200 });
+      if (!auth || !auth.client || !auth.client.auth) {
+        return Promise.resolve({ ok: false, status: 0, message: "Portal session unavailable — sign in again" });
+      }
       return auth.client.auth
         .getSession()
         .then(function (result) {
           var session = result && result.data && result.data.session;
-          if (!session || !session.access_token) return false;
+          if (!session || !session.access_token) {
+            return { ok: false, status: 0, message: "No portal session — sign in again" };
+          }
           return fetch("/api/terminal-ticket", {
             method: "POST",
             credentials: "same-origin",
             cache: "no-store",
             headers: { Authorization: "Bearer " + session.access_token },
           }).then(function (response) {
-            return response.ok;
+            return { ok: response.ok, status: response.status, message: response.ok ? "" : ticketMessage(response.status) };
           });
         })
         .catch(function () {
-          return false;
+          return { ok: false, status: 0, message: "Terminal ticket request failed (network)" };
         });
     }
 
@@ -143,26 +163,28 @@
     function showReachability(result) {
       if (!authorized) return;
       if (result.unauthorized) {
-        status.textContent = "Sign in again to open the terminal";
+        status.textContent = "Terminal session rejected (401) — sign in again";
         status.dataset.state = "offline";
         return;
       }
       var wasDown = lastOk === false;
       lastOk = !!result.ok;
-      status.textContent = result.ok ? "Terminal online" : "Terminal unreachable";
+      status.textContent = result.ok ? "Terminal online" : proxyMessage(result.status);
       status.dataset.state = result.ok ? "online" : "offline";
       if (result.ok && wasDown) reloadFrame();
+    }
+
+    function showTicketFailure(ticket) {
+      status.textContent = ticket.message || ticketMessage(ticket.status);
+      status.dataset.state = "offline";
     }
 
     function load() {
       status.textContent = "Connecting…";
       status.dataset.state = "pending";
-      authorize().then(function (isAuthorized) {
-        authorized = isAuthorized;
-        if (!authorized) {
-          status.textContent = "Sign in again to open the terminal";
-          status.dataset.state = "offline";
-        }
+      authorize().then(function (ticket) {
+        authorized = ticket.ok;
+        if (!authorized) showTicketFailure(ticket);
         frame.src = frameBase + "/";
         return probe().then(showReachability);
       });
@@ -181,8 +203,8 @@
         if (!result.unauthorized) { showReachability(result); return; }
         // The terminal cookie is short-lived; try a fresh ticket before calling
         // this an outage, because the dashboard session itself may still be fine.
-        authorize().then(function (ok) {
-          if (!ok) { showReachability(result); return; }
+        authorize().then(function (ticket) {
+          if (!ticket.ok) { showTicketFailure(ticket); return; }
           probe().then(showReachability);
         });
       });

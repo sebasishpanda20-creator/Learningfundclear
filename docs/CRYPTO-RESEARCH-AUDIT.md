@@ -25,6 +25,6 @@
 
 ## Acceptance bar for better strategies
 
-Require strategy tests across trending, mean-reverting and volatile environments; contemporaneous quotes/fees; a walk-forward holdout with unchanged parameters; simulated missed fills; realistic spread, IV, funding and margin; and paper observation before any recommendation can be ranked by expected **net** profit.
+Require strategy tests across trending, mean-reverting and volatile environments; contemporaneous quotes/fees; a chronological out-of-sample holdout with unchanged parameters; simulated missed fills; realistic spread, IV, funding and margin; and paper observation before any recommendation can be ranked by expected **net** profit.
 
 The UI remains India-first, capital-only, and read-only.

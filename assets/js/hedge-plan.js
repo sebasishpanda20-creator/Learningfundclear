@@ -52,6 +52,7 @@
     var segment = (root.getAttribute('data-segment') || 'NSE').toUpperCase();
     var sourceSelector = root.getAttribute('data-symbol-source');
     var last = null;
+    var requestToken = 0;
 
     var head = el('div', 'hedge-plan__head');
     head.appendChild(el('p', 'eyebrow', 'HEDGE PLAN · MULTI-TIMEFRAME'));
@@ -284,10 +285,14 @@
 
       generate.disabled = true;
       status.textContent = 'Building plan…';
+      var token = ++requestToken;
+      var controller = new AbortController();
+      var timer = setTimeout(function () { controller.abort(); }, 10000);
       fetch('/api/hedge-plan', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify(body),
+        signal: controller.signal,
       })
         .then(function (res) {
           return res.json().then(function (data) {
@@ -295,6 +300,7 @@
           });
         })
         .then(function (out) {
+          if (token !== requestToken) return;
           if (!out.res.ok || !out.data.ok) {
             var message = out.data && out.data.message ? out.data.message : 'the plan was rejected';
             status.textContent = 'Cannot build this plan: ' + message;
@@ -308,10 +314,15 @@
             out.data.executionMode + ' · ' + out.data.orderPlacement + '. Nothing was sent to a broker.';
           render(out.data.plan, out.data.segment);
         })
-        .catch(function () {
-          status.textContent = 'Hedge plan service is unreachable. No order was attempted.';
+        .catch(function (err) {
+          if (token !== requestToken) return;
+          status.textContent =
+            err && err.name === 'AbortError'
+              ? 'Hedge plan request timed out after 10 seconds. No order was attempted.'
+              : 'Hedge plan service is unreachable. No order was attempted.';
         })
         .then(function () {
+          clearTimeout(timer);
           generate.disabled = false;
         });
     });

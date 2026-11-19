@@ -6,12 +6,16 @@
 const D=root.LfcCryptoDesk||(typeof require==="function"?require("./crypto-desk-engine.js"):null);
 const A=root.LfcCryptoAdvanced||(typeof require==="function"?require("./crypto-advanced-engine.js"):null);
 const finite=Number.isFinite, MIN_TRAIN=30,MIN_OOS=20;
+const DESIGN=Object.freeze({
+ type:"SINGLE_70_30_HOLDOUT",windows:1,
+ label:"One chronological 70/30 holdout: one training block and one untouched test block."
+});
 const methods=[
  {key:"confluence",label:"Multi-factor (current portal)"},
  {key:"smc",label:"EMA + SMC baseline"},
  {key:"ema",label:"EMA trend baseline"}
 ];
-const empty=(reason)=>({status:"UNAVAILABLE",reason,methods:[]});
+const empty=(reason)=>({status:"UNAVAILABLE",reason,methods:[],design:DESIGN});
 const iso=t=>new Date(t).toISOString();
 function wilson(success,n){
  if(!n)return null;
@@ -137,7 +141,7 @@ function validate(raw15,raw60,{hours=4,feeBps=20,asOf=Date.now(),days=42}={}){
  const enough=current.train.trades>=MIN_TRAIN&&current.oos.trades>=MIN_OOS;
  const relative=enough&&baseline.oos.trades>=MIN_OOS?
    current.oos.meanNetR-baseline.oos.meanNetR:null;
- return{status:enough?"PRELIMINARY HISTORICAL RESEARCH":"INSUFFICIENT SAMPLE",
+ return{status:enough?"PRELIMINARY HISTORICAL RESEARCH":"INSUFFICIENT SAMPLE",design:DESIGN,
   reason:enough?
    "OOS is chronological, not a future live test. No options P&L, fill simulation, or strategy-profitability guarantee.":
    "No validated edge: minimum training and untouched OOS sample counts not reached.",
@@ -146,7 +150,7 @@ function validate(raw15,raw60,{hours=4,feeBps=20,asOf=Date.now(),days=42}={}){
   minTrain:MIN_TRAIN,minOos:MIN_OOS,methods:grouped,
   multiVsSmcOosDeltaR:relative,limitations:[
    "Historical UNDERLYING perpetual price proxy only: NOT historical option returns.",
-   "Chronological 70/30 holdout with fixed rules, no parameter fitting; only one holdout period.",
+   "One chronological 70/30 holdout with fixed rules and no parameter fitting.",
    "Next-candle-open idealised entry; no order-book depth, latency, funding, margin or actual fill confirmation.",
    "20 bps round-trip assumption; 40 bps sensitivity includes no other fees; future volatility/costs can differ.",
    "ADX and ATR regimes are trailing indicators evaluated before entry; split-boundary crossing trades are excluded.",

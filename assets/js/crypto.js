@@ -1,10 +1,39 @@
 (async function(){
  'use strict';if(!await LfcAuth.ready)return;
  const $=id=>document.getElementById(id),D=LfcCryptoData;
- let generation=0,controller,quote=null,deltaGeneration=0,deltaController;
+ let generation=0,controller,quote=null,deltaGeneration=0,deltaController,moodGeneration=0,moodController;
  const fmt=x=>Number.isFinite(x)?x.toLocaleString('en-US',{maximumFractionDigits:4}):'—';
  const stamp=t=>new Date(t).toLocaleString('en-IN',{timeZone:'Asia/Kolkata',hour12:false})+' IST';
+ const day=t=>new Date(t).toLocaleDateString('en-IN',{timeZone:'Asia/Kolkata',dateStyle:'medium'});
  async function get(url,signal){const r=await fetch(url,{signal,credentials:'omit',cache:'no-store'});if(!r.ok)throw new Error('HTTP '+r.status);return r.json();}
+ function renderMood(m){
+  const value=$('moodValue');if(!value)return;
+  const tone=m.label.includes('Fear')?'fear':m.label.includes('Greed')?'greed':'neutral';
+  value.textContent=m.value;value.className=tone;
+  $('moodLabel').textContent=m.label;
+  $('moodAsOf').textContent='Reading for '+day(m.asOf)+' · daily index';
+  const compare=$('moodCompare');compare.replaceChildren();
+  for(const [label,reading] of [['Yesterday',m.yesterday],['7 days ago',m.week],['30 days ago',m.month]]){
+   const p=document.createElement('p');p.textContent=label+': '+reading+'/100';compare.appendChild(p);
+  }
+  $('moodStatus').textContent='Fetched '+stamp(Date.now())+' · Alternative.me public index. Context only; no trade is based on it.';
+ }
+ async function refreshMood(){
+  if(!$('moodValue'))return;
+  const id=++moodGeneration;moodController?.abort();moodController=new AbortController();
+  const signal=moodController.signal,timer=setTimeout(()=>moodController?.signal===signal&&moodController.abort(),12000);
+  $('refreshMood').disabled=true;$('moodStatus').textContent='Refreshing Alternative.me Fear & Greed…';
+  try{
+   const mood=D.sentiment(await get('https://api.alternative.me/fng/?limit=30',signal),Date.now());
+   if(id!==moodGeneration)return;
+   renderMood(mood);
+  }catch(e){
+   if(id!==moodGeneration)return;
+   $('moodValue').textContent='—';$('moodValue').className='';$('moodLabel').textContent='Unavailable';$('moodAsOf').textContent='';
+   $('moodCompare').replaceChildren();
+   $('moodStatus').textContent='Mood unavailable · '+(e.name==='AbortError'?'request timed out':e.message)+'. No substitute value is shown.';
+  }finally{clearTimeout(timer);if(id===moodGeneration)$('refreshMood').disabled=false;}
+ }
  function clear(){quote=null;for(const id of ['lastPrice','dayHigh','dayLow','dayChange'])$(id).textContent='—';$('quoteStamp').textContent='No quote received';$('cryptoChart').replaceChildren();$('chartNote').textContent='Waiting for history';}
  function chart(bars){const low=Math.min(...bars.map(b=>b.close)),high=Math.max(...bars.map(b=>b.close)),span=high-low||1;
  const points=bars.map((b,i)=>`${80+i*700/(bars.length-1)},${25+(high-b.close)/span*210}`).join(' ');
@@ -29,7 +58,7 @@
   finally{clearTimeout(timer);if(id===generation)$('refreshCrypto').disabled=false;}
  }
  for(const id of ['venue','asset','interval'])$(id).onchange=refresh;
- $('refreshCrypto').onclick=refresh;$('autoCrypto').onchange=refresh;
+ $('refreshCrypto').onclick=refresh;$('autoCrypto').onchange=refresh;$('refreshMood').onclick=refreshMood;
  const interval=setInterval(()=>{if(!document.hidden&&$('autoCrypto').checked&&!$('refreshCrypto').disabled)refresh();if(quote&&Date.now()-quote.received>45000){$('spotStatus').textContent='Stale snapshot · refresh to retrieve a current quote';}},20000);
  document.addEventListener('visibilitychange',()=>{if(document.hidden){controller?.abort();}else if($('autoCrypto').checked)refresh();});
  function clearDelta(){deltaGeneration++;deltaController?.abort();$('deltaRows').replaceChildren();$('deltaStatus').textContent='Selection changed. Load a new snapshot.';$('refreshDelta').disabled=false;}
@@ -50,5 +79,5 @@
   }catch(e){if(id===deltaGeneration){$('deltaRows').replaceChildren();$('deltaStatus').textContent='Unavailable · '+(e.name==='AbortError'?'request timed out':e.message)+'. Try again later.';}}
   finally{clearTimeout(timer);if(id===deltaGeneration)$('refreshDelta').disabled=false;}
  };
- window.addEventListener('pagehide',()=>{generation++;deltaGeneration++;controller?.abort();deltaController?.abort();clearInterval(interval);});refresh();
+ window.addEventListener('pagehide',()=>{generation++;deltaGeneration++;moodGeneration++;controller?.abort();deltaController?.abort();moodController?.abort();clearInterval(interval);});refreshMood();refresh();
 })();

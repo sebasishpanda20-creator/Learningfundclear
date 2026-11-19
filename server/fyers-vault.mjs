@@ -80,12 +80,13 @@ export class VaultCore {
   stateKey(hash) { return `state:${hash}`; }
   sessionKey(sid) { return `session:${sid}`; }
 
-  async createState({ stateHash, sid, userId, expiresAt }) {
+  async createState({ stateHash, sid, userId, expiresAt, returnTo }) {
     if (!stateHash || !sid || !userId) throw new Error('state record incomplete');
     await this.storage.put(this.stateKey(stateHash), {
       sid,
       userId,
       expiresAt,
+      returnTo: typeof returnTo === 'string' ? returnTo : undefined,
       createdAt: this.now(),
     });
   }

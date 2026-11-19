@@ -40,6 +40,13 @@ test('build copies server source instead of generating config or crypto engine',
   assert.match(build, /cpSync\('server','dist\/server'/);
 });
 
+test('shared FYERS dialog requests the NIFTY index contract, not bare NIFTY', () => {
+  const source = read('assets/js/fyers-dialog.js');
+  assert.match(source, /MARKET_DATA_SYMBOL = 'NSE:NIFTY50-INDEX'/);
+  assert.match(source, /\/quote\?symbol=' \+ encodeURIComponent\(MARKET_DATA_SYMBOL\)/);
+  assert.doesNotMatch(source, /\/quote\?symbol=NIFTY/);
+});
+
 test('server imports resolve to committed files', () => {
   assert.match(read('server/worker.mjs'), /from '\.\/config\.mjs'/);
   assert.match(read('server/email-alerts.mjs'), /import '\.\/crypto-engine\.js'/);

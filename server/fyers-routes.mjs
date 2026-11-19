@@ -19,6 +19,10 @@ import {
   normalizeReason,
   openToken,
   parseCookies,
+  readReturnCookie,
+  returnCookie,
+  clearReturnCookie,
+  safeReturnPath,
   providerAuth,
   providerSymbol,
   quoteUrl,
@@ -47,6 +51,13 @@ function json(data, status = 200, extra = {}) {
 
 function redirect(location, extra = {}) {
   return new Response(null, { status: 302, headers: headers({ location, ...extra }) });
+}
+
+function withFyersOutcome(path, outcome, reason) {
+  const url = new URL(path, 'https://portal.invalid');
+  url.searchParams.set('fyers', outcome);
+  if (reason) url.searchParams.set('reason', reason);
+  return url.pathname + url.search + url.hash;
 }
 
 export function fyersConfig(env) {
@@ -134,9 +145,12 @@ export async function handleFyers(request, env, config, deps = {}) {
   // The provider redirect is authenticated by the one-time state, not by the
   // portal Bearer token, because a navigation cannot carry that header.
   if (path === '/api/fyers/callback') {
+    let returnTo = readReturnCookie(request.headers.get('cookie'));
+    const clearReturn = clearReturnCookie({ secure });
     const fail = (reason) =>
       redirect(
-        `/lfc_terminal_v6.html?fyers=error&reason=${encodeURIComponent(normalizeReason(reason))}`,
+        withFyersOutcome(returnTo, 'error', normalizeReason(reason)),
+        { 'set-cookie': clearReturn },
       );
     const params = url.searchParams;
     if (params.get('error')) return fail('provider_refused');
@@ -155,6 +169,7 @@ export async function handleFyers(request, env, config, deps = {}) {
       return fail('storage_failed');
     }
     if (!record) return fail('invalid_state');
+    returnTo = safeReturnPath(record.returnTo || returnTo);
 
     let exchange;
     try {
@@ -181,7 +196,9 @@ export async function handleFyers(request, env, config, deps = {}) {
     } catch {
       return fail('storage_failed');
     }
-    return redirect('/lfc_terminal_v6.html?fyers=connected');
+    return redirect(withFyersOutcome(returnTo, 'connected'), {
+      'set-cookie': clearReturn,
+    });
   }
 
   const gate = await authenticate(request, env, config);
@@ -235,6 +252,9 @@ export async function handleFyers(request, env, config, deps = {}) {
     if (vaultError) return vaultError;
     const nextSid = sid || randomHex(32);
     const state = randomHex(32);
+    const returnTo = safeReturnPath(
+      url.searchParams.get('return') || readReturnCookie(request.headers.get('cookie')),
+    );
     try {
       await vault.request('createState', [
         {
@@ -242,12 +262,13 @@ export async function handleFyers(request, env, config, deps = {}) {
           sid: nextSid,
           userId: user.id,
           expiresAt: stateExpiry(now()),
+          returnTo,
         },
       ]);
     } catch {
       return json({ error: 'FYERS_STORAGE_UNAVAILABLE' }, 503);
     }
-    return json(
+    const response = json(
       {
         login_url: buildLoginUrl({
           clientId: cfg.clientId,
@@ -256,10 +277,19 @@ export async function handleFyers(request, env, config, deps = {}) {
         }),
         redirect_uri: cfg.redirectUri,
         expires_in: STATE_TTL_SECONDS,
+        return_to: returnTo,
       },
       200,
-      { 'set-cookie': sessionCookie(nextSid, { maxAge: STATE_TTL_SECONDS, secure }) },
     );
+    response.headers.append(
+      'set-cookie',
+      sessionCookie(nextSid, { maxAge: STATE_TTL_SECONDS, secure }),
+    );
+    response.headers.append(
+      'set-cookie',
+      returnCookie(returnTo, { maxAge: STATE_TTL_SECONDS, secure }),
+    );
+    return response;
   }
 
   if (path === '/api/fyers/quote') {

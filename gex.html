@@ -14,6 +14,7 @@
     <script src="assets/js/config.js"></script>
     <script src="auth-guard.js"></script>
     <script src="assets/js/theme.js"></script>
+      <link rel="stylesheet" href="assets/css/fyers-quote.css" />
       <link rel="stylesheet" href="assets/css/mobile-first.css" />
       <script src="assets/js/mobile-first.js"></script>
   </head>
@@ -112,6 +113,55 @@
         </div>
       </div>
 
+      <section class="card">
+        <p class="eyebrow">OPTIONS PRICING · BSM</p>
+        <h2>Black-Scholes calculator</h2>
+        <p class="sub">
+          Model value for a European call or put from the inputs below. This is
+          not a live premium, a forecast or a trade signal.
+        </p>
+        <div class="row">
+          <div>
+            <label for="bsmSpot">Spot</label>
+            <input id="bsmSpot" type="number" min="0.01" step="any" inputmode="decimal" />
+          </div>
+          <div>
+            <label for="bsmStrike">Strike</label>
+            <input id="bsmStrike" type="number" min="0.01" step="any" inputmode="decimal" />
+          </div>
+          <div>
+            <label for="bsmType">Option</label>
+            <select id="bsmType">
+              <option value="CALL">Call</option>
+              <option value="PUT">Put</option>
+            </select>
+          </div>
+          <div>
+            <label for="bsmDte">Days to expiry</label>
+            <input id="bsmDte" type="number" min="0.01" step="any" inputmode="decimal" />
+          </div>
+          <div>
+            <label for="bsmIv">IV (% per year)</label>
+            <input id="bsmIv" type="number" min="0.01" step="any" inputmode="decimal" />
+          </div>
+          <div>
+            <label for="bsmRate">Rate (% per year)</label>
+            <input id="bsmRate" type="number" min="0" step="any" value="6.85" inputmode="decimal" />
+          </div>
+          <button id="bsmCalc" type="button">Calculate BSM</button>
+        </div>
+        <p class="mut" id="bsmNote">
+          Load the chain to prefill its spot, ATM strike, expiry and published IV;
+          every field remains editable.
+        </p>
+        <div class="stats" id="bsmOut"></div>
+        <p class="mut">
+          BSM assumes log-normal prices, constant volatility, no dividends and no
+          early exercise. POP is the model's risk-neutral probability of expiring
+          in the money, not a win rate. Verify every input independently.
+        </p>
+      </section>
+
       <p class="disclaimer">
         Data: NSE India option chain via the existing relay. Open interest is
         not gamma exposure. GEX is unavailable because verified gamma and
@@ -120,12 +170,16 @@
       </p>
     </main>
     <script src="assets/js/shell.js"></script>
+    <script src="assets/js/fyers-quote.js"></script>
+    <script src="assets/js/fyers-quote-ui.js"></script>
     <script src="assets/js/hedge-plan.js"></script>
     <script type="module" src="assets/js/hedge-scenario-adapters.js"></script>
     <script src="assets/js/market-data.js"></script>
     <script src="assets/js/option-signals.js"></script>
     <script src="assets/js/option-signals-ui.js"></script>
     <script type="module">
+      import { blackScholes } from "./assets/js/bsm.js";
+
       await LfcAuth.ready;
       const FN =
         "https://chbtjicvbezbiosuouwm.supabase.co/functions/v1/nse-chain";
@@ -148,10 +202,135 @@
         atmStrike = null,
         requestId = 0;
 
+      const MONTHS = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+
+      const bsmEls = {
+        spot: $("bsmSpot"),
+        strike: $("bsmStrike"),
+        type: $("bsmType"),
+        dte: $("bsmDte"),
+        iv: $("bsmIv"),
+        rate: $("bsmRate"),
+        run: $("bsmCalc"),
+        note: $("bsmNote"),
+        out: $("bsmOut"),
+      };
+      let bsmKey = "";
+
+      function nearestStrike(rows, spot) {
+        return rows.reduce((a, b) =>
+          Math.abs(b.strike - spot) < Math.abs(a.strike - spot) ? b : a,
+        ).strike;
+      }
+
+      function bsmExpiryDays(expiry) {
+        const m = /^(\d{2})-([A-Za-z]{3})-(\d{4})$/.exec(expiry || "");
+        if (!m) return NaN;
+        const month = MONTHS.indexOf(m[2]);
+        if (month < 0) return NaN;
+        // NSE contracts expire at 15:30 IST (10:00 UTC).
+        const end = Date.UTC(+m[3], month, +m[1], 10, 0, 0);
+        const days = (end - Date.now()) / 86400000;
+        return Number.isFinite(days) && days > 0 ? days : NaN;
+      }
+
+      function bsmChainRow() {
+        const strike = Number(bsmEls.strike.value);
+        if (!Number.isFinite(strike) || !DATA?.strikes) return null;
+        return DATA.strikes.find((row) => row.strike === strike) || null;
+      }
+
+      function bsmPrefill(el, value) {
+        if (el.dataset.auto === "0") return;
+        el.value = value;
+        el.dataset.auto = "1";
+      }
+
+      function bsmFillIv() {
+        if (!DATA) return;
+        const row = bsmChainRow();
+        const quote = bsmEls.type.value === "CALL" ? row?.ce : row?.pe;
+        if (Number.isFinite(quote?.iv) && quote.iv > 0) {
+          if (!bsmEls.iv.value || bsmEls.iv.dataset.auto === "1") {
+            bsmEls.iv.value = quote.iv;
+            bsmEls.iv.dataset.auto = "1";
+          }
+        } else if (bsmEls.iv.dataset.auto === "1") {
+          bsmEls.iv.value = "";
+          bsmEls.note.textContent =
+            "No IV is published for this strike and side; enter IV manually.";
+        }
+      }
+
+      function bsmUseChain() {
+        if (!DATA?.strikes?.length) return;
+        const key = `${DATA.symbol}|${DATA.expiry}`;
+        if (key === bsmKey) return;
+        bsmKey = key;
+        bsmPrefill(bsmEls.spot, DATA.underlying);
+        bsmPrefill(bsmEls.strike, nearestStrike(DATA.strikes, DATA.underlying));
+        const days = bsmExpiryDays(DATA.expiry);
+        if (Number.isFinite(days)) bsmPrefill(bsmEls.dte, days.toFixed(2));
+        else if (bsmEls.dte.dataset.auto !== "0") {
+          bsmEls.dte.value = "";
+          bsmEls.dte.dataset.auto = "1";
+        }
+        bsmFillIv();
+        bsmEls.note.textContent = Number.isFinite(days)
+          ? `${DATA.symbol} ${DATA.expiry}: spot, ATM strike and expiry loaded from the chain; IV prefilled where published. Manually edited fields are preserved.`
+          : `${DATA.symbol} ${DATA.expiry}: expiry has passed or could not be parsed; enter days to expiry manually.`;
+      }
+
+      function bsmRun() {
+        const spot = Number(bsmEls.spot.value);
+        const strike = Number(bsmEls.strike.value);
+        const days = Number(bsmEls.dte.value);
+        const iv = Number(bsmEls.iv.value);
+        const rate = Number(bsmEls.rate.value);
+        try {
+          const out = blackScholes({
+            spot,
+            strike,
+            daysToExpiry: days,
+            volatility: iv / 100,
+            rate: rate / 100,
+            type: bsmEls.type.value,
+          });
+          const fmt = (value, places = 2) =>
+            Number.isFinite(value)
+              ? value.toLocaleString("en-IN", {
+                  minimumFractionDigits: places,
+                  maximumFractionDigits: places,
+                })
+              : "—";
+          bsmEls.out.innerHTML = [
+            ["Model price", `₹${fmt(out.price)}`, ""],
+            ["Delta (Δ)", fmt(out.delta, 4), ""],
+            ["Gamma (Γ)", fmt(out.gamma, 4), ""],
+            [
+              "Theta / day (Θ)",
+              `${out.thetaPerDay < 0 ? "−" : "+"}₹${fmt(Math.abs(out.thetaPerDay))}`,
+              out.thetaPerDay < 0 ? "neg" : "pos",
+            ],
+            ["Vega / 1% IV", `₹${fmt(out.vegaPerPercent)}`, ""],
+            ["POP (risk-neutral)", `${fmt(out.pop * 100, 1)}%`, ""],
+          ]
+            .map(
+              ([label, value, tone]) =>
+                `<div class="stat"><span>${label}</span><b class="${tone}">${value}</b></div>`,
+            )
+            .join("");
+          bsmEls.note.textContent = `BSM ${out.type} · ${fmt(iv)}% IV · ${fmt(rate)}% rate · ${fmt(days)} days. Model output only; not a live premium or a trade signal.`;
+        } catch (error) {
+          bsmEls.out.replaceChildren();
+          bsmEls.note.textContent = `BSM input error: ${error.message}`;
+        }
+      }
+
       function sourceTime(value) {
         const m = /^(\d{2})-([A-Za-z]{3})-(\d{4}) (\d{2}):(\d{2}):(\d{2})$/.exec(value || "");
         if (!m) return NaN;
-        const month = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"].indexOf(m[2]);
+        const month = MONTHS.indexOf(m[2]);
         return month < 0 ? NaN : Date.UTC(+m[3],month,+m[1],+m[4],+m[5],+m[6])-19800000;
       }
       let feedFailed = false;
@@ -196,9 +375,7 @@
           )
             flip = per[i].k;
         }
-        atmStrike = per.reduce((a, b) =>
-          Math.abs(b.k - spot) < Math.abs(a.k - spot) ? b : a,
-        ).k;
+        atmStrike = nearestStrike(DATA.strikes, spot);
         $("stats").innerHTML = [
           ["Spot", num(Math.round(spot)), ""],
           ["Put − Call OI", (net >= 0 ? "+" : "") + num(net), ""],
@@ -290,10 +467,17 @@
             throw new Error("No usable option-chain data returned");
           if (j.symbol !== $("sym").value || !Array.isArray(j.expiries) || !j.expiries.every(e => /^\d{2}-[A-Za-z]{3}-\d{4}$/.test(e)) || !j.expiries.includes(j.expiry) || (/^\d{2}-[A-Za-z]{3}-\d{4}$/.test(exp) && j.expiry !== exp)) throw new Error("Response does not match selected contract");
           if (j.strikes.some(row => !Number.isFinite(row.strike) || row.strike<=0 || [row.ce,row.pe].some(side => side && ["oi","vol","iv","ltp"].some(key => side[key]!=null && (!Number.isFinite(side[key]) || side[key]<0))))) throw new Error("Invalid option-chain values");
+          if (j.strikes.some(row => [row.ce,row.pe].some(side => side && ["bid","ask","bidQty","askQty"].some(key => side[key]!=null && (!Number.isFinite(side[key]) || side[key]<=0))))) throw new Error("Invalid option-chain quotes");
           j.strikes.sort((a,b)=>a.strike-b.strike);
           feedFailed = false;
           DATA = j;
           lastFetch = Date.now();
+          window.LfcNseChain = {
+            rows: j.strikes,
+            expiry: j.expiry,
+            symbol: j.symbol,
+            fetchedAt: Number.isFinite(Date.parse(j.fetched_at)) ? Date.parse(j.fetched_at) : null,
+          };
           if (
             $("exp").options.length !== j.expiries.length ||
             $("exp").dataset.sym !== j.symbol
@@ -308,6 +492,7 @@
           }
           mktBadge(j.nse_timestamp);
           render();
+          bsmUseChain();
           LfcOptionSignalUI.update(j,sourceTime(j.nse_timestamp));
           tick();
         } catch (e) {
@@ -328,10 +513,18 @@
       }
 
       $("load").onclick = load;
+      bsmEls.type.onchange = () => bsmFillIv();
+      bsmEls.strike.onchange = () => bsmFillIv();
+      for (const el of [bsmEls.spot, bsmEls.strike, bsmEls.dte, bsmEls.iv]) {
+        el.addEventListener("input", () => { el.dataset.auto = "0"; });
+      }
+      bsmEls.run.onclick = bsmRun;
       function clearSnapshot() {
-        DATA=null; lastFetch=null;
+        DATA=null; lastFetch=null; window.LfcNseChain=null; bsmKey="";
         LfcOptionSignalUI.update(null,NaN);
         ["stats","bars","flip","chainMeta","chain","stamp"].forEach(id=>$(id).replaceChildren());
+        bsmEls.out.replaceChildren();
+        bsmEls.note.textContent = "Chain cleared. Enter model inputs or refresh the chain.";
         $("mkt").textContent="CONNECTING…";
       }
       $("sym").onchange = () => {

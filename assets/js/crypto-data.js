@@ -35,5 +35,31 @@
   if(provider==='binance'&&(!q.time||now-q.time>120000||q.time>now+60000))throw new Error('Exchange quote timestamp is stale or invalid');
   return {...q,received:now,provider};
  }
- root.LfcCryptoData={numeric,candles,quote};
+ function fearGreedLabel(value){
+  if(value<=24)return'Extreme Fear';
+  if(value<=44)return'Fear';
+  if(value<=55)return'Neutral';
+  if(value<=74)return'Greed';
+  return'Extreme Greed';
+ }
+ function sentiment(raw,now=Date.now()){
+  if(!raw||!Array.isArray(raw.data)||raw.data.length<30)throw new Error('Fear & Greed history is incomplete');
+  const rows=raw.data.slice(0,30).map(x=>{
+   const value=numeric(x?.value),seconds=numeric(x?.timestamp);
+   if(!Number.isInteger(value)||value<0||value>100||!Number.isFinite(seconds)||seconds<=0)
+    throw new Error('Invalid Fear & Greed reading');
+   return{value,label:fearGreedLabel(value),timestamp:seconds*1000};
+  });
+  // The card labels rows 1/7/29 as yesterday, 7 days and 30 days. Refuse a
+  // history with gaps rather than mislabel a reading as a calendar day.
+  for(let i=1;i<rows.length;i++){
+   const gap=rows[i-1].timestamp-rows[i].timestamp;
+   if(gap<=0)throw new Error('Fear & Greed history is out of order');
+   if(gap<23*3600000||gap>25*3600000)throw new Error('Fear & Greed history is not daily');
+  }
+  if(rows[0].timestamp>now+300000)throw new Error('Fear & Greed timestamp is in the future');
+  return{value:rows[0].value,label:rows[0].label,asOf:rows[0].timestamp,
+   yesterday:rows[1].value,week:rows[7].value,month:rows[29].value};
+ }
+ root.LfcCryptoData={numeric,candles,quote,sentiment};
 })(typeof window!=='undefined'?window:globalThis);

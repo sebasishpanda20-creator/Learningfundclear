@@ -398,6 +398,10 @@ async function runFlow(browser, viewport) {
         await page.waitForTimeout(300);
         const titleB = await page.locator("#setupSheetTitle").innerText();
         step("tap row B updates details", titleB.includes(symB) && symB !== symA, `A="${symA}" B="${symB}" title="${titleB}"`);
+      } else {
+        // Escape above closed the sheet; reopen the only row before using its chart action.
+        await rows.nth(0).locator("td").nth(2).click();
+        await page.waitForTimeout(300);
       }
 
       await page.locator("#setupChart").click();
@@ -439,9 +443,10 @@ async function runFlow(browser, viewport) {
       }));
       step("Escape collapses expansion and restores focus", collapsed.gone && collapsed.back && collapsed.focus === "expandChart", JSON.stringify(collapsed));
 
-      // Draft plan hand-off.
+      // Draft plan hand-off. The fixture can yield one or two passing rows
+      // depending on the calendar, so use the second row only when it exists.
       await page.locator("#setupSheet").evaluate((el) => (el.dataset.mfOpen = el.dataset.mfOpen));
-      await page.locator("#resultsBody tr[data-row]").nth(1).locator("td").nth(2).click();
+      await rows.nth(rowCount > 1 ? 1 : 0).locator("td").nth(2).click();
       await page.waitForTimeout(250);
       const draftSym = (await page.locator("#setupSheetTitle").innerText()).split("·")[0].trim();
       await page.locator("#setupPlan").click();
