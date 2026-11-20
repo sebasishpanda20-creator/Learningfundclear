@@ -57,12 +57,17 @@ export default {async fetch(request,env){
  // /api/v1/health to the daemon's /health and answered 404.
  if(url.pathname==='/api/v1'||url.pathname.startsWith('/api/v1/')){
    // The daemon API exposes execution and kill-switch routes, so it is not a
-   // public read surface: an anonymous caller must not reach it. Same gate as
-   // /quant-terminal below — a request needs the short-lived ticket cookie the
-   // signed-in shell mints (server/terminal-gate.mjs). The cookie is Path=/, so
-   // the framed terminal's own /api/v1 calls carry it.
-   const denied=await guardTerminal(request,env,config);
-   if(denied)return denied;
+   // public read surface: a cookie-less caller must not reach it.
+   // A request that carries the daemon's own admin session (X-Admin-Token) is
+   // authenticated by the daemon itself, and must not depend on the short-lived
+   // terminal ticket: the framed terminal's execute/kill-switch fetches keep
+   // their token for the tab's lifetime, while the ticket cookie expires after
+   // 10 minutes and only the embed re-mints it. Gating those calls here turned
+   // every terminal action into a silent 401 once the cookie aged out.
+   if(!request.headers.get('x-admin-token')){
+     const denied=await guardTerminal(request,env,config);
+     if(denied)return denied;
+   }
    // A verified portal session now exists; assert its role so admin controls
    // open without a second sign-in.
    const role=await portalRole(request,config);
