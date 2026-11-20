@@ -22,6 +22,14 @@ function withoutCookies(request){
 
 // Tells the daemon which role the verified portal session holds. The cookie is
 // always dropped here: the Supabase token is a credential for this Worker only.
+// A human navigating (or a framed page), as opposed to a fetch for a script,
+// stylesheet or image. Only these get the HTML 404 page.
+function wantsHtml(request){
+  const dest=(request.headers.get('sec-fetch-dest')||'').toLowerCase();
+  if(dest==='document'||dest==='iframe'||dest==='frame')return true;
+  return (request.headers.get('accept')||'').includes('text/html');
+}
+
 function withPortalRole(request,role){
   const headers=new Headers(request.headers);
   headers.delete('cookie');
@@ -48,9 +56,15 @@ export default {async fetch(request,env){
  // pathname is forwarded (not the stripped suffix): dropping the prefix sent
  // /api/v1/health to the daemon's /health and answered 404.
  if(url.pathname==='/api/v1'||url.pathname.startsWith('/api/v1/')){
-   // The framed terminal calls the daemon API on this path. When the portal
-   // session cookie rides along, assert its role so admin controls open without
-   // a second sign-in; requests without the cookie are proxied unchanged.
+   // The daemon API exposes execution and kill-switch routes, so it is not a
+   // public read surface: an anonymous caller must not reach it. Same gate as
+   // /quant-terminal below — a request needs the short-lived ticket cookie the
+   // signed-in shell mints (server/terminal-gate.mjs). The cookie is Path=/, so
+   // the framed terminal's own /api/v1 calls carry it.
+   const denied=await guardTerminal(request,env,config);
+   if(denied)return denied;
+   // A verified portal session now exists; assert its role so admin controls
+   // open without a second sign-in.
    const role=await portalRole(request,config);
    return proxyToDaemon(role?withPortalRole(request,role):withoutCookies(request),env,url.pathname,url.search);
  }
@@ -75,4 +89,19 @@ export default {async fetch(request,env){
    // applies its own auth instead of being told this visitor is a mere viewer.
    const forwarded=open&&!role?withoutCookies(request):withPortalRole(request,role||'viewer');
    return proxyToDaemon(forwarded,env,url.pathname.slice('/quant-terminal'.length),url.search);
- } return env.ASSETS.fetch(request);},async scheduled(event,env,ctx){ctx.waitUntil(runAlerts(env));ctx.waitUntil(runDaemonWatch(env));}};
+ }
+ // The Sites asset handler answers a miss with an empty 404 instead of serving
+ // not_found_handling's page, so a human navigating to an unknown path would get
+ // a blank screen. Serve the same 404.html the static host would have, keeping
+ // the 404 status; document/HTML requests only, so a missing .js or image stays
+ // an empty 404 rather than returning markup.
+ const assets=await env.ASSETS.fetch(request);
+ if(assets.status===404&&request.method!=='POST'&&wantsHtml(request)){
+   const page=await env.ASSETS.fetch(new URL('/404.html',url));
+   if(page.ok){
+     const headers=new Headers(page.headers);
+     headers.set('cache-control','no-store');
+     return new Response(page.body,{status:404,headers});
+   }
+ }
+ return assets;},async scheduled(event,env,ctx){ctx.waitUntil(runAlerts(env));ctx.waitUntil(runDaemonWatch(env));}};

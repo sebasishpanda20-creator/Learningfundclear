@@ -37,6 +37,10 @@ Expected: guard PASSED; readiness has no `fail` entries (warnings/gaps allowed a
 Do not create `FYERS_REDIRECT_URI` with a localhost value. The deployed callback is the only
 registered callback.
 
+On the Freebuff Sites deployment these values are environment secrets, not `wrangler secret`
+entries, and the order differs — see `docs/FYERS-SETUP.md` for the five variables, the exact
+Preview and Production callback URIs, the owner allowlist and the order to set them in.
+
 ## 3. KV
 
 Existing: `ALERTS_KV` (`wrangler.jsonc`). For hosted FYERS sessions either:
