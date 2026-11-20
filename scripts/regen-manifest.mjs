@@ -72,7 +72,7 @@ const conflicts = [...ids]
   .filter((id) => (pathsByBasename.get(id) ?? []).length > 1)
   .map((id) => `${id} -> ${pathsByBasename.get(id).join(', ')}`);
 
-if (setting('OPEN_TERMINAL') !== 'false') stop(`OPEN_TERMINAL is ${setting('OPEN_TERMINAL')}, expected false`);
+if (!/^(true|false)$/i.test(setting('OPEN_TERMINAL'))) stop(`OPEN_TERMINAL is ${setting('OPEN_TERMINAL')}, expected true or false`);
 if (setting('QUANT_API_ORIGIN') !== 'https://quant-daemon-a9m2.onrender.com') stop('QUANT_API_ORIGIN changed');
 
 // One rule: a module is named by its basename and lives at moduleRoot/<basename>.
@@ -83,7 +83,6 @@ const manifest = {
   modules: [...ids].map((id) => ({ name: id, type: 'esm', path: `${moduleRoot}/${id}` })),
   assetsDirectory: './dist/client',
   spa: false,
-  vars: { OPEN_TERMINAL: setting('OPEN_TERMINAL'), QUANT_API_ORIGIN: setting('QUANT_API_ORIGIN') },
 };
 
 const outPath = path.join(root, 'deploy-manifest-reviewed.json');

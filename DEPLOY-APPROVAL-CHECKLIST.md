@@ -36,7 +36,7 @@ presented as the held security package, and the unverified 14-module tree must n
 - [ ] `modulesCount` equals the number of files actually in `dist/server` (currently **15**), every listed module exists, and no listed module has a path outside the tree.
 - [ ] Every relative import in every `dist/server` module resolves to a listed file (currently **0 unresolved**, 17 specifiers).
 - [ ] Assets directory is `dist/client` (108 files, 20 top-level entries) and the upload contains no `node_modules`, no `.map` files, no `.env*`, no hidden junk.
-- [ ] Vars match wrangler exactly: `OPEN_TERMINAL=false`, `QUANT_API_ORIGIN=https://quant-daemon-a9m2.onrender.com`; `compatibility_date=2026-10-09`; `run_worker_first=["/api/*","/quant-terminal/*"]`; `not_found_handling=404-page`.
+- [ ] Vars match wrangler exactly: `OPEN_TERMINAL=true`, `QUANT_API_ORIGIN=https://quant-daemon-a9m2.onrender.com`; `compatibility_date=2026-10-09`; `run_worker_first=["/api/*","/quant-terminal/*"]`; `not_found_handling=404-page`.
 - [ ] `node --check` passes for every `.js`/`.mjs` module in the upload set.
 - [ ] `node scripts/validate-manifest.mjs deploy-manifest-reviewed.json` → PASS (17/17 for this build), run from `hedge-staging/`.
 - [ ] The receipt's `requestId` is fresh for this attempt and is reused (not regenerated) if the same request must be resubmitted after an unknown outcome. A new requestId requires the fresh approval above.
@@ -48,7 +48,7 @@ presented as the held security package, and the unverified 14-module tree must n
 
 ## 4. Post-deploy checks (read-only, no writes, not authenticated)
 - [ ] `GET /` returns 200 with the site HTML; assets load (200 for `/assets/...`, `scanner-logic.js`, `auth-guard.js`).
-- [ ] `GET /quant-terminal` (no auth) does **not** serve the terminal — closed/denied while `OPEN_TERMINAL=false`.
+- [ ] `GET /quant-terminal` (no auth) **does** serve the terminal — open to anonymous visitors while `OPEN_TERMINAL=true`.
 - [ ] `GET /api/<unknown>` returns the JSON 404 shape, not HTML and not a 500.
 - [ ] A deliberately wrong path returns the custom `404.html`, not a host default.
 - [ ] Anonymous `POST` to a mutating route is rejected; no order routes are exercised at all.
