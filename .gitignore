@@ -36,3 +36,7 @@ qa/tmp-*
 qa/*-results.json
 qa/page-audit.json
 qa/mobile-first.json
+dist/
+hedge-staging/
+deploy-workspace/
+.qa-tmp/
