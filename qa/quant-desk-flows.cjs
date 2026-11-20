@@ -20,6 +20,10 @@ const fs = require("fs");
 const path = require("path");
 const http = require("http");
 const assert = require("node:assert/strict");
+// The pill's failure wording is owned by assets/js/quant-terminal-messages.js
+// (also asserted by qa/quant-embed-status.test.mjs), so the suite reads the
+// expected strings from that module instead of keeping its own copy.
+const { proxyMessage, ticketMessage } = require("../assets/js/quant-terminal-messages.js");
 
 const GATED_CONFIG = 'window.QUANT_TERMINAL={url:"https://quant.test.invalid",proxy:"/quant-terminal"};';
 const UNGATED_CONFIG = 'window.QUANT_TERMINAL={url:"https://quant.test.invalid"};';
@@ -113,7 +117,10 @@ async function assertLayout(page, label) {
 
         state.health = 503;
         await page.locator("#qReload").click();
-        await page.locator("#qStatus").filter({ hasText: "Terminal unreachable" }).waitFor({ timeout: 15000 });
+        await page
+          .locator("#qStatus")
+          .filter({ hasText: proxyMessage(503) })
+          .waitFor({ timeout: 15000 });
         assert.equal(await page.locator("#qStatus").getAttribute("data-state"), "offline");
 
         state.health = 200;
@@ -132,7 +139,10 @@ async function assertLayout(page, label) {
       // 2. Terminal ticket denied -> ask for sign-in, keep the panel offline.
       {
         const { ctx, page, errors } = await scenario(browser, width, GATED_CONFIG, { ticket: 401 });
-        await page.locator("#qStatus").filter({ hasText: "Sign in again to open the terminal" }).waitFor({ timeout: 15000 });
+        await page
+          .locator("#qStatus")
+          .filter({ hasText: ticketMessage(401) })
+          .waitFor({ timeout: 15000 });
         assert.equal(await page.locator("#qStatus").getAttribute("data-state"), "offline");
         await assertLayout(page, "ticket denied " + width);
         assert.deepEqual(errors, []);
@@ -143,7 +153,10 @@ async function assertLayout(page, label) {
       // 3. Health probe 401 -> ask for sign-in rather than claiming an outage.
       {
         const { ctx, page, errors } = await scenario(browser, width, GATED_CONFIG, { health: 401 });
-        await page.locator("#qStatus").filter({ hasText: "Sign in again to open the terminal" }).waitFor({ timeout: 15000 });
+        await page
+          .locator("#qStatus")
+          .filter({ hasText: "Terminal session rejected (401) — sign in again" })
+          .waitFor({ timeout: 15000 });
         assert.equal(await page.locator("#qStatus").getAttribute("data-state"), "offline");
         assert.deepEqual(errors, []);
         results.push("Unauthorised health probe asks for sign-in " + width);
