@@ -74,5 +74,39 @@
     };
   }
 
-  root.LfcMarketSessions = { VENUES, statusFor };
+  const esc = (value) =>
+    String(value).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+
+  /* Fills [id=sessionGrid] from the fixed schedules. The markup matches the
+   * .session-venue styles in crypto.css; nothing here polls an exchange. */
+  function render(doc = document, date = new Date()) {
+    const grid = doc.getElementById('sessionGrid');
+    if (!grid) return false;
+    grid.innerHTML = VENUES.map((venue) => {
+      const status = statusFor(venue, date);
+      return (
+        '<div class="session-venue" data-open="' + status.open + '">' +
+        '<div class="session-venue-head"><strong>' + esc(venue.name) + '</strong>' +
+        '<span class="session-state">' + (status.open ? 'Open' : 'Closed') + '</span></div>' +
+        '<span class="session-time">' + esc(status.time) + '</span>' +
+        '<span class="session-zone">' + esc(venue.zone) + '</span>' +
+        '<span class="session-hours">' + esc(venue.hours) + '</span></div>'
+      );
+    }).join('');
+    const stamp = doc.getElementById('sessionNow');
+    if (stamp) stamp.textContent = 'Updated ' + date.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' });
+    return true;
+  }
+
+  function start(doc = document) {
+    if (!render(doc)) return;
+    setInterval(() => render(doc), 60000);
+  }
+
+  root.LfcMarketSessions = { VENUES, statusFor, render, start };
+
+  if (typeof document !== 'undefined' && root === document.defaultView) {
+    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', () => start());
+    else start();
+  }
 })(typeof window !== 'undefined' ? window : globalThis);

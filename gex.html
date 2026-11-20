@@ -502,10 +502,13 @@
           if (!DATA) $("exp").innerHTML = "<option>Unavailable</option>";
           $("mkt").textContent = DATA ? "STALE DATA" : "UNAVAILABLE";
           $("mkt").className = "badge stale";
+          // Never surface the gateway text: it carries internal addresses and
+          // HTTP/2 stream noise that means nothing to a reader.
+          const reason = /internal error|error sending request|http2|fetch failed|network|timeout/i.test(String(e.message))
+            ? "the NSE chain source is unreachable from the portal right now"
+            : "the source returned invalid data";
           $("msg").textContent =
-            "Could not load chain: " +
-            e.message +
-            " \u2014 the source is unavailable or returned invalid data. Retry or check the data connection.";
+            "Could not load the option chain — " + reason + ". Retry in a moment.";
         } finally {
           clearTimeout(timer);
           if (request === requestId) $("load").disabled = false;

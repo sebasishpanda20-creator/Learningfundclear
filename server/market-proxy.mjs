@@ -16,7 +16,11 @@ function reply(data, status = 200, ttl = 0) {
     status,
     headers: {
       'Cache-Control': ttl ? `public, max-age=${ttl}` : 'private, no-store',
-      Vary: 'Authorization',
+      // Cloudflare's Cache API refuses to store a response that carries Vary,
+      // and a throw inside cache.put() turned every cacheable proxy hit into a
+      // platform 502. The payload is public market data, so it does not vary by
+      // caller; only the uncached replies need the Authorization distinction.
+      ...(ttl ? {} : { Vary: 'Authorization' }),
     },
   });
 }
@@ -72,8 +76,10 @@ export async function serveMarketYahoo(request, env, config, fetcher = fetch) {
     'https://cache.internal/market/yahoo/' + encodeURIComponent(symbol) + qs,
   );
   if (cache) {
-    const hit = await cache.match(key);
-    if (hit) return hit;
+    try {
+      const hit = await cache.match(key);
+      if (hit) return hit;
+    } catch {} // a cache miss must never fail the request
   }
 
   let payload = null,
@@ -98,7 +104,11 @@ export async function serveMarketYahoo(request, env, config, fetcher = fetch) {
 
   const ttl = interval === '15m' || interval === '1h' ? 60 : 300;
   const out = reply(payload, 200, ttl);
-  if (cache) await cache.put(key, out.clone());
+  if (cache) {
+    try {
+      await cache.put(key, out.clone());
+    } catch {} // caching is best-effort
+  }
   return out;
 }
 
@@ -113,8 +123,10 @@ export async function serveMarketMfapi(request, env, config, fetcher = fetch) {
   const cache = edgeCache();
   const key = new Request('https://cache.internal/market/mfapi/' + code);
   if (cache) {
-    const hit = await cache.match(key);
-    if (hit) return hit;
+    try {
+      const hit = await cache.match(key);
+      if (hit) return hit;
+    } catch {} // a cache miss must never fail the request
   }
 
   // mfapi occasionally resets a connection under load; one retry (not for a
@@ -149,6 +161,10 @@ export async function serveMarketMfapi(request, env, config, fetcher = fetch) {
     return reply({ error: 'NAV source returned no history' }, 502);
 
   const out = reply(data, 200, 1800);
-  if (cache) await cache.put(key, out.clone());
+  if (cache) {
+    try {
+      await cache.put(key, out.clone());
+    } catch {} // caching is best-effort
+  }
   return out;
 }
