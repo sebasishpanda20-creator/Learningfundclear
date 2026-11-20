@@ -2,8 +2,9 @@
 //
 // Flow: POST-free GET /api/fyers/login (called with the portal Bearer token,
 // returns a provider URL) -> provider redirect -> /api/fyers/callback with the
-// HttpOnly sid cookie and the one-time state -> sealed token stored in the
-// Durable Object vault. Quote, status and disconnect all require the portal
+// HttpOnly sid cookie and the one-time state -> sealed token stored in the D1
+// vault (a Durable Object on plain Cloudflare deploys). Quote, status and
+// disconnect all require the portal
 // session; only the callback is unauthenticated because it is a top-level
 // provider redirect, and it is protected by state + cookie + single use.
 
@@ -32,7 +33,7 @@ import {
   sessionCookie,
   sha256Hex,
 } from './fyers-core.mjs';
-import { stateExpiry } from './fyers-vault.mjs';
+import { d1Vault, stateExpiry } from './fyers-vault.mjs';
 
 const VAULT_NAME = 'fyers-owner';
 
@@ -82,10 +83,15 @@ export function fyersConfig(env) {
   };
 }
 
-function vaultFrom(env) {
+// D1 first: Freebuff Sites can attach a D1 database but not a Durable Object,
+// so `env.DB` is the deployed store. A Cloudflare deploy that still binds
+// FYERS_VAULT (wrangler.jsonc) keeps working unchanged.
+function vaultFrom(env, now) {
+  if (env.DB) return d1Vault(env.DB, now);
   if (!env.FYERS_VAULT) return null;
   const stub = env.FYERS_VAULT.get(env.FYERS_VAULT.idFromName(VAULT_NAME));
   return {
+    kind: 'durable_object_sqlite',
     async request(op, args) {
       const res = await stub.fetch('https://vault.internal/', {
         method: 'POST',
@@ -128,7 +134,7 @@ export async function handleFyers(request, env, config, deps = {}) {
   const fetchImpl = deps.fetchImpl || fetch;
   const authenticate =
     deps.authenticate || ((req, e, c) => activeUser(req, e, c, fetchImpl));
-  const vault = deps.vault || vaultFrom(env);
+  const vault = deps.vault || vaultFrom(env, now);
   const cfg = fyersConfig(env);
   const secure = url.protocol === 'https:';
   const cookies = parseCookies(request.headers.get('cookie'));
@@ -237,7 +243,7 @@ export async function handleFyers(request, env, config, deps = {}) {
       expires_at: session ? Math.floor(session.expiresAt / 1000) : null,
       expires_at_iso: session ? new Date(session.expiresAt).toISOString() : null,
       owner_only: true,
-      storage: 'durable_object_sqlite',
+      storage: vault?.kind || 'unavailable',
       revocation: 'provider_logout',
       refresh: 'not_implemented',
       state_ttl_seconds: STATE_TTL_SECONDS,

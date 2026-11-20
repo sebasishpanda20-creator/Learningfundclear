@@ -22,15 +22,19 @@ All five are server-side values. On Sites they are **secrets**, set per environm
 | `FYERS_TOKEN_KEY` | login completion | random string; AES-GCM key that seals the stored broker token | callback redirects with `?fyers=error&reason=storage_failed`; a changed key makes previously stored tokens unreadable |
 | `FYERS_OWNER_EMAILS` | every route except the callback | comma-separated portal emails, matched case-insensitively after trimming | empty → `503 FYERS_OWNER_NOT_CONFIGURED`; not listed → `403 FYERS_OWNER_ONLY` |
 
-Beyond the variables, the routes need the session vault binding `FYERS_VAULT`
-(`FyersVault`, SQLite Durable Object). **A Freebuff Sites deployment cannot have it**: Sites
-hosts a Worker plus static assets and its deploy manifest carries only modules and assets —
-"arbitrary Durable Object classes are not supported", and only D1, R2, secrets, sign-in and
-realtime can be attached. So on Sites `env.FYERS_VAULT` is `undefined`, `vaultFrom()` returns
-`null`, and `/api/fyers/login`, `/quote` and `/disconnect` answer `503
-FYERS_STORAGE_UNAVAILABLE` (a login callback would end at `?fyers=error&reason=storage_failed`).
-The replacement is a D1 table pair (`fyers_tokens`, `fyers_states`) behind the same vault
-interface; until that port lands, setting the five variables alone will not complete a login.
+Beyond the variables, the routes need a session vault, and on Sites that is the **D1 database
+bound as `DB`** (`server/fyers-vault.mjs`, table `fyers_vault`). `vaultFrom()` prefers
+`env.DB`; `FYERS_VAULT` (the SQLite Durable Object `FyersVault` in `wrangler.jsonc`) is only
+the fallback for a plain Cloudflare deploy, which Sites cannot use because its deploy manifest
+carries only modules and assets. With neither bound, `/api/fyers/login`, `/quote` and
+`/disconnect` answer `503 FYERS_STORAGE_UNAVAILABLE` and a login callback would end at
+`?fyers=error&reason=storage_failed`.
+
+The table is created on first use (`CREATE TABLE IF NOT EXISTS fyers_vault (key TEXT PRIMARY
+KEY, value TEXT NOT NULL)`), so there is no separate migration step. State and session rows
+hold only the hashed-state record and the AES-GCM-sealed token. `config-status` reports which
+store answered in its `storage` field: `d1_sqlite` on Sites, `durable_object_sqlite` on a
+Cloudflare deploy, `unavailable` when neither is bound.
 
 ## 2. Exact callback URIs
 
@@ -77,9 +81,11 @@ it runs.
 
 1. **Deploy the build to the target environment** (Preview or Production). Sites secrets attach
    to a deployment, so there is nothing to attach to before the first deploy.
-2. **Port the vault to D1 and deploy it** — create the environment's D1 database, attach it,
-   and code the token/state store against it. Until this is done, steps 3–6 will still end in
-   `503 FYERS_STORAGE_UNAVAILABLE`.
+2. **Create the environment's D1 database and attach it as `DB`** — on Sites use
+   Sites → storage (D1) for that environment, then deploy again so the binding reaches the
+   Worker. Confirm `GET /api/fyers/config-status` reports `storage: "d1_sqlite"`; with no
+   database bound it reports `unavailable` and step 5 ends in `503
+   FYERS_STORAGE_UNAVAILABLE`.
 3. **Set the five variables** in Sites → Secrets for that environment (all five, same
    environment; Preview and Production do not share them). Project usage is 25 user variables
    across environments and currently sits at 2, so the five fit, but they count twice if you
@@ -103,12 +109,12 @@ changes, so a fresh login is required.
 | `503 FYERS_NOT_CONFIGURED` | any of client id, secret id, redirect URI missing; or redirect URI is not HTTPS | set all three in the same environment |
 | `503 FYERS_OWNER_NOT_CONFIGURED` | `FYERS_OWNER_EMAILS` empty | set it to the portal account's email |
 | `403 FYERS_OWNER_ONLY` | signed-in email not on the list | add the exact portal email |
-| `503 FYERS_STORAGE_UNAVAILABLE` | no `FYERS_VAULT` binding (always true on Sites until the D1 port) | port the vault to D1 and deploy |
+| `503 FYERS_STORAGE_UNAVAILABLE` | neither `DB` (D1) nor `FYERS_VAULT` is bound to the deployed Worker | create the environment's D1 database, attach it as `DB`, deploy again |
 | callback → `?fyers=error&reason=not_configured` | redirect URI emptied or non-HTTPS at callback time | correct `FYERS_REDIRECT_URI` |
 | callback → `?fyers=error&reason=missing_code` | the provider returned no `auth_code` | retry the login; check the Fyers app is active and the redirect URL matches |
 | callback → `?fyers=error&reason=invalid_state` | state expired (600 s TTL), already consumed, wrong sid, or cookies blocked | start the login again in the same browser |
 | callback → `?fyers=error&reason=token_exchange_failed` | wrong client id/secret, or the code was already redeemed | check the app id hash and retry |
-| callback → `?fyers=error&reason=storage_failed` | vault unavailable, or `FYERS_TOKEN_KEY` missing | set the key; port the vault |
+| callback → `?fyers=error&reason=storage_failed` | vault unavailable (no `DB` binding or D1 error), or `FYERS_TOKEN_KEY` missing | bind `DB` and deploy; set the key |
 | `?fyers=error&reason=provider_refused` | Fyers returned an error instead of a code | read the Fyers app settings (redirect URL, app status) |
 
 ## 6. What this integration is not

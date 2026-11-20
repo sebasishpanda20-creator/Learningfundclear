@@ -1,10 +1,16 @@
 // Strongly consistent FYERS state/session vault.
 //
-// Why a Durable Object: OAuth state must be consumed exactly once under
-// concurrent callbacks. Workers KV is eventually consistent across colos, so a
-// replay could be accepted in another location. A Durable Object serializes all
-// operations for one instance and its SQLite-backed storage is transactional,
-// which gives atomic check-and-delete without a paid plan.
+// Why not Workers KV: OAuth state must be consumed exactly once under
+// concurrent callbacks, and KV is eventually consistent across colos, so a
+// replay could be accepted in another location. Two stores provide the same
+// atomic check-and-delete:
+//
+// - D1 (`env.DB`, table `fyers_vault`) is the deployed store. SQLite gives one
+//   DELETE … RETURNING statement, so two concurrent callbacks cannot both read
+//   the same row. Freebuff Sites can attach D1 but not a Durable Object.
+// - The SQLite Durable Object `FyersVault` stays for plain Cloudflare deploys
+//   (`wrangler.jsonc`); it serializes its own operations. `vaultFrom` in
+//   fyers-routes.mjs prefers D1 and falls back to the object.
 //
 // Tokens are stored only as AES-GCM ciphertext (see fyers-core.sealToken); the
 // key lives in the Worker secret FYERS_TOKEN_KEY and never leaves the server.
@@ -69,6 +75,75 @@ export class SqlStorage {
     for (const row of rows) out.set(row.key, JSON.parse(row.value));
     return out;
   }
+}
+
+// D1 storage. Same six operations as SqlStorage, so VaultCore is untouched.
+// `take` is a single DELETE … RETURNING: D1 runs one statement atomically, and
+// its write is what makes a replayed state lose the race.
+const SCHEMA = 'CREATE TABLE IF NOT EXISTS fyers_vault (key TEXT PRIMARY KEY, value TEXT NOT NULL)';
+const schemaReady = new WeakMap();
+
+// Create the table once per isolate, and retry on the next request if that
+// first attempt failed (a transient D1 error must not pin the isolate).
+function ensureSchema(db) {
+  let pending = schemaReady.get(db);
+  if (!pending) {
+    pending = db.prepare(SCHEMA).run().catch((error) => {
+      schemaReady.delete(db);
+      throw error;
+    });
+    schemaReady.set(db, pending);
+  }
+  return pending;
+}
+
+export class D1Storage {
+  constructor(db) {
+    this.db = db;
+  }
+  async get(key) {
+    await ensureSchema(this.db);
+    const row = await this.db.prepare('SELECT value FROM fyers_vault WHERE key = ?1').bind(key).first();
+    return row ? JSON.parse(row.value) : undefined;
+  }
+  async put(key, value) {
+    await ensureSchema(this.db);
+    await this.db
+      .prepare(
+        'INSERT INTO fyers_vault (key, value) VALUES (?1, ?2) ON CONFLICT(key) DO UPDATE SET value = excluded.value',
+      )
+      .bind(key, JSON.stringify(value))
+      .run();
+  }
+  async delete(key) {
+    await ensureSchema(this.db);
+    const res = await this.db.prepare('DELETE FROM fyers_vault WHERE key = ?1').bind(key).run();
+    return (res?.meta?.changes ?? 0) > 0;
+  }
+  async take(key) {
+    await ensureSchema(this.db);
+    const { results } = await this.db
+      .prepare('DELETE FROM fyers_vault WHERE key = ?1 RETURNING value')
+      .bind(key)
+      .all();
+    return results?.length ? JSON.parse(results[0].value) : undefined;
+  }
+  async list({ prefix = '' } = {}) {
+    await ensureSchema(this.db);
+    const { results } = await this.db
+      .prepare('SELECT key, value FROM fyers_vault WHERE substr(key, 1, ?1) = ?2')
+      .bind(prefix.length, prefix)
+      .all();
+    const out = new Map();
+    for (const row of results || []) out.set(row.key, JSON.parse(row.value));
+    return out;
+  }
+}
+
+// The shape fyers-routes.mjs calls: {kind, request(op, args)}.
+export function d1Vault(db, now = () => Date.now()) {
+  const core = new VaultCore(new D1Storage(db), now);
+  return { kind: 'd1_sqlite', request: (op, args) => core[op](...args) };
 }
 
 export class VaultCore {

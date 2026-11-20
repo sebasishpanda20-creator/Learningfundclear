@@ -20,7 +20,7 @@ local Worker run are evidence for the source, not for the deployed service.
 | Portal auth + records | Hosted Supabase | `assets/js/config.js`, `server/config.mjs` | existing service; deployment of this Worker not run |
 | `/api/market/yahoo`, `/api/market/mfapi` | Worker → Yahoo/mfapi | `server/market-proxy.mjs` | no |
 | `/api/fyers/**` | Worker → FYERS v3 | `server/fyers-routes.mjs`, `server/fyers-core.mjs` | no |
-| FYERS state/session | SQLite-backed Durable Object `FyersVault` | `server/fyers-vault.mjs`, `wrangler.jsonc` migrations | no |
+| FYERS state/session | D1 database bound as `DB`, table `fyers_vault` (SQLite Durable Object `FyersVault` only on plain Cloudflare deploys) | `server/fyers-vault.mjs`, `server/fyers-routes.mjs` `vaultFrom` | no |
 | `/api/email-alerts` | Worker + KV `ALERTS_KV` + Resend | `server/email-alerts.mjs` | no |
 | Cron `*/1 * * * *` | Worker `scheduled()`; evaluation gated to 5 min by default | `wrangler.jsonc`, `server/worker.mjs`, `server/email-alerts.mjs` | no |
 | `/api/v1/*`, `/quant-terminal/*` | Reverse proxy to Render quant daemon | `wrangler.jsonc` `vars.QUANT_API_ORIGIN` | daemon existing; Worker not deployed |

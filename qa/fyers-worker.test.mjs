@@ -24,7 +24,7 @@ import {
   sessionCookie,
   sha256Hex,
 } from '../server/fyers-core.mjs';
-import { MemoryStorage, SqlStorage, VaultCore } from '../server/fyers-vault.mjs';
+import { D1Storage, MemoryStorage, d1Vault, SqlStorage, VaultCore } from '../server/fyers-vault.mjs';
 import { handleFyers } from '../server/fyers-routes.mjs';
 
 const KEY = Buffer.alloc(32, 7).toString('base64');
@@ -48,9 +48,69 @@ function fakeVault(now) {
   const storage = new MemoryStorage();
   const core = new VaultCore(storage, now);
   return {
+    kind: 'memory',
     storage,
     core,
     request: (op, args) => core[op](...args),
+  };
+}
+
+// Minimal D1 stand-in: enough SQL for D1Storage, with the same one-statement
+// semantics (a DELETE … RETURNING either returns the row or it does not).
+function fakeD1() {
+  const rows = new Map();
+  const statements = [];
+  const execute = (query, args) => {
+    if (/^CREATE TABLE IF NOT EXISTS fyers_vault/.test(query)) return { results: [], meta: { changes: 0 } };
+    if (/^SELECT value FROM fyers_vault WHERE key = \?1$/.test(query)) {
+      return { results: rows.has(args[0]) ? [{ value: rows.get(args[0]) }] : [], meta: {} };
+    }
+    if (/^INSERT INTO fyers_vault/.test(query)) {
+      rows.set(args[0], args[1]);
+      return { results: [], meta: { changes: 1 } };
+    }
+    if (/^DELETE FROM fyers_vault WHERE key = \?1 RETURNING value$/.test(query)) {
+      if (!rows.has(args[0])) return { results: [], meta: { changes: 0 } };
+      const value = rows.get(args[0]);
+      rows.delete(args[0]);
+      return { results: [{ value }], meta: { changes: 1 } };
+    }
+    if (/^DELETE FROM fyers_vault WHERE key = \?1$/.test(query)) {
+      return { results: [], meta: { changes: rows.delete(args[0]) ? 1 : 0 } };
+    }
+    if (/^SELECT key, value FROM fyers_vault WHERE substr/.test(query)) {
+      const [length, prefix] = args;
+      const results = [];
+      for (const [key, value] of rows) if (key.slice(0, length) === prefix) results.push({ key, value });
+      return { results, meta: {} };
+    }
+    throw new Error('unexpected D1 statement: ' + query);
+  };
+  return {
+    rows,
+    statements,
+    prepare(query) {
+      const stmt = {
+        args: [],
+        bind(...args) {
+          stmt.args = args;
+          return stmt;
+        },
+        async run() {
+          statements.push({ query, args: stmt.args });
+          return execute(query, stmt.args);
+        },
+        async all() {
+          statements.push({ query, args: stmt.args });
+          return execute(query, stmt.args);
+        },
+        async first() {
+          statements.push({ query, args: stmt.args });
+          return execute(query, stmt.args).results[0] || null;
+        },
+      };
+      return stmt;
+    },
   };
 }
 
@@ -261,7 +321,7 @@ test('status is owner-only, no-store and reports not configured without secrets'
   assert.equal(res.headers.get('cache-control'), 'no-store');
   assert.equal(body.configured, false);
   assert.equal(body.connected, false);
-  assert.equal(body.storage, 'durable_object_sqlite');
+  assert.equal(body.storage, 'memory');
 });
 
 test('login stores a hashed state and returns a provider URL with a cookie', async () => {
@@ -519,4 +579,128 @@ test('configured status never returns secrets', async () => {
   const text = await res.text();
   assert.equal(text.includes('secret-value'), false);
   assert.equal(text.includes(KEY), false);
+});
+
+// ---- D1 vault (Freebuff Sites) --------------------------------------------
+
+test('D1 take consumes a state in one DELETE ... RETURNING and only once', async () => {
+  const db = fakeD1();
+  const storage = new D1Storage(db);
+  await storage.put('state:abc', { sid: 's', userId: 'u', expiresAt: Date.now() + 1000 });
+  const taken = await storage.take('state:abc');
+  assert.equal(taken.sid, 's');
+  assert.equal(await storage.take('state:abc'), undefined);
+  const deletes = db.statements.filter((s) => /^DELETE/.test(s.query));
+  assert.equal(deletes.length, 2);
+  assert.match(deletes[0].query, /^DELETE FROM fyers_vault .*RETURNING value$/);
+  assert.equal(deletes[0].args[0], 'state:abc');
+});
+
+test('D1 storage keeps get, put, delete, list and expiry semantics', async () => {
+  let now = 1000;
+  const db = fakeD1();
+  const vault = d1Vault(db, () => now);
+  assert.equal(vault.kind, 'd1_sqlite');
+
+  await vault.request('createState', [{ stateHash: 'h1', sid: 's1', userId: 'u1', expiresAt: 2000 }]);
+  await vault.request('createState', [{ stateHash: 'h2', sid: 's1', userId: 'u1', expiresAt: 9000 }]);
+  assert.equal(await vault.request('consumeState', ['h1', 'wrong']), null);
+  assert.equal(await vault.request('consumeState', ['h1', 's1']), null);
+  const good = await vault.request('consumeState', ['h2', 's1']);
+  assert.equal(good.userId, 'u1');
+
+  await vault.request('saveSession', [
+    { sid: 's1', userId: 'u1', sealed: { cipher: 'c', iv: 'i' }, expiresAt: 5000, clientId: 'x' },
+  ]);
+  assert.ok(await vault.request('getSession', ['s1', 'u1']));
+  assert.equal(await vault.request('getSession', ['s1', 'u2']), null);
+  assert.equal(await vault.request('deleteSession', ['s1']), true);
+  assert.equal(await vault.request('getSession', ['s1', 'u1']), null);
+
+  await vault.request('createState', [{ stateHash: 'stale', sid: 's', userId: 'u', expiresAt: 500 }]);
+  now = 6000;
+  assert.equal(await vault.request('purgeExpired', []), 1);
+});
+
+test('a D1-only site completes login, quote and disconnect without FYERS_VAULT', async () => {
+  const db = fakeD1();
+  const env = baseEnv({ DB: db }); // no FYERS_VAULT: this is the Sites shape
+  const p = provider();
+
+  const login = await handleFyers(request('/api/fyers/login'), env, CONFIG, {
+    authenticate: sessionFor(OWNER),
+    fetchImpl: p.fetchImpl,
+  });
+  const body = await login.json();
+  assert.equal(login.status, 200);
+  const sid = login.headers
+    .getSetCookie()
+    .map((value) => parseCookies(value).lfc_fyers_session)
+    .find(Boolean);
+  const state = new URL(body.login_url).searchParams.get('state');
+  assert.ok(sid && state);
+  assert.deepEqual([...db.rows.keys()].map((k) => k.split(':')[0]), ['state']);
+
+  const callbackRes = await handleFyers(
+    request(`/api/fyers/callback?state=${encodeURIComponent(state)}&auth_code=CODE123`, {
+      cookie: `lfc_fyers_session=${sid}`,
+    }),
+    env,
+    CONFIG,
+    { authenticate: sessionFor(OWNER), fetchImpl: p.fetchImpl },
+  );
+  assert.equal(callbackRes.status, 302);
+  assert.equal(callbackRes.headers.get('location'), '/lfc_terminal_v6.html?fyers=connected');
+  assert.equal(JSON.stringify([...db.rows.values()]).includes('ACCESS-TOKEN'), false);
+
+  const status = await handleFyers(
+    request('/api/fyers/config-status', { cookie: `lfc_fyers_session=${sid}` }),
+    env,
+    CONFIG,
+    { authenticate: sessionFor(OWNER), fetchImpl: p.fetchImpl },
+  );
+  const statusBody = await status.json();
+  assert.equal(statusBody.connected, true);
+  assert.equal(statusBody.storage, 'd1_sqlite');
+
+  const quote = await handleFyers(
+    request('/api/fyers/quote?symbol=NIFTY', { cookie: `lfc_fyers_session=${sid}` }),
+    env,
+    CONFIG,
+    { authenticate: sessionFor(OWNER), fetchImpl: p.fetchImpl },
+  );
+  const quoteBody = await quote.json();
+  assert.equal(quote.status, 200);
+  assert.equal(quoteBody.ltp, 24850.5);
+
+  const disconnect = await handleFyers(
+    request('/api/fyers/disconnect', {
+      method: 'POST',
+      cookie: `lfc_fyers_session=${sid}`,
+      headers: { origin: ORIGIN },
+    }),
+    env,
+    CONFIG,
+    { authenticate: sessionFor(OWNER), fetchImpl: p.fetchImpl },
+  );
+  assert.equal(disconnect.status, 200);
+  assert.deepEqual([...db.rows.keys()], []);
+});
+
+test('a D1-only site without secrets still reports unavailable storage honestly', async () => {
+  const res = await handleFyers(request('/api/fyers/config-status'), baseEnv(), CONFIG, {
+    authenticate: sessionFor(OWNER),
+    fetchImpl: async () => assert.fail('provider must not be called'),
+  });
+  const body = await res.json();
+  assert.equal(res.status, 200);
+  assert.equal(body.storage, 'unavailable');
+  assert.equal(body.connected, false);
+
+  const login = await handleFyers(request('/api/fyers/login'), baseEnv(), CONFIG, {
+    authenticate: sessionFor(OWNER),
+    fetchImpl: async () => assert.fail('provider must not be called'),
+  });
+  assert.equal(login.status, 503);
+  assert.equal((await login.json()).error, 'FYERS_STORAGE_UNAVAILABLE');
 });

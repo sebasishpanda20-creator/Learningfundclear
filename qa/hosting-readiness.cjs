@@ -161,14 +161,22 @@ check("generated Worker config matches source and stays hosted", () => {
   return "dist/server/config.mjs identical";
 });
 
-check("FYERS state and sessions use the Durable Object vault", () => {
+check("FYERS state and sessions use the atomic vault (D1 on Sites)", () => {
   const wrangler = read("wrangler.jsonc");
   const vault = read("server/fyers-vault.mjs");
+  const routes = read("server/fyers-routes.mjs");
+  assert(/export class D1Storage/.test(vault), "D1 storage missing");
+  assert(
+    /CREATE TABLE IF NOT EXISTS fyers_vault/.test(vault) && /DELETE FROM fyers_vault .*RETURNING value/.test(vault),
+    "atomic D1 consumption missing",
+  );
+  assert(/if \(env\.DB\) return d1Vault\(env\.DB/.test(routes), "routes do not prefer the D1 vault");
+  // The Durable Object stays the fallback for a plain Cloudflare deploy.
   assert(/"new_sqlite_classes"\s*:\s*\[\s*"FyersVault"/.test(wrangler), "DO migration missing");
   assert(/"class_name"\s*:\s*"FyersVault"/.test(wrangler), "DO binding missing");
   assert(/consumeState/.test(vault) && /DELETE FROM vault .*RETURNING value/.test(vault), "atomic SQL consumption missing");
-  assert(/sealToken/.test(read("server/fyers-routes.mjs")), "token sealing missing");
-  return "durable_object_sqlite: delete returning";
+  assert(/sealToken/.test(routes), "token sealing missing");
+  return "d1_sqlite: delete returning";
 });
 
 check("audit documents state the corrected design and inventory", () => {
